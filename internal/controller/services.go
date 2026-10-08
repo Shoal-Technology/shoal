@@ -14,7 +14,9 @@ import (
 
 // syncServices gives every Service a virtual IP from the service CIDR and
 // sets its endpoints to the IPs of the selected workload's available
-// replicas. The controller is the only writer of Service status.
+// replicas on Ready nodes. Node uncertainty withdraws traffic endpoints without
+// changing assignment retention or the eviction deadline. The controller is the
+// only writer of Service status.
 func (c *Controller) syncServices(ctx context.Context, s *state) []error {
 	used := map[netip.Addr]bool{}
 	for _, svc := range s.services {
@@ -37,7 +39,8 @@ func (c *Controller) syncServices(ctx context.Context, s *state) []error {
 		}
 		st.Endpoints = nil
 		for _, r := range s.replicasOf(svc.Spec.GetSelector()) {
-			if available(r) && r.obj.Status.GetIp() != "" {
+			if available(r) && r.obj.Status.GetIp() != "" &&
+				s.nodes[r.obj.Spec.GetNode()].GetStatus().GetPhase() == v1alpha1.NodeReady {
 				st.Endpoints = append(st.Endpoints, r.obj.Status.GetIp())
 			}
 		}

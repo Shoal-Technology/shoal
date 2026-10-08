@@ -1,6 +1,41 @@
 """Acceptance-evidence contract: observations alone must not pass the VM gate."""
 import unittest
-from vm_mesh import validate_mesh
+from vm_mesh import validate_mesh, validate_withdrawal
+
+
+class WithdrawalEvidenceTests(unittest.TestCase):
+    def rows(self):
+        return [{'endpoints': ['live'], 'elapsed': 25 + i,
+                 'withdrawn_applied': True, 'ok': True} for i in range(5)]
+
+    def test_complete_withdrawal(self):
+        validate_withdrawal(self.rows(), 'live', 'dead')
+
+    def test_reject_failure_after_withdrawal(self):
+        rows = self.rows(); rows[-1]['ok'] = False
+        with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
+
+    def test_reject_empty_or_insufficient_samples(self):
+        for rows in ([], self.rows()[:4]):
+            with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
+
+    def test_reject_late_eviction_only_withdrawal(self):
+        rows = self.rows(); rows[0]['elapsed'] = 60
+        with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
+
+    def test_reject_lost_survivor(self):
+        rows = self.rows(); rows[0]['endpoints'] = []
+        with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
+
+    def test_reject_withdrawn_endpoint_reappearing(self):
+        rows = self.rows(); rows[-1]['endpoints'].append('dead')
+        with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
+
+    def test_pre_detection_failures_are_measured_not_hidden(self):
+        rows = [{'endpoints': ['live', 'dead'], 'elapsed': 1,
+                 'withdrawn_applied': False, 'ok': False}] + self.rows()
+        validate_withdrawal(rows, 'live', 'dead')
+
 
 class MeshEvidenceTests(unittest.TestCase):
     def evidence(self):
