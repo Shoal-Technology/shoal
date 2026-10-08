@@ -134,6 +134,30 @@ def main():
                 return response.status == 200
         wait('real ClusterIP HTTP healthy', service_healthy, 30)
         time.sleep(3)
+        # A spread-worker crash must preserve the other worker's ready endpoint.
+        survivor_ip = next(r['status']['ip'] for r in replicas() if r['spec']['node'] == 'node1')
+        crash_ids = runtime_ids('node2')
+        set_phase('spread-agent-crash')
+        stop('node2')
+
+        def spread_recovered():
+            endpoints = objects('services')[0].get('status', {}).get('endpoints', [])
+            ENDPOINT_EVENTS.append({'monotonic': time.monotonic(), 'phase': 'spread-agent-crash', 'endpoints': endpoints})
+            assert survivor_ip in endpoints, 'healthy surviving endpoint removed during spread-worker recovery'
+            return healthy() and all(r['spec']['node'] == 'node1' for r in replicas())
+
+        wait('spread crash retains healthy endpoint through replacement', spread_recovered, 150)
+        start('node2', agent_args['node2'])
+        wait('spread crash stale runtime cleaned', lambda: not (crash_ids & runtime_ids('node2')), 45)
+        wait('spread crash node reconnects', lambda: all(n.get('status', {}).get('phase') == 'Ready' for n in objects('nodes')), 45)
+        # Recreate the disposable workload to restore spread placement for partition tests.
+        set_phase('fixture-reset')
+        cli('delete', 'workload', 'web')
+        wait('reset removes workload containers', lambda: not runtime_ids('node1') and not runtime_ids('node2'), 45)
+        cli('apply', '-f', str(manifest))
+        wait('spread restored after fixture reset', healthy, 60)
+        assert {r['spec']['node'] for r in replicas()} == {'node1', 'node2'}
+        wait('Service restored after fixture reset', service_healthy, 30)
         # Hold must retain the existing assignment beyond the eviction timeout.
         original_manifest = manifest.read_text()
         manifest.write_text(original_manifest.replace('  replicas: 2', '  partitionPolicy: Hold\n  replicas: 2'))
@@ -175,7 +199,8 @@ def main():
         RESULTS.append({'assertion': 'duplicate observation to observed cleanup window', 'seconds': round(time.monotonic() - duplicate_begin, 3), 'note': 'starts at verified replacement health, ends at observed stale removal; not exact duplication onset'})
         wait('cluster healthy after partition heal', healthy, 45)
         # Retain the process-crash scenario on a node that now has replicas.
-        set_phase('agent-crash')
+        assert {r['spec']['node'] for r in replicas()} == {'node2'}, 'full-placement loss precondition missing'
+        set_phase('full-placement-agent-crash')
         old_ids = runtime_ids('node2')
         stop('node2')
         wait('replacement replicas healthy on surviving node', lambda: healthy() and all(r['spec']['node'] == 'node1' for r in replicas()), 150)
