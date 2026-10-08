@@ -46,6 +46,9 @@ message WorkloadSpec {
   repeated FileMount files = 10;
   // Set by `shoal restart`; changing it rolls the replicas over.
   google.protobuf.Timestamp restarted_at = 11;
+  // Replace (default) permits duplicates during partition. Hold retains lost
+  // node assignments, favoring safety over availability; not fencing.
+  string partition_policy = 12;
 }
 
 message EnvVar {

@@ -233,6 +233,9 @@ func (c *Controller) removeOrphansAndEvict(ctx context.Context, s *state, now ti
 			reason = "workload deleted"
 		} else if node := r.obj.Spec.GetNode(); node != "" {
 			if lost, why := c.nodeLost(s, node, now); lost {
+				if s.workloads[r.obj.Spec.GetWorkload()].Spec.GetPartitionPolicy() == "Hold" {
+					continue
+				}
 				reason = why
 			}
 		}

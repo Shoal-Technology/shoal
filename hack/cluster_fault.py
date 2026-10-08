@@ -112,6 +112,26 @@ def main():
         cli('apply', '-f', str(manifest))
         wait('two real HTTP replicas healthy', healthy)
         assert {r['spec']['node'] for r in replicas()} == {'node1', 'node2'}, 'initial replicas not spread'
+        # Hold must retain the existing assignment beyond the eviction timeout.
+        original_manifest = manifest.read_text()
+        manifest.write_text(original_manifest.replace('  replicas: 2', '  partitionPolicy: Hold\n  replicas: 2'))
+        cli('apply', '-f', str(manifest))
+        wait('Hold workload healthy before partition', healthy)
+        held_ids = runtime_ids('node1')
+        SAMPLER.update(phase='hold-partition')
+        proxy.partition()
+        time.sleep(75)
+        assert PROCESSES['node1'].poll() is None
+        assert {r['spec']['node'] for r in replicas()} == {'node1', 'node2'}, 'Hold reassigned lost replica'
+        assert held_ids == runtime_ids('node1'), 'Hold runtime assignment changed'
+        assert len(runtime_ids('node1')) + len(runtime_ids('node2')) == 2, 'Hold created duplicate runtime'
+        assert healthy(), 'Hold original HTTP did not survive control partition'
+        RESULTS.append({'assertion': 'Hold prevents partition replacement beyond eviction timeout', 'partition_seconds': 75, 'runtime_containers': 2})
+        proxy.heal()
+        wait('Hold node reconnects', lambda: all(n.get('status', {}).get('phase') == 'Ready' for n in objects('nodes')), 45)
+        manifest.write_text(original_manifest)
+        cli('apply', '-f', str(manifest))
+        wait('Replace workload healthy after policy change', healthy)
         SAMPLER.update(phase='baseline')
         time.sleep(3)
         old_ids = runtime_ids('node1')

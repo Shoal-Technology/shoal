@@ -172,6 +172,12 @@ func ValidateWorkload(w *v1alpha1.Workload) error {
 		}
 	}
 
+	switch s.GetPartitionPolicy() {
+	case "", "Replace", "Hold":
+	default:
+		bad("spec.partitionPolicy", "must be Replace or Hold")
+	}
+
 	switch s.GetRestartPolicy() {
 	case "Always", "OnFailure", "Never":
 	default:
