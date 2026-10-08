@@ -42,6 +42,8 @@ jobs:
           sudo sysctl -w net.ipv4.ip_forward=1
       - name: Exercise real containers and recovery
         run: make integration-report
+      - name: Exercise cluster process faults
+        run: sudo env SHOAL_DISPOSABLE_TEST=1 python3 hack/cluster_fault.py
       - name: Capture runtime journal
         if: always()
         run: |
