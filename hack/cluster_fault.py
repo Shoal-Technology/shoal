@@ -130,7 +130,7 @@ def main():
         SAMPLER.update(phase='partition-heal')
         proxy.heal()
         wait('partition stale container removed after heal', lambda: not (old_ids & runtime_ids('node1')), 45)
-        RESULTS.append({'assertion': 'observed duplicate serving overlap lower bound', 'seconds': round(time.monotonic() - duplicate_begin, 3), 'note': 'starts at verified replacement health, ends at observed stale removal; not exact duplication onset'})
+        RESULTS.append({'assertion': 'duplicate observation to observed cleanup window', 'seconds': round(time.monotonic() - duplicate_begin, 3), 'note': 'starts at verified replacement health, ends at observed stale removal; not exact duplication onset'})
         wait('cluster healthy after partition heal', healthy, 45)
         # Retain the process-crash scenario on a node that now has replicas.
         SAMPLER.update(phase='agent-crash')

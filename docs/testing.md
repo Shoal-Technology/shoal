@@ -34,6 +34,20 @@ gh workflow run integration.yml --repo kaiserern/shoal
 
 The first verified run passed nine tests with no failures or skips, including real container lifecycle, log completion, SIGKILL escalation, resource limits, published ports, networking across restarts, lost network namespace recovery and agent recovery after a container crash. This is single-host runtime evidence, not control-plane failover or multi-host evidence.
 
+## Control-plane partition and direct HTTP sampling
+
+The same workflow executes `hack/cluster_fault.py` with a real server and two agents. A TCP relay cuts node1's existing control connection and rejects reconnects without stopping its agent or containers. After replacement replicas respond to HTTP, the harness verifies the original replica still responds, records runtime inventory, heals the connection, and waits for stale cleanup. This deliberately documents duplication rather than treating failover as singleton safety.
+
+`test-results/traffic.jsonl` records round-robin direct pod HTTP attempts at a target 5Hz, with 500ms request timeout. Actual rate falls when requests take longer. Addresses are cached and refreshed by health checks, not by a Service or production load balancer. During the rollback-status wait, discovery remains cached; failures can include removed endpoints. The summary distinguishes phases and cannot prove user-facing zero downtime. Full per-request evidence is retained for interpretation.
+
+A duplicate-observation-to-cleanup window is measured from verified replacement health to the first stale-inventory removal observation. Polling and asynchronous removal mean this is not an exact duplicate-serving duration.
+
+Safe local observer checks (no containers or firewall changes):
+
+```sh
+python3 -m unittest discover -s hack -p 'test_*.py' -v
+```
+
 ## Multi-host acceptance backlog
 
 The current runtime integration suite is single-host. The following are required before claiming multi-host reliability:
