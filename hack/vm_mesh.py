@@ -215,7 +215,10 @@ def main():
         for node in (1, 2):
             if node in PROCESSES and PROCESSES[node].poll() is None:
                 for command, suffix in [('journalctl -u shoal-agent --no-pager', 'agent.log'), ('ip -j route', 'routes.json')]:
-                    try: (OUT / f'vm{node}-{suffix}').write_text(ssh(node, command))
+                    try:
+                        content = ssh(node, command)
+                        content = re.sub(r'--token\s+\S+', '--token [REDACTED]', content)
+                        (OUT / f'vm{node}-{suffix}').write_text(content)
                     except (subprocess.SubprocessError, OSError): pass
         (OUT / 'mesh-evidence.json').write_text(json.dumps({'results': RESULTS, 'mesh': evidence}, indent=2))
         for process in PROCESSES.values():
