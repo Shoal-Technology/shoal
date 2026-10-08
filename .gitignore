@@ -1,5 +1,7 @@
 /bin/
 /dist/
+/test-results/
+__pycache__/
 /shoal
 .env
 .env.*

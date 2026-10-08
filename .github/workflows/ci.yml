@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Test report parser
+        run: python3 -m unittest discover -s hack -p 'test_test_report.py'
+      - name: Vet all test variants
+        run: make vet
+      - name: Tests with race detector
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p test-results
+          go test -race -count=1 -timeout=5m -json ./... | tee test-results/unit.jsonl
+          python3 hack/test_report.py test-results/unit.jsonl
+      - name: Build CLI
+        run: make build && ./bin/shoal --help
+      - name: Compile real-runtime integration suite
+        run: go test -c -tags integration -o bin/containerd.test ./internal/runtime/containerd
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-evidence
+          path: test-results/
+          retention-days: 14
