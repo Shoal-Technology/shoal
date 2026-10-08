@@ -56,6 +56,16 @@ Safe local observer checks (no containers or firewall changes):
 python3 -m unittest discover -s hack -p 'test_*.py' -v
 ```
 
+## Two-VM WireGuard gate
+
+Run the manual `Two VM WireGuard acceptance` workflow (`.github/workflows/vm-mesh.yml`). It boots two Ubuntu 24.04 QEMU guests with separate kernels, disks, containerd, CNI, iptables and WireGuard state. QEMU SLIRP forwards only guest SSH and WireGuard underlay UDP; pod HTTP is not forwarded. Each guest must access the other guest's pod IP through a `shoal-wg` route, both peers must have a real handshake, and the fixed ClusterIP must respond from both guests. Shared boot IDs, missing handshakes, failed HTTP and non-WireGuard routes fail the evidence contract. Guest image and runtime archives are pinned and checksum-verified.
+
+Verified run [37799603752, attempt 2](https://github.com/kaiserern/shoal/actions/runs/37799603752): both KVM guests had distinct boot IDs, bidirectional remote-pod and Service HTTP returned 200, and both remote routes used `shoal-wg`. Killing VM2 entirely produced healthy replacement on VM1 in **63.151 seconds**. Fixed-Service sampling from VM1 recorded **15 failures / 39 requests**. Observations show the dead VM's endpoint remained while its node was NotReady until eviction; no zero-downtime claim is warranted. Samples are sequential SSH calls with a 3-second HTTP timeout and 0.2-second inter-attempt pause, not 5Hz. Endpoint/node snapshots are collected after each attempt and may straddle a transition.
+
+Artifacts contain per-request traffic, endpoint/node phases, guest boot evidence, routes, kernel rules, serial logs and sanitized agent/server logs. Join-token arguments from systemd journals are redacted; credentials, disks and guest keys are deleted in cleanup. An earlier run exposed an ephemeral disposable join token in a journal artifact; those artifacts were removed and the cluster destroyed before regenerating clean evidence. The clean run's first attempt failed on an upstream GitHub release HTTP 500 before guest execution; attempt 2 executed the full gate successfully. Twelve Python tests pass, including six evidence-contract tests; this workflow does not execute the nine-test privileged runtime suite from the separate runtime workflow.
+
+This proves **inter-VM networking on one physical runner**, not two independent physical hosts, ingress/DNS, client-pod-origin traffic, Internet WAN behavior, or host-level HA. Shared VM/service hosts are not modified; all privileged installation and guest execution happens in the disposable runner.
+
 ## Worker-loss scenario interpretation
 
 A process crash must be interpreted with its placement precondition. The harness now first crashes one worker while two replicas are spread across two workers, asserting at every recovery poll that the surviving ready replica remains a Service endpoint. It then resets only the disposable workload to restore spread placement before partition tests.
