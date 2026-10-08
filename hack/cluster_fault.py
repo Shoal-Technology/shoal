@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+from fault_observer import PartitionProxy, TrafficSampler
 
 ROOT = Path(__file__).resolve().parents[1]
 BIN = str(ROOT / 'bin/shoal')
@@ -17,6 +18,7 @@ BASE = Path(tempfile.mkdtemp(prefix='shoal-cluster-'))
 CONFIG = str(BASE / 'server/admin.conf')
 PROCESSES = {}
 RESULTS = []
+SAMPLER = None
 
 
 def cli(*args):
@@ -67,6 +69,8 @@ def replicas():
 
 def healthy():
     items = replicas()
+    if SAMPLER is not None:
+        SAMPLER.update(addresses=[r['status']['ip'] for r in items if r.get('status', {}).get('ip')])
     if len(items) != 2 or not all(r.get('status', {}).get('ready') for r in items):
         return False
     for replica in items:
@@ -83,10 +87,13 @@ def runtime_ids(node):
 
 
 def main():
+    global SAMPLER
     if os.geteuid() != 0 or os.environ.get('SHOAL_DISPOSABLE_TEST') != '1':
         raise RuntimeError('requires root and SHOAL_DISPOSABLE_TEST=1 on a disposable host')
     server_args = ['server', '--data-dir', str(BASE / 'server'), '--listen', '127.0.0.1:17443', '--advertise-address', '127.0.0.1:17443', '--ui-listen', '']
     agent_args = {}
+    proxy = PartitionProxy(('127.0.0.1', 17444), ('127.0.0.1', 17443))
+    SAMPLER = TrafficSampler(OUT / 'traffic.jsonl')
     try:
         start('server', server_args)
         wait('server credentials created', lambda: Path(CONFIG).exists(), 30)
@@ -96,7 +103,7 @@ def main():
             join = re.search(r'--token\s+(\S+).*--ca-hash\s+(\S+)', token)
             if not join:
                 raise AssertionError('join command missing token or CA hash')
-            args = ['agent', '--server', '127.0.0.1:17443', '--node-name', name, '--state-dir', str(BASE / name), '--containerd-namespace', 'fault-' + name, '--bridge-name', 'fault' + str(number), '--wireguard-interface', '']
+            args = ['agent', '--server', '127.0.0.1:17444' if number == 1 else '127.0.0.1:17443', '--node-name', name, '--state-dir', str(BASE / name), '--containerd-namespace', 'fault-' + name, '--bridge-name', 'fault' + str(number), '--wireguard-interface', '']
             agent_args[name] = args
             start(name, args + ['--token', join[1], '--ca-hash', join[2]])
         wait('two nodes Ready', lambda: len(objects('nodes')) == 2 and all(n.get('status', {}).get('phase') == 'Ready' for n in objects('nodes')), 45)
@@ -105,15 +112,39 @@ def main():
         cli('apply', '-f', str(manifest))
         wait('two real HTTP replicas healthy', healthy)
         assert {r['spec']['node'] for r in replicas()} == {'node1', 'node2'}, 'initial replicas not spread'
+        SAMPLER.update(phase='baseline')
+        time.sleep(3)
         old_ids = runtime_ids('node1')
-        stop('node1')
-        wait('replacement replicas healthy on surviving node', lambda: healthy() and all(r['spec']['node'] == 'node2' for r in replicas()), 150)
-        assert old_ids <= runtime_ids('node1'), 'agent termination unexpectedly stopped containers'
-        start('node1', agent_args['node1'])
-        wait('stale containers removed after reconnect', lambda: not (old_ids & runtime_ids('node1')), 45)
+        old_address = next(r['status']['ip'] for r in replicas() if r['spec']['node'] == 'node1')
+        SAMPLER.update(phase='partition')
+        partition_begin = time.monotonic()
+        proxy.partition()
+        wait('replacement HTTP replicas healthy during live agent partition', lambda: healthy() and all(r['spec']['node'] == 'node2' for r in replicas()), 150)
+        assert PROCESSES['node1'].poll() is None, 'partition killed agent'
+        assert old_ids <= runtime_ids('node1'), 'partition removed old runtime'
+        with urllib.request.urlopen(f'http://{old_address}:80/', timeout=2) as response:
+            assert response.status == 200, 'partitioned original stopped serving'
+        duplicate_begin = time.monotonic()
+        RESULTS.append({'assertion': 'partition duplicates live HTTP replica', 'partition_seconds': round(duplicate_begin - partition_begin, 3), 'runtime_containers': len(runtime_ids('node1')) + len(runtime_ids('node2')), 'desired_replicas': 2})
+        time.sleep(5)
+        SAMPLER.update(phase='partition-heal')
+        proxy.heal()
+        wait('partition stale container removed after heal', lambda: not (old_ids & runtime_ids('node1')), 45)
+        RESULTS.append({'assertion': 'observed duplicate serving overlap lower bound', 'seconds': round(time.monotonic() - duplicate_begin, 3), 'note': 'starts at verified replacement health, ends at observed stale removal; not exact duplication onset'})
+        wait('cluster healthy after partition heal', healthy, 45)
+        # Retain the process-crash scenario on a node that now has replicas.
+        SAMPLER.update(phase='agent-crash')
+        old_ids = runtime_ids('node2')
+        stop('node2')
+        wait('replacement replicas healthy on surviving node', lambda: healthy() and all(r['spec']['node'] == 'node1' for r in replicas()), 150)
+        assert old_ids <= runtime_ids('node2'), 'agent termination unexpectedly stopped containers'
+        start('node2', agent_args['node2'])
+        wait('stale containers removed after reconnect', lambda: not (old_ids & runtime_ids('node2')), 45)
         wait('cluster healthy after reconnect', healthy, 45)
         addresses = [r['status']['ip'] for r in replicas()]
+        SAMPLER.update(phase='server-outage')
         stop('server')
+        time.sleep(3)
         # Verify HTTP independently of the unavailable control API.
         for address in addresses:
             with urllib.request.urlopen(f'http://{address}:80/', timeout=2) as response:
@@ -121,14 +152,21 @@ def main():
         RESULTS.append({'assertion': 'HTTP survives control server outage', 'requests': len(addresses)})
         for name in ('node1', 'node2'):
             assert PROCESSES[name].poll() is None, 'agent died with server'
+        SAMPLER.update(phase='server-restart')
         start('server', server_args)
         wait('server restart restores cluster and HTTP', healthy, 60)
         bad = manifest.read_text().replace('  replicas: 2', '  command: ["/bin/sh", "-c", "exit 1"]\n  replicas: 2')
         manifest.write_text(bad)
+        SAMPLER.update(phase='broken-rollout')
         cli('apply', '-f', str(manifest))
         wait('broken release rolled back', lambda: objects('workloads')[0].get('status', {}).get('rollout', {}).get('phase') == 'RolledBack', 90)
         wait('HTTP healthy after rollback', healthy, 60)
+        SAMPLER.update(phase='post-rollback')
+        time.sleep(3)
     finally:
+        traffic = SAMPLER.close()
+        RESULTS.append({'assertion': 'direct pod HTTP sampling summary', 'phases': traffic, 'discovery': 'cached endpoints refreshed by health checks; not a service or load balancer'})
+        proxy.close()
         for name in list(PROCESSES):
             stop(name)
         (OUT / 'cluster-fault.json').write_text(json.dumps(RESULTS, indent=2))
