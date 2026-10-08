@@ -1,0 +1,287 @@
+syntax = "proto3";
+
+package shoal.v1alpha1;
+
+import "api/v1alpha1/resources.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "example.com/shoal/api/v1alpha1;v1alpha1";
+
+// Object holds one object of any user-visible kind.
+message Object {
+  oneof kind {
+    Workload workload = 1;
+    Node node = 2;
+    Replica replica = 3;
+    Secret secret = 4;
+    Config config = 5;
+    Service service = 6;
+  }
+}
+
+// Control is the API used by the CLI. It requires an admin client
+// certificate.
+service Control {
+  // Apply creates or replaces the spec of each object. Objects are applied
+  // one by one, not atomically.
+  rpc Apply(ApplyRequest) returns (ApplyResponse);
+  rpc Get(GetRequest) returns (Object);
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc CreateJoinToken(CreateJoinTokenRequest) returns (CreateJoinTokenResponse);
+  // Logs streams the logs of a workload's replicas (or one replica), merged
+  // from their nodes.
+  rpc Logs(LogsRequest) returns (stream LogLine);
+  // RestartWorkload replaces a workload's replicas with a rolling update
+  // (it sets spec.restartedAt).
+  rpc RestartWorkload(RestartWorkloadRequest) returns (ApplyResult);
+  // ResetUIPassword sets a new random password for the web portal and
+  // returns it.
+  rpc ResetUIPassword(ResetUIPasswordRequest) returns (ResetUIPasswordResponse);
+}
+
+message RestartWorkloadRequest {
+  string name = 1;
+}
+
+message ResetUIPasswordRequest {}
+
+message ResetUIPasswordResponse {
+  string password = 1;
+}
+
+message LogsRequest {
+  string workload = 1;
+  // Only this replica, if set.
+  string replica = 2;
+  bool follow = 3;
+  // Recent lines per replica; negative = all.
+  int32 tail = 4;
+}
+
+message ApplyRequest {
+  repeated Object objects = 1;
+}
+
+message ApplyResponse {
+  repeated ApplyResult results = 1;
+}
+
+message ApplyResult {
+  string kind = 1;
+  string name = 2;
+  // created, configured or unchanged.
+  string action = 3;
+}
+
+message GetRequest {
+  string kind = 1;
+  string name = 2;
+}
+
+message ListRequest {
+  string kind = 1;
+}
+
+message ListResponse {
+  repeated Object items = 1;
+}
+
+message DeleteRequest {
+  string kind = 1;
+  string name = 2;
+}
+
+message DeleteResponse {}
+
+message CreateJoinTokenRequest {
+  // Defaults to 24h.
+  google.protobuf.Duration ttl = 1;
+  // 0 = unlimited.
+  int32 max_uses = 2;
+  string description = 3;
+}
+
+message CreateJoinTokenResponse {
+  // <id>.<secret>
+  string token = 1;
+  // sha256:<hex> of the CA's public key, for the agent to pin.
+  string ca_hash = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// Join lets a new node exchange a join token for a client certificate. It is
+// the only service callable without a client certificate.
+service Join {
+  rpc Join(JoinRequest) returns (JoinResponse);
+}
+
+message JoinRequest {
+  string token = 1;
+  string node_name = 2;
+  // DER-encoded PKCS #10 certificate request. The private key never leaves
+  // the node.
+  bytes csr = 3;
+}
+
+message JoinResponse {
+  // DER-encoded node certificate.
+  bytes certificate = 1;
+  // DER-encoded CA certificate.
+  bytes ca_certificate = 2;
+}
+
+// Agent is the API used by nodes. It requires a node client certificate; the
+// node's identity always comes from the certificate.
+service Agent {
+  // Sync carries heartbeats (with replica statuses) from the agent and
+  // assignment snapshots from the server. The server first sends a
+  // SyncConfig, then a snapshot whenever the node's assignments change and
+  // periodically.
+  rpc Sync(stream AgentMessage) returns (stream ServerMessage);
+  rpc RenewCertificate(RenewCertificateRequest) returns (RenewCertificateResponse);
+  // UploadLogs answers a LogRequest received over Sync. A separate stream
+  // keeps bulky log data off the Sync stream.
+  rpc UploadLogs(stream LogChunk) returns (UploadLogsResponse);
+  // NodeConfig returns the node's network settings (assigning a container
+  // subnet on first use). The agent needs them before it can run
+  // containers.
+  rpc NodeConfig(NodeConfigRequest) returns (NodeConfigResponse);
+}
+
+message NodeConfigRequest {}
+
+message NodeConfigResponse {
+  // Subnet for this node's containers.
+  string pod_cidr = 1;
+  // All container subnets (traffic within it is not masqueraded).
+  string cluster_cidr = 2;
+  // DNS domain of Services, e.g. "shoal".
+  string dns_domain = 3;
+}
+
+message AgentMessage {
+  oneof msg {
+    Heartbeat heartbeat = 1;
+  }
+}
+
+message Heartbeat {
+  NodeCapacity capacity = 1;
+  string agent_version = 2;
+  string os = 3;
+  string arch = 4;
+  // Status of every replica assigned to the node.
+  repeated ReplicaReport replicas = 5;
+  // WireGuard mesh: the node's public key and the port it listens on.
+  string wireguard_public_key = 6;
+  int32 wireguard_port = 7;
+  // Overrides the endpoint address peers use (default: the address the
+  // server sees).
+  string wireguard_endpoint = 8;
+}
+
+message ReplicaReport {
+  string replica = 1;
+  ReplicaStatus status = 2;
+}
+
+message ServerMessage {
+  oneof msg {
+    SyncConfig config = 1;
+    AssignmentSnapshot assignments = 2;
+    LogRequest logs = 3;
+  }
+}
+
+// AssignmentSnapshot is the complete set of replicas the node should run.
+message AssignmentSnapshot {
+  // Identifies the content, for logging.
+  string version = 1;
+  repeated Assignment assignments = 2;
+  // Every Service in the cluster, for load balancing and DNS on the node.
+  repeated ServiceRoute services = 3;
+  // The other nodes of the WireGuard mesh.
+  repeated MeshPeer peers = 4;
+}
+
+message Assignment {
+  string replica = 1;
+  string workload = 2;
+  WorkloadSpec template = 3;
+  int64 template_generation = 4;
+  // The template's env with Secret and Config references resolved, in
+  // order.
+  repeated EnvVar env = 5;
+  // The template's file mounts with their content.
+  repeated ResolvedMount mounts = 6;
+  // Why the replica can't run as specified (e.g. a missing Secret); the
+  // agent reports it and leaves an existing container alone.
+  string problem = 7;
+}
+
+message ResolvedMount {
+  string path = 1;
+  // File name -> content.
+  map<string, string> files = 2;
+  bool secret = 3;
+}
+
+message ServiceRoute {
+  string name = 1;
+  string cluster_ip = 2;
+  repeated ServicePort ports = 3;
+  // IPs of the ready replicas.
+  repeated string endpoints = 4;
+}
+
+message MeshPeer {
+  string node = 1;
+  string public_key = 2;
+  // host:port.
+  string endpoint = 3;
+  string pod_cidr = 4;
+}
+
+// LogRequest asks the agent to stream a replica's logs to the server with
+// UploadLogs.
+message LogRequest {
+  string request_id = 1;
+  string replica = 2;
+  bool follow = 3;
+  // Number of recent lines; negative = all.
+  int32 tail = 4;
+}
+
+message LogChunk {
+  // Set in the first chunk of an UploadLogs stream only.
+  string request_id = 1;
+  repeated LogLine lines = 2;
+  // Set in the last chunk if reading the logs failed.
+  string error = 3;
+}
+
+message LogLine {
+  google.protobuf.Timestamp time = 1;
+  // stdout or stderr.
+  string stream = 2;
+  string line = 3;
+  // Filled in by the server for the CLI.
+  string replica = 4;
+}
+
+message UploadLogsResponse {}
+
+message SyncConfig {
+  google.protobuf.Duration heartbeat_interval = 1;
+}
+
+message RenewCertificateRequest {
+  // DER-encoded PKCS #10 certificate request for a new key.
+  bytes csr = 1;
+}
+
+message RenewCertificateResponse {
+  bytes certificate = 1;
+}

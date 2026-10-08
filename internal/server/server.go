@@ -1,0 +1,311 @@
+// Package server implements the control plane: the gRPC API (Control, Join,
+// Agent), backed by the state store, plus node heartbeat tracking.
+package server
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
+
+	"example.com/shoal/api/v1alpha1"
+	"example.com/shoal/internal/controller"
+	"example.com/shoal/internal/security"
+	"example.com/shoal/internal/store"
+	"example.com/shoal/internal/store/sqlite"
+)
+
+// Config configures the server. Zero durations get defaults.
+type Config struct {
+	DataDir string
+	// AdvertiseAddress is the host:port clients use to reach the server; it
+	// is written to admin.conf.
+	AdvertiseAddress string
+	Log              *slog.Logger
+	Now              func() time.Time
+
+	// EncryptionKeyFile holds the key that encrypts Secrets at rest;
+	// default <data-dir>/secret.key, created on first start.
+	EncryptionKeyFile string
+	// ClusterCIDR is split into one /24 container subnet per node; default
+	// 10.250.0.0/16. ServiceCIDR holds Service virtual IPs; default
+	// 10.96.0.0/16.
+	ClusterCIDR string
+	ServiceCIDR string
+
+	HeartbeatInterval      time.Duration // asked of agents, default 5s
+	NodeNotReadyAfter      time.Duration // default 20s
+	NodeStatusPersistEvery time.Duration // default 30s
+	NodeCheckInterval      time.Duration // default 2s
+	ShutdownTimeout        time.Duration // default 10s
+	AssignmentResync       time.Duration // resend unchanged snapshots, default 30s
+	EvictAfter             time.Duration // replace replicas of silent nodes, default 60s
+	ControllerInterval     time.Duration // periodic controller passes, default 5s
+}
+
+func (c *Config) setDefaults() {
+	def := func(v *time.Duration, d time.Duration) {
+		if *v <= 0 {
+			*v = d
+		}
+	}
+	def(&c.HeartbeatInterval, 5*time.Second)
+	def(&c.NodeNotReadyAfter, 20*time.Second)
+	def(&c.NodeStatusPersistEvery, 30*time.Second)
+	def(&c.NodeCheckInterval, 2*time.Second)
+	def(&c.ShutdownTimeout, 10*time.Second)
+	def(&c.AssignmentResync, 30*time.Second)
+	def(&c.EvictAfter, 60*time.Second)
+	def(&c.ControllerInterval, 5*time.Second)
+	if c.Now == nil {
+		c.Now = time.Now
+	}
+	if c.EncryptionKeyFile == "" {
+		c.EncryptionKeyFile = filepath.Join(c.DataDir, "secret.key")
+	}
+	if c.ClusterCIDR == "" {
+		c.ClusterCIDR = "10.250.0.0/16"
+	}
+	if c.ServiceCIDR == "" {
+		c.ServiceCIDR = "10.96.0.0/16"
+	}
+}
+
+// Server is the control plane.
+type Server struct {
+	cfg    Config
+	log    *slog.Logger
+	store  store.Store
+	ca     *security.CA
+	nodes  *nodeTracker
+	ctrl   *controller.Controller
+	logs   *logBroker
+	cidrs  *cidrAllocator
+	portal *portal
+	grpc   *grpc.Server
+
+	shutdown     chan struct{} // closed when Serve starts shutting down
+	shutdownOnce sync.Once
+}
+
+// AdminConfigPath is where the server writes the CLI's credentials.
+func AdminConfigPath(dataDir string) string { return filepath.Join(dataDir, "admin.conf") }
+
+// New opens the state store, loads (or creates) the cluster PKI and prepares
+// the gRPC server. Call Serve, then Close.
+func New(ctx context.Context, cfg Config) (*Server, error) {
+	cfg.setDefaults()
+	if cfg.DataDir == "" || cfg.AdvertiseAddress == "" || cfg.Log == nil {
+		return nil, errors.New("server: DataDir, AdvertiseAddress and Log are required")
+	}
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
+		return nil, fmt.Errorf("create data dir: %w", err)
+	}
+	now := cfg.Now()
+	ca, created, err := security.LoadOrCreateCA(filepath.Join(cfg.DataDir, "pki"), now)
+	if err != nil {
+		return nil, err
+	}
+	if created {
+		cfg.Log.Info("generated cluster CA", "caHash", security.CAHash(ca.Cert))
+	}
+	// The server certificate is cheap to issue and never stored, so it is
+	// fresh on every start.
+	key, err := security.NewKey()
+	if err != nil {
+		return nil, err
+	}
+	leaf, err := ca.IssueServer(key.Public(), now)
+	if err != nil {
+		return nil, err
+	}
+	cidrs, err := newCIDRAllocator(cfg.ClusterCIDR, cfg.ServiceCIDR)
+	if err != nil {
+		return nil, err
+	}
+	encKey, created, err := security.LoadOrCreateKey(cfg.EncryptionKeyFile)
+	if err != nil {
+		return nil, err
+	}
+	if created {
+		cfg.Log.Info("generated secret encryption key", "path", cfg.EncryptionKeyFile)
+	}
+	db, err := sqlite.Open(ctx, filepath.Join(cfg.DataDir, "state.db"), cfg.Now)
+	if err != nil {
+		return nil, err
+	}
+	// Everything goes through the encrypting store, so Secrets are only
+	// ever written encrypted.
+	st, err := store.NewEncryptingStore(db, encKey, v1alpha1.KindSecret)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	s := &Server{
+		cidrs: cidrs,
+		cfg:   cfg,
+		log:   cfg.Log,
+		store: st,
+		ca:    ca,
+		nodes: newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
+		ctrl: controller.New(controller.Config{
+			Store: st, Log: cfg.Log, Now: cfg.Now, EvictAfter: cfg.EvictAfter, Interval: cfg.ControllerInterval,
+			ServiceCIDR: cidrs.services,
+		}),
+		logs:     newLogBroker(),
+		shutdown: make(chan struct{}),
+	}
+	if err := s.ensureAdminConfig(); err != nil {
+		st.Close()
+		return nil, err
+	}
+	if err := s.ensureUIPassword(ctx); err != nil {
+		st.Close()
+		return nil, err
+	}
+	s.grpc = grpc.NewServer(
+		grpc.Creds(credentials.NewTLS(security.ServerTLS(ca.Cert, leaf, key))),
+		grpc.ChainUnaryInterceptor(s.unaryAuth),
+		grpc.ChainStreamInterceptor(s.streamAuth),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}),
+	)
+	v1alpha1.RegisterControlServer(s.grpc, &controlService{s: s})
+	v1alpha1.RegisterJoinServer(s.grpc, &joinService{s: s})
+	v1alpha1.RegisterAgentServer(s.grpc, &agentService{s: s})
+	return s, nil
+}
+
+func (s *Server) now() time.Time { return s.cfg.Now() }
+
+// AdvertiseAddress is the host:port clients use to reach the server.
+func (s *Server) AdvertiseAddress() string { return s.cfg.AdvertiseAddress }
+
+// CAHash returns the hash agents pin to trust this server.
+func (s *Server) CAHash() string { return security.CAHash(s.ca.Cert) }
+
+// ensureAdminConfig writes admin.conf unless a valid one for this CA and
+// address exists that is good for at least another 30 days.
+func (s *Server) ensureAdminConfig() error {
+	path := AdminConfigPath(s.cfg.DataDir)
+	if c, err := security.LoadClientConfig(path); err == nil {
+		if p, err := c.Parse(); err == nil && p.CA.Equal(s.ca.Cert) && c.Server == s.cfg.AdvertiseAddress &&
+			p.Cert.NotAfter.After(s.now().Add(30*24*time.Hour)) {
+			return nil
+		}
+	}
+	key, err := security.NewKey()
+	if err != nil {
+		return err
+	}
+	cert, err := s.ca.IssueClient(key.Public(), security.Identity{Name: "admin", Role: security.RoleAdmin}, s.now(), security.AdminValidity)
+	if err != nil {
+		return err
+	}
+	c, err := security.NewClientConfig(s.cfg.AdvertiseAddress, s.ca.Cert, cert, key)
+	if err != nil {
+		return err
+	}
+	if err := c.Save(path); err != nil {
+		return err
+	}
+	s.log.Info("wrote admin credentials", "path", path, "server", s.cfg.AdvertiseAddress, "expires", cert.NotAfter)
+	return nil
+}
+
+// LocalNodeCredentials registers node name and returns credentials for an
+// agent in the same process (`shoal server --with-agent`), so single-node
+// setups need no join token. The agent renews them through the API as usual.
+func (s *Server) LocalNodeCredentials(ctx context.Context, name string) (*security.ClientConfig, error) {
+	key, err := security.NewKey()
+	if err != nil {
+		return nil, err
+	}
+	cert, err := s.ca.IssueClient(key.Public(), security.Identity{Name: name, Role: security.RoleNode}, s.now(), security.NodeValidity)
+	if err != nil {
+		return nil, err
+	}
+	st, err := encode(&v1alpha1.NodeStatus{Phase: NodeNotReady})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindNode, Name: name, Status: st}); err != nil && !errors.Is(err, store.ErrExists) {
+		return nil, fmt.Errorf("register local node %s: %w", name, err)
+	}
+	s.log.Info("registered local node", "node", name)
+	return security.NewClientConfig(s.cfg.AdvertiseAddress, s.ca.Cert, cert, key)
+}
+
+// Serve accepts connections on lis until ctx is cancelled, then shuts down
+// gracefully: agent streams are closed (agents reconnect to the next server)
+// and in-flight calls get ShutdownTimeout to finish.
+func (s *Server) Serve(ctx context.Context, lis net.Listener) error {
+	bg, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		s.nodes.run(bg, s.cfg.NodeCheckInterval)
+	}()
+	go func() {
+		defer wg.Done()
+		s.ctrl.Run(bg)
+	}()
+	go func() {
+		defer wg.Done()
+		s.runTokenGC(bg, time.Hour)
+	}()
+
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		<-ctx.Done()
+		s.shutdownOnce.Do(func() { close(s.shutdown) })
+		done := make(chan struct{})
+		go func() { s.grpc.GracefulStop(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(s.cfg.ShutdownTimeout):
+			s.log.Warn("graceful shutdown timed out, closing remaining connections")
+			s.grpc.Stop()
+		}
+	}()
+
+	s.log.Info("server listening", "address", lis.Addr().String(), "advertise", s.cfg.AdvertiseAddress)
+	err := s.grpc.Serve(lis)
+	cancel()
+	if ctx.Err() != nil {
+		<-stopped
+		err = nil // the expected result of GracefulStop/Stop
+	}
+	wg.Wait()
+	return err
+}
+
+// Close releases the store. Call it after Serve returns.
+func (s *Server) Close() error { return s.store.Close() }
+
+func (s *Server) runTokenGC(ctx context.Context, interval time.Duration) {
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		if err := s.gcTokens(ctx); err != nil && ctx.Err() == nil {
+			s.log.Error("join token cleanup failed", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
+}

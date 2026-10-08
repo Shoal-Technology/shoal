@@ -1,0 +1,307 @@
+syntax = "proto3";
+
+package shoal.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "example.com/shoal/api/v1alpha1;v1alpha1";
+
+// ObjectMeta is common to all objects. Users set only the name; everything
+// else is managed by the server.
+message ObjectMeta {
+  string name = 1;
+  string uid = 2;
+  // Incremented whenever the spec changes.
+  int64 generation = 3;
+  // Store revision of the last write (spec or status).
+  int64 revision = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// Workload is a set of identical replicas of one container.
+message Workload {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  WorkloadSpec spec = 4;
+  WorkloadStatus status = 5;
+}
+
+message WorkloadSpec {
+  string image = 1;
+  // Defaults to 1.
+  optional int32 replicas = 2;
+  // Replaces the image's entrypoint and command when set.
+  repeated string command = 3;
+  repeated EnvVar env = 4;
+  repeated Port ports = 5;
+  // Used for scheduling and enforced as hard limits.
+  Resources resources = 6;
+  HealthCheck health_check = 7;
+  // Always (default), OnFailure or Never.
+  string restart_policy = 8;
+  UpdateStrategy update = 9;
+  // Secrets and Configs mounted as files: one file per key.
+  repeated FileMount files = 10;
+  // Set by `shoal restart`; changing it rolls the replicas over.
+  google.protobuf.Timestamp restarted_at = 11;
+}
+
+message EnvVar {
+  string name = 1;
+  string value = 2;
+  // Takes the value from a Secret or Config key instead. It is read when
+  // the container is created; later changes need a restart.
+  EnvSource value_from = 3;
+}
+
+// EnvSource has exactly one of secret or config.
+message EnvSource {
+  KeyRef secret = 1;
+  KeyRef config = 2;
+}
+
+message KeyRef {
+  string name = 1;
+  string key = 2;
+}
+
+// FileMount mounts every key of a Secret or Config (exactly one) as a
+// read-only file in the directory path. Changes reach running replicas
+// without a restart.
+message FileMount {
+  string path = 1;
+  string secret = 2;
+  string config = 3;
+}
+
+message Port {
+  int32 container_port = 1;
+  // Publishes the port on the node; 0 = not published.
+  int32 host_port = 2;
+  // tcp (default) or udp.
+  string protocol = 3;
+}
+
+message Resources {
+  // CPU, e.g. "200m" or "1".
+  string cpu = 1;
+  // Memory, e.g. "128Mi".
+  string memory = 2;
+}
+
+// HealthCheck has exactly one of http or tcp. It is probed by the node's
+// agent on the replica's IP. A replica is ready after its first passing
+// probe; after failure_threshold consecutive failures it is not ready and is
+// restarted.
+message HealthCheck {
+  HTTPHealthCheck http = 1;
+  TCPHealthCheck tcp = 2;
+  // Defaults: interval 10s, timeout 2s, 3 failures.
+  int32 interval_seconds = 3;
+  int32 timeout_seconds = 4;
+  int32 failure_threshold = 5;
+  // Wait this long after the container starts before the first probe.
+  int32 initial_delay_seconds = 6;
+}
+
+message HTTPHealthCheck {
+  string path = 1;
+  int32 port = 2;
+}
+
+message TCPHealthCheck {
+  int32 port = 1;
+}
+
+message UpdateStrategy {
+  // Replicas that may be unavailable during an update. Defaults to 1.
+  optional int32 max_unavailable = 1;
+  // An updated replica that isn't ready this long after being updated fails
+  // the rollout, which is then rolled back. Defaults to 120.
+  int32 progress_deadline_seconds = 2;
+}
+
+message WorkloadStatus {
+  // Replicas that exist (scheduled or not).
+  int32 replicas = 1;
+  // Replicas that are ready (running and passing their health check).
+  int32 ready_replicas = 2;
+  // Workload generation the status was computed for.
+  int64 observed_generation = 3;
+  // Replicas running the template being rolled out.
+  int32 updated_replicas = 4;
+  RolloutStatus rollout = 5;
+}
+
+// RolloutStatus tracks rolling updates of a workload's template.
+message RolloutStatus {
+  // Progressing, Complete, RolledBack or Failed.
+  string phase = 1;
+  // Last template that was fully rolled out, and its workload generation:
+  // the rollback target.
+  WorkloadSpec stable_template = 2;
+  int64 stable_generation = 3;
+  // Generation whose rollout failed; it is not retried until the spec
+  // changes again.
+  int64 failed_generation = 4;
+  string message = 5;
+}
+
+// Replica is one instance of a workload. Replicas are created and deleted by
+// the server; users can list them and delete one to have it replaced.
+message Replica {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  ReplicaSpec spec = 4;
+  ReplicaStatus status = 5;
+}
+
+message ReplicaSpec {
+  string workload = 1;
+  // Node the replica runs on; empty until it is scheduled.
+  string node = 2;
+  // What the replica runs: the workload spec without replicas and update,
+  // so scaling doesn't touch existing replicas.
+  WorkloadSpec template = 3;
+  // Workload generation the template was taken from.
+  int64 template_generation = 4;
+  // When the template was last set; an update that isn't ready within the
+  // workload's progress deadline fails the rollout.
+  google.protobuf.Timestamp template_updated_at = 5;
+}
+
+message ReplicaStatus {
+  // Pending, Running, Succeeded, Failed or Stopped.
+  string phase = 1;
+  int32 restarts = 2;
+  int32 exit_code = 3;
+  string ip = 4;
+  google.protobuf.Timestamp started_at = 5;
+  // Why the replica is not running or not ready (e.g. unschedulable,
+  // pulling image, health check failing).
+  string message = 6;
+  // Running and passing its health check (or running, without one).
+  bool ready = 7;
+  // Template generation the reporting agent runs; the status describes the
+  // replica's current template only when this equals
+  // spec.template_generation.
+  int64 template_generation = 8;
+}
+
+// Node is a worker that has joined the cluster. Nodes are created by Join and
+// can only be deleted by users.
+message Node {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  NodeSpec spec = 4;
+  NodeStatus status = 5;
+}
+
+message NodeSpec {
+  // Subnet for the node's containers, assigned by the server from the
+  // cluster CIDR.
+  string pod_cidr = 1;
+}
+
+message NodeStatus {
+  // Ready or NotReady.
+  string phase = 1;
+  google.protobuf.Timestamp last_heartbeat = 2;
+  // Address of the agent as seen by the server.
+  string address = 3;
+  NodeCapacity capacity = 4;
+  string agent_version = 5;
+  string os = 6;
+  string arch = 7;
+  // WireGuard mesh: the node's public key and host:port peers connect to.
+  string wireguard_public_key = 8;
+  string wireguard_endpoint = 9;
+}
+
+message NodeCapacity {
+  int64 cpu_millis = 1;
+  int64 memory_bytes = 2;
+}
+
+// Secret holds sensitive key-value data. It is encrypted at rest and its
+// values are never returned by the API.
+message Secret {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  SecretSpec spec = 4;
+}
+
+message SecretSpec {
+  map<string, string> data = 1;
+}
+
+// Config holds plain key-value configuration.
+message Config {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  ConfigSpec spec = 4;
+}
+
+message ConfigSpec {
+  map<string, string> data = 1;
+}
+
+// Service gives the ready replicas of a workload a stable virtual IP and a
+// DNS name (<name>.shoal), reachable from containers on any node.
+message Service {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  ServiceSpec spec = 4;
+  ServiceStatus status = 5;
+}
+
+message ServiceSpec {
+  // Workload whose ready replicas receive the traffic.
+  string selector = 1;
+  repeated ServicePort ports = 2;
+}
+
+message ServicePort {
+  int32 port = 1;
+  // Defaults to port.
+  int32 target_port = 2;
+  // tcp (default) or udp.
+  string protocol = 3;
+}
+
+message ServiceStatus {
+  string cluster_ip = 1;
+  // IPs of the ready replicas.
+  repeated string endpoints = 2;
+}
+
+// UIAuthSpec is internal: the web portal's admin password hash.
+message UIAuthSpec {
+  bytes password_hash = 1;
+  google.protobuf.Timestamp changed_at = 2;
+}
+
+// JoinToken is internal: it is never returned by the API.
+message JoinToken {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  JoinTokenSpec spec = 4;
+}
+
+message JoinTokenSpec {
+  // SHA-256 of the token secret; the secret itself is never stored.
+  bytes secret_hash = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  // 0 = unlimited.
+  int32 max_uses = 3;
+  int32 uses = 4;
+  string description = 5;
+}
