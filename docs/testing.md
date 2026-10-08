@@ -56,6 +56,14 @@ Safe local observer checks (no containers or firewall changes):
 python3 -m unittest discover -s hack -p 'test_*.py' -v
 ```
 
+## Service endpoint eligibility and partition tradeoff
+
+The controller withdraws a replica IP when its assigned node is missing or NotReady, without waiting for workload eviction. The default heartbeat uncertainty threshold remains 20 seconds and replacement threshold remains 60 seconds. This does not change `Hold`/`Replace`, kill containers, fence nodes, or reroute existing conntrack connections. Workload Ready counts still reflect the last replica reports; Service eligibility additionally checks node readiness.
+
+The cross-VM harness separately exercises a 75-second control-only partition under Hold, reconnect, and actual guest destruction under Replace. During partition it asserts unchanged assignment IDs and real bidirectional WireGuard HTTP plus Service HTTP from both guests. It captures API endpoints and survivor guest DNAT rules before each new Service connection. Endpoint withdrawal must reach the connected proxy in under 40 seconds, preserve the healthy survivor throughout, and all sampled new connections after convergence must succeed until reconnect or replacement. Pre-detection failures remain in the evidence rather than being masked.
+
+This conservative rule intentionally removes a still-serving partitioned replica from connected proxies. The disconnected agent retains its last Service snapshot; it cannot receive the withdrawal. An all-node control partition can leave connected proxies with no eligible endpoints even while pods are running. This is a documented availability tradeoff, not a data-plane failure detector or a zero-downtime guarantee. Unit regressions cover both policies, pre-eviction assignment retention, deleted nodes under Hold, reconnect, idempotence, all nodes uncertain, unready replicas, stale template status and missing IPs.
+
 ## Two-VM WireGuard gate
 
 Run the manual `Two VM WireGuard acceptance` workflow (`.github/workflows/vm-mesh.yml`). It boots two Ubuntu 24.04 QEMU guests with separate kernels, disks, containerd, CNI, iptables and WireGuard state. QEMU SLIRP forwards only guest SSH and WireGuard underlay UDP; pod HTTP is not forwarded. Each guest must access the other guest's pod IP through a `shoal-wg` route, both peers must have a real handshake, and the fixed ClusterIP must respond from both guests. Shared boot IDs, missing handshakes, failed HTTP and non-WireGuard routes fail the evidence contract. Guest image and runtime archives are pinned and checksum-verified.

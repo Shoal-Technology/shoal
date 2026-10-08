@@ -29,6 +29,13 @@ class WithdrawalEvidenceTests(unittest.TestCase):
 
     def test_reject_withdrawn_endpoint_reappearing(self):
         rows = self.rows(); rows[-1]['endpoints'].append('dead')
+        rows[-1]['withdrawn_applied'] = False
+        # Five good samples must not hide a later return of the stale endpoint.
+        rows.insert(0, dict(rows[0]))
+        with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
+
+    def test_reject_proxy_reverting_after_withdrawal(self):
+        rows = self.rows() + [dict(self.rows()[-1], withdrawn_applied=False)]
         with self.assertRaises(AssertionError): validate_withdrawal(rows, 'live', 'dead')
 
     def test_pre_detection_failures_are_measured_not_hidden(self):

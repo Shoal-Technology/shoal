@@ -16,7 +16,16 @@ name to find it by, and connectivity between containers on different nodes.
 - **Services.** A `Service` selects a workload and lists ports. The
   controller gives it a virtual IP from `--service-cidr` (default
   `10.96.0.0/16`) and keeps `status.endpoints` at the IPs of the workload's
-  *available* replicas (ready on their current template).
+  *available* replicas (ready on their current template) whose assigned node
+  exists and is `Ready`. `NotReady` withdraws endpoints independently of the
+  60-second replica eviction deadline, including workloads using `Hold`.
+  This is a conservative control-plane eligibility decision, not proof of
+  data-plane failure: a control-only partition can exclude a still-serving
+  replica. Its assignment and runtime are not deleted by endpoint withdrawal.
+  Reconnection restores eligibility when node and replica status qualify.
+  Disconnected agents keep their last snapshot; this is not fencing and does
+  not provide immediate global endpoint consistency. Existing conntrack flows
+  are not rerouted by changing DNAT rules.
 - **Load balancing on every node** with iptables in shoal-owned chains,
   replaced atomically with `iptables-restore --noflush`:
   - `SHOAL-SERVICES` (nat PREROUTING/OUTPUT): VIP:port → one per-port chain

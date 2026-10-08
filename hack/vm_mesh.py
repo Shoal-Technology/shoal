@@ -41,7 +41,9 @@ def validate_withdrawal(rows, survivor, withdrawn, max_seconds=40):
     assert converged[0]['elapsed'] < max_seconds, 'endpoint withdrawal must precede eviction'
     for row in rows:
         assert survivor in row['endpoints'], 'surviving endpoint must never disappear'
-    for row in converged:
+    first = next(i for i, row in enumerate(rows) if row.get('withdrawn_applied'))
+    for row in rows[first:]:
+        assert row.get('withdrawn_applied'), 'proxy withdrawal must persist until reconnect'
         assert withdrawn not in row['endpoints'], 'withdrawn endpoint returned before reconnect'
         assert row['ok'], 'Service failed after proxy withdrawal'
 
