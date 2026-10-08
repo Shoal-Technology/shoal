@@ -62,7 +62,9 @@ A process crash must be interpreted with its placement precondition. The harness
 
 The later `full-placement-agent-crash` scenario deliberately kills the agent on the worker holding **both** replicas after partition failover. Once that worker is evicted, there is no independently healthy surviving assignment: an empty Service endpoint set while replacements start is expected. The earlier run's 15 refused requests and approximately 2.8-second sampled failure window occurred here, not during restart/reconnect and not because a healthy surviving worker endpoint was removed. Retaining uncertain endpoints to hide this gap would change safety semantics; this harness change does not make that production change.
 
-`fixture-reset` traffic is reported separately because deleting the test workload intentionally interrupts service. Neither same-host scenario proves worker-host failure or cross-host routing.
+Verified run [37794828711](https://github.com/kaiserern/shoal/actions/runs/37794828711): spread-worker crash produced 0 failures in 334 ClusterIP requests, preserved the surviving IP across all 64 endpoint polls (minimum one endpoint), and reached healthy replacement in 65.969 seconds. Full-placement loss produced 10 failures in 311 requests with a 1.802-second longest observed failure streak. Healthy rollout (61 requests), broken rollout/rollback (153), Hold partition (456), and Replace partition/heal (452) each had zero Service request failures. All nine privileged runtime tests passed with no skips.
+
+`fixture-reset` traffic is reported separately because deleting the test workload intentionally interrupts service (13 failures in 16 requests in this run). Neither same-host scenario proves worker-host failure or cross-host routing.
 
 ## Real Service traffic gate
 
