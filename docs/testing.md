@@ -56,6 +56,12 @@ Safe local observer checks (no containers or firewall changes):
 python3 -m unittest discover -s hack -p 'test_*.py' -v
 ```
 
+## Real Service traffic gate
+
+The fault harness also creates a real Service and samples its fixed ClusterIP through Shoal's iptables proxy. `service-traffic.jsonl` records every request, `service-endpoints.json` records API endpoint observations during health checks, and `service-rules.txt` captures final kernel rules. Sampling targets 5Hz with 500ms timeout; longest failure streak is an observed sample window, not an exact outage duration. The healthy rollout changes the actual nginx image, then a crashing command exercises rollback.
+
+Two agents on this single disposable host share the host iptables chains. This gate proves the ClusterIP path on that topology, not independently isolated per-host proxies, DNS, ingress, or cross-host WireGuard. A workflow can pass while traffic failures are recorded: recovery assertions are gates; request counts are measurements, not a zero-error SLA gate.
+
 ## Multi-host acceptance backlog
 
 The current runtime integration suite is single-host. The following are required before claiming multi-host reliability:
