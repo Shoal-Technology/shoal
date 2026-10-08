@@ -19,6 +19,14 @@ CONFIG = str(BASE / 'server/admin.conf')
 PROCESSES = {}
 RESULTS = []
 SAMPLER = None
+SERVICE_SAMPLER = None
+ENDPOINT_EVENTS = []
+
+
+def set_phase(phase):
+    SAMPLER.update(phase=phase)
+    if SERVICE_SAMPLER is not None:
+        SERVICE_SAMPLER.update(phase=phase)
 
 
 def cli(*args):
@@ -69,6 +77,8 @@ def replicas():
 
 def healthy():
     items = replicas()
+    if SERVICE_SAMPLER is not None:
+        ENDPOINT_EVENTS.append({"monotonic": time.monotonic(), "services": objects("services")})
     if SAMPLER is not None:
         SAMPLER.update(addresses=[r['status']['ip'] for r in items if r.get('status', {}).get('ip')])
     if len(items) != 2 or not all(r.get('status', {}).get('ready') for r in items):
@@ -87,7 +97,7 @@ def runtime_ids(node):
 
 
 def main():
-    global SAMPLER
+    global SAMPLER, SERVICE_SAMPLER
     if os.geteuid() != 0 or os.environ.get('SHOAL_DISPOSABLE_TEST') != '1':
         raise RuntimeError('requires root and SHOAL_DISPOSABLE_TEST=1 on a disposable host')
     server_args = ['server', '--data-dir', str(BASE / 'server'), '--listen', '127.0.0.1:17443', '--advertise-address', '127.0.0.1:17443', '--ui-listen', '']
@@ -112,13 +122,25 @@ def main():
         cli('apply', '-f', str(manifest))
         wait('two real HTTP replicas healthy', healthy)
         assert {r['spec']['node'] for r in replicas()} == {'node1', 'node2'}, 'initial replicas not spread'
+        service_manifest = BASE / 'service.yaml'
+        service_manifest.write_text('kind: Service\nmetadata: {name: web}\nspec:\n  selector: web\n  ports: [{port: 80, targetPort: 80}]\n')
+        cli('apply', '-f', str(service_manifest))
+        wait('Service has two ready endpoints', lambda: len(objects('services')[0].get('status', {}).get('endpoints', [])) == 2, 30)
+        service_ip = objects('services')[0]['status']['clusterIp']
+        SERVICE_SAMPLER = TrafficSampler(OUT / 'service-traffic.jsonl')
+        SERVICE_SAMPLER.update(addresses=[service_ip], phase='service-baseline')
+        def service_healthy():
+            with urllib.request.urlopen(f'http://{service_ip}/', timeout=2) as response:
+                return response.status == 200
+        wait('real ClusterIP HTTP healthy', service_healthy, 30)
+        time.sleep(3)
         # Hold must retain the existing assignment beyond the eviction timeout.
         original_manifest = manifest.read_text()
         manifest.write_text(original_manifest.replace('  replicas: 2', '  partitionPolicy: Hold\n  replicas: 2'))
         cli('apply', '-f', str(manifest))
         wait('Hold workload healthy before partition', healthy)
         held_ids = runtime_ids('node1')
-        SAMPLER.update(phase='hold-partition')
+        set_phase('hold-partition')
         proxy.partition()
         time.sleep(75)
         assert PROCESSES['node1'].poll() is None
@@ -132,11 +154,11 @@ def main():
         manifest.write_text(original_manifest)
         cli('apply', '-f', str(manifest))
         wait('Replace workload healthy after policy change', healthy)
-        SAMPLER.update(phase='baseline')
+        set_phase('baseline')
         time.sleep(3)
         old_ids = runtime_ids('node1')
         old_address = next(r['status']['ip'] for r in replicas() if r['spec']['node'] == 'node1')
-        SAMPLER.update(phase='partition')
+        set_phase('partition')
         partition_begin = time.monotonic()
         proxy.partition()
         wait('replacement HTTP replicas healthy during live agent partition', lambda: healthy() and all(r['spec']['node'] == 'node2' for r in replicas()), 150)
@@ -147,13 +169,13 @@ def main():
         duplicate_begin = time.monotonic()
         RESULTS.append({'assertion': 'partition duplicates live HTTP replica', 'partition_seconds': round(duplicate_begin - partition_begin, 3), 'runtime_containers': len(runtime_ids('node1')) + len(runtime_ids('node2')), 'desired_replicas': 2})
         time.sleep(5)
-        SAMPLER.update(phase='partition-heal')
+        set_phase('partition-heal')
         proxy.heal()
         wait('partition stale container removed after heal', lambda: not (old_ids & runtime_ids('node1')), 45)
         RESULTS.append({'assertion': 'duplicate observation to observed cleanup window', 'seconds': round(time.monotonic() - duplicate_begin, 3), 'note': 'starts at verified replacement health, ends at observed stale removal; not exact duplication onset'})
         wait('cluster healthy after partition heal', healthy, 45)
         # Retain the process-crash scenario on a node that now has replicas.
-        SAMPLER.update(phase='agent-crash')
+        set_phase('agent-crash')
         old_ids = runtime_ids('node2')
         stop('node2')
         wait('replacement replicas healthy on surviving node', lambda: healthy() and all(r['spec']['node'] == 'node1' for r in replicas()), 150)
@@ -162,7 +184,7 @@ def main():
         wait('stale containers removed after reconnect', lambda: not (old_ids & runtime_ids('node2')), 45)
         wait('cluster healthy after reconnect', healthy, 45)
         addresses = [r['status']['ip'] for r in replicas()]
-        SAMPLER.update(phase='server-outage')
+        set_phase('server-outage')
         stop('server')
         time.sleep(3)
         # Verify HTTP independently of the unavailable control API.
@@ -172,20 +194,33 @@ def main():
         RESULTS.append({'assertion': 'HTTP survives control server outage', 'requests': len(addresses)})
         for name in ('node1', 'node2'):
             assert PROCESSES[name].poll() is None, 'agent died with server'
-        SAMPLER.update(phase='server-restart')
+        set_phase('server-restart')
         start('server', server_args)
         wait('server restart restores cluster and HTTP', healthy, 60)
+        set_phase('healthy-rollout')
+        healthy_manifest = manifest.read_text().replace('nginx:1.28-alpine', 'nginx:1.27-alpine')
+        manifest.write_text(healthy_manifest)
+        cli('apply', '-f', str(manifest))
+        wait('healthy rollout complete', lambda: objects('workloads')[0].get('status', {}).get('rollout', {}).get('phase') == 'Complete' and all(r['spec']['template']['image'] == 'nginx:1.27-alpine' for r in replicas()), 90)
+        wait('HTTP healthy after good rollout', healthy, 60)
+        wait('Service HTTP healthy after good rollout', service_healthy, 30)
+        time.sleep(3)
         bad = manifest.read_text().replace('  replicas: 2', '  command: ["/bin/sh", "-c", "exit 1"]\n  replicas: 2')
         manifest.write_text(bad)
-        SAMPLER.update(phase='broken-rollout')
+        set_phase('broken-rollout')
         cli('apply', '-f', str(manifest))
         wait('broken release rolled back', lambda: objects('workloads')[0].get('status', {}).get('rollout', {}).get('phase') == 'RolledBack', 90)
         wait('HTTP healthy after rollback', healthy, 60)
-        SAMPLER.update(phase='post-rollback')
+        set_phase('post-rollback')
         time.sleep(3)
     finally:
         traffic = SAMPLER.close()
         RESULTS.append({'assertion': 'direct pod HTTP sampling summary', 'phases': traffic, 'discovery': 'cached endpoints refreshed by health checks; not a service or load balancer'})
+        if SERVICE_SAMPLER is not None:
+            RESULTS.append({'assertion': 'real ClusterIP traffic summary', 'phases': SERVICE_SAMPLER.close()})
+        (OUT / 'service-endpoints.json').write_text(json.dumps(ENDPOINT_EVENTS, indent=2))
+        rules = subprocess.run(['iptables-save'], text=True, capture_output=True)
+        (OUT / 'service-rules.txt').write_text(rules.stdout)
         proxy.close()
         for name in list(PROCESSES):
             stop(name)

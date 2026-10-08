@@ -138,4 +138,15 @@ class TrafficSampler:
             item = summary.setdefault(row['phase'], {'requests': 0, 'failed': 0})
             item['requests'] += 1
             item['failed'] += int(not row['ok'])
+        for phase, item in summary.items():
+            streak_start = None
+            longest = 0.0
+            for row in (r for r in self.rows if r['phase'] == phase):
+                if not row['ok']:
+                    if streak_start is None:
+                        streak_start = row['monotonic']
+                    longest = max(longest, row['monotonic'] + row['seconds'] - streak_start)
+                else:
+                    streak_start = None
+            item['longest_observed_failure_streak_seconds'] = round(longest, 3)
         return summary
