@@ -34,6 +34,14 @@ gh workflow run integration.yml --repo kaiserern/shoal
 
 The first verified run passed nine tests with no failures or skips, including real container lifecycle, log completion, SIGKILL escalation, resource limits, published ports, networking across restarts, lost network namespace recovery and agent recovery after a container crash. This is single-host runtime evidence, not control-plane failover or multi-host evidence.
 
+## Partition policy
+
+Workload manifests accept `spec.partitionPolicy: Hold` or `Replace`. Omitted policy preserves existing Replace behavior. Invalid values are rejected. Hold retains assignments on silent or deleted nodes instead of evicting and replacing them. An unavailable worker can therefore leave the workload unavailable indefinitely. Node record deletion is not proof that containers stopped.
+
+Hold is not fencing and is not an exactly-once execution guarantee. Explicit workload deletion, scaling, rollout changes, or switching back to Replace are not safe takeover mechanisms for an uncertain worker. Operators must verify the old process is stopped before manual takeover. Mixed-version control planes must not be used to enforce Hold: older controllers do not know this policy.
+
+The disposable harness tests Hold with a 75-second live control partition, longer than the default 60-second eviction threshold, and checks that runtime count remains at the desired two. It then tests the existing Replace path separately.
+
 ## Control-plane partition and direct HTTP sampling
 
 The same workflow executes `hack/cluster_fault.py` with a real server and two agents. A TCP relay cuts node1's existing control connection and rejects reconnects without stopping its agent or containers. After replacement replicas respond to HTTP, the harness verifies the original replica still responds, records runtime inventory, heals the connection, and waits for stale cleanup. This deliberately documents duplication rather than treating failover as singleton safety.
