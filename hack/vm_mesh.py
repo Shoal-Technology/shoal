@@ -35,7 +35,14 @@ def validate_mesh(evidence):
 
 
 def run(*args, timeout=60):
-    return subprocess.check_output(args, text=True, stderr=subprocess.PIPE, timeout=timeout).strip()
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.PIPE, timeout=timeout).strip()
+    except subprocess.CalledProcessError as error:
+        # Remote systemd-run may contain a join token; keep diagnostics without commands.
+        detail = re.sub(r'--token\s+\S+', '--token [REDACTED]', error.stderr or '')
+        raise OSError(f'{Path(args[0]).name} exit {error.returncode}: {detail[-2000:]}') from None
+    except subprocess.TimeoutExpired:
+        raise OSError(f'{Path(args[0]).name} timed out after {timeout}s') from None
 
 
 def ssh(node, command, timeout=30):
@@ -188,8 +195,12 @@ def main():
             try:
                 status = http(1, vip)
                 rows.append({'monotonic': start, 'status': status, 'ok': status == 200})
-            except (subprocess.SubprocessError, ValueError) as error:
+            except (subprocess.SubprocessError, OSError, ValueError) as error:
                 rows.append({'monotonic': start, 'ok': False, 'error': type(error).__name__})
+            rows[-1]['seconds'] = round(time.monotonic() - start, 3)
+            rows[-1]['endpoints'] = objects('services')[0].get('status', {}).get('endpoints', [])
+            rows[-1]['node_phases'] = {n['metadata']['name']: n.get('status', {}).get('phase') for n in objects('nodes')}
+            (OUT / 'mesh-traffic.json').write_text(json.dumps(rows, indent=2))
             current = objects('replicas')
             if ready() and all(r['spec']['node'] == 'node1' for r in current):
                 break
