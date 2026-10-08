@@ -56,6 +56,14 @@ Safe local observer checks (no containers or firewall changes):
 python3 -m unittest discover -s hack -p 'test_*.py' -v
 ```
 
+## Worker-loss scenario interpretation
+
+A process crash must be interpreted with its placement precondition. The harness now first crashes one worker while two replicas are spread across two workers, asserting at every recovery poll that the surviving ready replica remains a Service endpoint. It then resets only the disposable workload to restore spread placement before partition tests.
+
+The later `full-placement-agent-crash` scenario deliberately kills the agent on the worker holding **both** replicas after partition failover. Once that worker is evicted, there is no independently healthy surviving assignment: an empty Service endpoint set while replacements start is expected. The earlier run's 15 refused requests and approximately 2.8-second sampled failure window occurred here, not during restart/reconnect and not because a healthy surviving worker endpoint was removed. Retaining uncertain endpoints to hide this gap would change safety semantics; this harness change does not make that production change.
+
+`fixture-reset` traffic is reported separately because deleting the test workload intentionally interrupts service. Neither same-host scenario proves worker-host failure or cross-host routing.
+
 ## Real Service traffic gate
 
 The fault harness also creates a real Service and samples its fixed ClusterIP through Shoal's iptables proxy. `service-traffic.jsonl` records every request, `service-endpoints.json` records API endpoint observations during health checks, and `service-rules.txt` captures final kernel rules. Sampling targets 5Hz with 500ms timeout; longest failure streak is an observed sample window, not an exact outage duration. The healthy rollout changes the actual nginx image, then a crashing command exercises rollback.
