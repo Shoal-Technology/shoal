@@ -101,7 +101,7 @@ def main():
             start(name, args + ['--token', join[1], '--ca-hash', join[2]])
         wait('two nodes Ready', lambda: len(objects('nodes')) == 2 and all(n.get('status', {}).get('phase') == 'Ready' for n in objects('nodes')), 45)
         manifest = BASE / 'web.yaml'
-        manifest.write_text('kind: Workload\nmetadata: {name: web}\nspec:\n  image: nginx:1.28-alpine\n  replicas: 2\n  resources: {cpu: 100m, memory: 64Mi}\n  healthCheck: {http: {path: /, port: 80}, intervalSeconds: 1}\n  update: {maxUnavailable: 1, progressDeadlineSeconds: 20}\n')
+        manifest.write_text('kind: Workload\nmetadata: {name: web}\nspec:\n  image: nginx:1.28-alpine\n  replicas: 2\n  resources: {cpu: 100m, memory: 64Mi}\n  healthCheck: {http: {path: /, port: 80}, intervalSeconds: 1, timeoutSeconds: 1}\n  update: {maxUnavailable: 1, progressDeadlineSeconds: 20}\n')
         cli('apply', '-f', str(manifest))
         wait('two real HTTP replicas healthy', healthy)
         assert {r['spec']['node'] for r in replicas()} == {'node1', 'node2'}, 'initial replicas not spread'
