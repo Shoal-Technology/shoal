@@ -52,7 +52,7 @@ def copy(node, *paths):
 
 
 def cli(*args):
-    return run(BIN, *args, '--config', CONFIG, '--timeout', '5s', timeout=10)
+    return run(BIN, *args, '--config', CONFIG, '--server', '127.0.0.1:17443', '--timeout', '5s', timeout=10)
 
 
 def objects(kind):
