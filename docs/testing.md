@@ -24,6 +24,16 @@ make integration-report
 
 This writes JSON events to test-results/integration.jsonl and fails on test failure, package failure, an empty event stream, or skipped tests. A prerequisite skip is not a successful runtime verification. Failed runs may leave host network resources behind; discard the test VM rather than reusing it for production.
 
+## Disposable hosted runner
+
+The manually dispatched `Runtime integration` GitHub Actions workflow provisions containerd 2.4.1 and CNI plugins 1.9.1 on an ephemeral Ubuntu 24.04 runner. Release archives are checked against upstream SHA256 manifests. It runs `make integration-report`, uploads JSON test events and the containerd journal, then stops the runtime. It does not connect to production machines.
+
+```sh
+gh workflow run integration.yml --repo kaiserern/shoal
+```
+
+The first verified run passed nine tests with no failures or skips, including real container lifecycle, log completion, SIGKILL escalation, resource limits, published ports, networking across restarts, lost network namespace recovery and agent recovery after a container crash. This is single-host runtime evidence, not control-plane failover or multi-host evidence.
+
 ## Multi-host acceptance backlog
 
 The current runtime integration suite is single-host. The following are required before claiming multi-host reliability:
