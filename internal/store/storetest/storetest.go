@@ -18,6 +18,7 @@ import (
 // Run runs the suite. newStore must return an empty store; it is closed by
 // the suite.
 func Run(t *testing.T, newStore func(t *testing.T) store.Store) {
+	t.Run("ExportImport", func(t *testing.T) { runExport(t, newStore) })
 	tests := []struct {
 		name string
 		fn   func(t *testing.T, s store.Store)

@@ -39,6 +39,7 @@ const (
 	opUpdate = "update"
 	opStatus = "status"
 	opDelete = "delete"
+	opImport = "import"
 )
 
 // command is one replicated write. Now and UID are chosen by the proposer.
@@ -51,6 +52,8 @@ type command struct {
 	Spec       []byte    `json:"spec,omitempty"`
 	Status     []byte    `json:"status,omitempty"`
 	Generation int64     `json:"generation,omitempty"`
+	// Dump is set on an import: the whole state to load into an empty FSM.
+	Dump *store.Dump `json:"dump,omitempty"`
 }
 
 // result is the FSM's response to a command.
@@ -404,6 +407,11 @@ func (f *fsm) Apply(l *raft.Log) any {
 		return &result{rec: rec, err: err}
 	case opDelete:
 		return &result{err: f.mem.Delete(ctx, c.Kind, c.Name, c.Generation)}
+	case opImport:
+		if c.Dump == nil {
+			return &result{err: errors.New("import without data")}
+		}
+		return &result{err: f.mem.Import(ctx, *c.Dump)}
 	default:
 		return &result{err: fmt.Errorf("unknown command %q", c.Op)}
 	}

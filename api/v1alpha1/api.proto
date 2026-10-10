@@ -53,6 +53,10 @@ service Control {
   // JoinBundle returns the cluster CA and the secret encryption key, packed
   // for --raft-join-bundle on a new server. The bundle is a cluster secret.
   rpc JoinBundle(JoinBundleRequest) returns (JoinBundleResponse);
+  // Backup returns a consistent copy of every record in the shoal-backup/v1
+  // format. On the raft store only the leader answers (FAILED_PRECONDITION
+  // names the leader otherwise). Secrets stay encrypted in the backup.
+  rpc Backup(BackupRequest) returns (BackupResponse);
 }
 
 message ClusterStatusRequest {}
@@ -354,4 +358,14 @@ message RenewCertificateRequest {
 
 message RenewCertificateResponse {
   bytes certificate = 1;
+}
+
+message BackupRequest {}
+
+message BackupResponse {
+  // backup is the JSON file, ready to write to disk.
+  bytes backup = 1;
+  // revision and record_count describe the dump.
+  int64 revision = 2;
+  uint64 record_count = 3;
 }

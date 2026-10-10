@@ -32,7 +32,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newServerCmd(c), newAgentCmd(c),
 		newApplyCmd(), newGetCmd(), newDescribeCmd(), newLogsCmd(), newRestartCmd(), newDeleteCmd(), newTokenCmd(), newUICmd(),
-		newClusterCmd(),
+		newClusterCmd(), newBackupCmd(),
 		newDebugCmd(c),
 	)
 	return root

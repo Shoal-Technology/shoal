@@ -71,6 +71,11 @@ type Config struct {
 	// anything else starts, New installs its CA and secret key into DataDir.
 	// It refuses if DataDir already holds different PKI (see bundle.go).
 	RaftJoinBundle string
+	// RestoreFrom is a backup file (shoal-backup/v1). Set, New loads it into
+	// an empty data dir before first start and creates a new cluster.
+	RestoreFrom string
+	// Version is the server version recorded in backups.
+	Version string
 
 	// leaderGate is a test hook that records which nodes run the leader
 	// tasks. Nil in production.
@@ -139,6 +144,8 @@ type Server struct {
 
 	// raft is the raft store (StoreRaft only), nil otherwise.
 	raft *raftstore.Store
+	// exporter reads the inner store for Backup (sealed Secrets).
+	exporter store.Exporter
 
 	// gate is the test hook from Config.leaderGate; nil in production.
 	gate *leaderGate
@@ -167,6 +174,15 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
+	}
+	// A restore is checked before anything is written to the data dir.
+	var plan *restorePlan
+	if cfg.RestoreFrom != "" {
+		p, err := planRestore(cfg)
+		if err != nil {
+			return nil, err
+		}
+		plan = p
 	}
 	// The bundle must land before LoadOrCreateCA, or this server would
 	// generate a CA of its own first.
@@ -240,6 +256,14 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	default:
 		return nil, fmt.Errorf("unknown store backend %q (want %q or %q)", cfg.StoreBackend, StoreSQLite, StoreRaft)
 	}
+	// Backups read the inner store, so Secrets come out sealed.
+	exp, _ := inner.(store.Exporter)
+	if plan != nil {
+		if err := restoreInto(ctx, inner, plan, cfg.Log); err != nil {
+			inner.Close()
+			return nil, err
+		}
+	}
 	// Everything goes through the encrypting store, so Secrets are only
 	// ever written encrypted.
 	st, err := store.NewEncryptingStore(inner, encKey, v1alpha1.KindSecret)
@@ -249,14 +273,15 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 
 	s := &Server{
-		cidrs: cidrs,
-		cfg:   cfg,
-		log:   cfg.Log,
-		store: st,
-		raft:  raftStore,
-		gate:  cfg.leaderGate,
-		ca:    ca,
-		nodes: newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
+		cidrs:    cidrs,
+		cfg:      cfg,
+		log:      cfg.Log,
+		store:    st,
+		raft:     raftStore,
+		exporter: exp,
+		gate:     cfg.leaderGate,
+		ca:       ca,
+		nodes:    newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
 		ctrl: controller.New(controller.Config{
 			Store: st, Log: cfg.Log, Now: cfg.Now, EvictAfter: cfg.EvictAfter, Interval: cfg.ControllerInterval,
 			ServiceCIDR: cidrs.services,

@@ -27,6 +27,7 @@ func newServerCmd(c *cli) *cobra.Command {
 		raftNodeID                 string
 		raftJoin, raftAdvertise    string
 		raftJoinBundle             string
+		restoreFrom                string
 		uiListen, uiCert, uiKey    string
 		uiNames                    []string
 		withAgent                  bool
@@ -61,7 +62,7 @@ joins without a token: a complete single-node cluster in one process.`,
 			srv, err := server.New(ctx, server.Config{DataDir: dataDir, AdvertiseAddress: advertise, Log: log,
 				ClusterCIDR: clusterCIDR, ServiceCIDR: serviceCIDR, EncryptionKeyFile: keyFile,
 				StoreBackend: storeBackend, RaftBindAddr: raftBind, RaftNodeID: raftNodeID,
-				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle})
+				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle, RestoreFrom: restoreFrom, Version: version})
 			if err != nil {
 				return err
 			}
@@ -118,6 +119,7 @@ joins without a token: a complete single-node cluster in one process.`,
 	cmd.Flags().StringVar(&raftJoin, "raft-join", "", "API address of an existing server (--store=raft): join its cluster instead of bootstrapping a new one; safe to repeat on restart")
 	cmd.Flags().StringVar(&raftAdvertise, "raft-advertise", "", "raft address other nodes dial (--store=raft; default: the bound --raft-bind address)")
 	cmd.Flags().StringVar(&raftJoinBundle, "raft-join-bundle", "", "join bundle from `shoal cluster join-bundle`: installs the cluster CA and secret key into --data-dir before first start (a cluster secret; refused if --data-dir holds other PKI)")
+	cmd.Flags().StringVar(&restoreFrom, "restore-from", "", "backup file (shoal-backup/v1) to load into an EMPTY --data-dir before first start; creates a new cluster. Needs the secret.key the backup was taken with")
 	cmd.Flags().BoolVar(&withAgent, "with-agent", false, "also run an agent for this machine (single-node cluster)")
 	cmd.Flags().StringVar(&uiListen, "ui-listen", ":7444", "address of the web portal (HTTPS; empty disables it)")
 	cmd.Flags().StringVar(&uiCert, "ui-cert", "", "certificate file for the portal (default: issued by the cluster CA)")

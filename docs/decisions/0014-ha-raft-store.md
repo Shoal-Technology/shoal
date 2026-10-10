@@ -2,7 +2,7 @@
 
 Status: Accepted (implemented in Phase 6; multi-node join (pass 2c), write
 forwarding (pass 2d) and the membership CLI with join bundle (pass 2e) are
-done; a backup command is pending)
+done; backup and restore (pass 2f) are done)
 
 ## Context
 ADR 0002 keeps the `Store` contract small (single-object compare-and-swap,
@@ -75,7 +75,7 @@ restart replays a short log.
   for control-plane traffic, but status heartbeats need to be watched for
   write amplification.
 - Watch consumers must tolerate missed events after a snapshot restore.
-- Not done yet: a backup command.
+- Backup and restore: see pass 2f.
 
 ## Wiring
 Pass 2a wires the raft store into the server as an opt-in backend
@@ -176,7 +176,7 @@ Option B is implemented.
   surviving follower, reads of pre- and post-failover records, and leader
   tasks running on the new leader only. A test-only gate counts overlapping
   leader-task runs.
-- Still not done: a backup command. (The membership CLI is done in pass 2e.)
+- Backup and restore are done in pass 2f (below).
 
 ## Pass 2e: membership CLI and join bundle (done)
 - `Control.ClusterStatus` (admin) lists the raft members (node ID, raft
@@ -215,3 +215,58 @@ Option B is implemented.
   `TestClusterRefusesLastVoter`, `TestClusterRemoveLeader`,
   `TestClusterJoinBundle` and `TestClusterJoinBundleConflictingPKI`. They run
   in process on 127.0.0.1:0.
+
+## Pass 2f: backup and restore (done)
+- `Control.Backup` (admin, unary) returns the backup file as bytes. It is
+  unary because the payload is control-plane records only, with no logs or
+  images. The CLI raises its receive limit to 256 MiB for the call. A
+  server-streaming RPC would only pay off for a state much larger than the
+  control plane needs, and it would split the hash across chunks.
+- Consistency. The store exposes an optional `store.Exporter`
+  (`Export(ctx) (store.Dump, error)`), and the server uses it from the inner
+  store, below the encryption wrapper. Memory returns one locked snapshot.
+  SQLite reads the revision and every row in one read transaction on its only
+  connection. Raft runs on the leader only: a follower returns ErrNotLeader,
+  which becomes FailedPrecondition with the leader's address, and the CLI
+  retries there. The leader runs a Raft barrier first, so the dump includes
+  every committed write.
+- Format `shoal-backup/v1` (internal/backup): JSON with `format`,
+  `createdAt`, `serverVersion`, `revision`, `recordCount`, `recordsSha256`
+  and `records`. Each record holds kind, name, UID, generation, revision,
+  createdAt, updatedAt, spec and status. `recordsSha256` is the SHA-256 of
+  the compact JSON of the records array. Decode checks the format, the hash,
+  the count and that no (kind, name) repeats.
+- Secrets are not decrypted. The dump takes specs as they are stored, sealed
+  with `secret.key`. A backup therefore needs that key to be useful.
+- `shoal backup --out` writes with mode 0600 and O_EXCL, like the join
+  bundle. It never overwrites.
+- `shoal server --restore-from=<file>` runs in `New`, before the CA is created
+  or anything is written. It refuses when:
+  - the data dir holds anything except the secret key file (restore needs an
+    empty dir);
+  - the file fails format, count, sha256 or duplicate checks;
+  - the backup holds Secrets and the key file is missing or does not open
+    them (`store.CheckEncrypted`);
+  - it is combined with `--raft-join` or `--raft-join-bundle`.
+  After those checks, the store is loaded: SQLite inserts every row and the
+  revision in one transaction. Raft bootstraps a one-voter cluster and
+  replicates one `import` command with the whole dump. The FSM refuses the
+  import unless the state is empty. Records keep their UID, generation,
+  revision and timestamps. Restore publishes no Watch events, as with the
+  snapshot restore.
+- Restore creates a new cluster: a new CA and admin credentials. Node
+  records, the portal password hash and the leader record come back as they
+  were, and controllers reconcile them. Agents must be issued new
+  credentials. A failure part way leaves the data dir partly written. The
+  message says to delete it before retrying.
+- Cross-backend: a sqlite backup restores into a raft data dir. The reverse
+  also works, because the format does not depend on the backend.
+- Tests: `internal/backup` (round trip, tampering, duplicates),
+  `storetest.runExport` (every backend exports and imports, the revision
+  carries on, a second import is refused), `TestExportLeaderOnly`
+  (followers refuse export), and in `internal/server/backup_test.go`
+  `TestBackupRestoreRaftCluster` (three nodes, backup via a follower, restore
+  into a fresh dir, all records equal, Secret decrypts),
+  `TestBackupRestoreSqliteIntoRaft`, and `TestRestoreRefusals` (bad sha256
+  leaves the data dir untouched, non-empty dir, wrong key, missing key).
+  All run in process on 127.0.0.1:0.

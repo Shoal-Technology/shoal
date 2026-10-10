@@ -31,6 +31,7 @@ const (
 	Control_ClusterStatus_FullMethodName   = "/shoal.v1alpha1.Control/ClusterStatus"
 	Control_RemoveServer_FullMethodName    = "/shoal.v1alpha1.Control/RemoveServer"
 	Control_JoinBundle_FullMethodName      = "/shoal.v1alpha1.Control/JoinBundle"
+	Control_Backup_FullMethodName          = "/shoal.v1alpha1.Control/Backup"
 )
 
 // ControlClient is the client API for Control service.
@@ -70,6 +71,10 @@ type ControlClient interface {
 	// JoinBundle returns the cluster CA and the secret encryption key, packed
 	// for --raft-join-bundle on a new server. The bundle is a cluster secret.
 	JoinBundle(ctx context.Context, in *JoinBundleRequest, opts ...grpc.CallOption) (*JoinBundleResponse, error)
+	// Backup returns a consistent copy of every record in the shoal-backup/v1
+	// format. On the raft store only the leader answers (FAILED_PRECONDITION
+	// names the leader otherwise). Secrets stay encrypted in the backup.
+	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*BackupResponse, error)
 }
 
 type controlClient struct {
@@ -209,6 +214,16 @@ func (c *controlClient) JoinBundle(ctx context.Context, in *JoinBundleRequest, o
 	return out, nil
 }
 
+func (c *controlClient) Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*BackupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BackupResponse)
+	err := c.cc.Invoke(ctx, Control_Backup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -246,6 +261,10 @@ type ControlServer interface {
 	// JoinBundle returns the cluster CA and the secret encryption key, packed
 	// for --raft-join-bundle on a new server. The bundle is a cluster secret.
 	JoinBundle(context.Context, *JoinBundleRequest) (*JoinBundleResponse, error)
+	// Backup returns a consistent copy of every record in the shoal-backup/v1
+	// format. On the raft store only the leader answers (FAILED_PRECONDITION
+	// names the leader otherwise). Secrets stay encrypted in the backup.
+	Backup(context.Context, *BackupRequest) (*BackupResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -291,6 +310,9 @@ func (UnimplementedControlServer) RemoveServer(context.Context, *RemoveServerReq
 }
 func (UnimplementedControlServer) JoinBundle(context.Context, *JoinBundleRequest) (*JoinBundleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JoinBundle not implemented")
+}
+func (UnimplementedControlServer) Backup(context.Context, *BackupRequest) (*BackupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Backup not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -522,6 +544,24 @@ func _Control_JoinBundle_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_Backup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BackupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).Backup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_Backup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).Backup(ctx, req.(*BackupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -572,6 +612,10 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "JoinBundle",
 			Handler:    _Control_JoinBundle_Handler,
+		},
+		{
+			MethodName: "Backup",
+			Handler:    _Control_Backup_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

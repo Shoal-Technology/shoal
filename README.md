@@ -121,6 +121,46 @@ overwrite one. Move it only over a channel you trust, and delete it once the
 new server has started. Each bundle issue is logged on the server with a
 warning and the caller's address.
 
+## Backup and restore
+
+`shoal backup --out <file>` writes every record in the cluster to a file in
+the `shoal-backup/v1` format (JSON: revision, creation time, server version,
+record count, and a SHA-256 of the records). The server takes one
+point-in-time copy. On the raft store it is read on the leader after a Raft
+barrier, so every acknowledged write is included; a backup sent to a follower
+is forwarded to the leader. The file is created with mode 0600 and the
+command never overwrites a file.
+
+```sh
+sudo ./bin/shoal backup --out /root/cluster.backup.json
+```
+
+Restore loads a backup into a new, empty data dir before the first start:
+
+```sh
+sudo mkdir -p /var/lib/shoal/restored
+sudo install -m 600 secret.key /var/lib/shoal/restored/secret.key
+sudo ./bin/shoal server --data-dir=/var/lib/shoal/restored --store=raft \
+  --restore-from=/root/cluster.backup.json
+```
+
+- Restore creates a new cluster. It generates a new CA, so agents, admin
+  credentials and the portal certificate are issued again. Other servers join
+  the restored one with the usual join flow.
+- The data dir must be empty. The only file allowed in it is the secret key.
+- The file is verified first: format, record count and SHA-256. A damaged file
+  is refused before anything is written.
+- Secrets stay encrypted in the backup. Restoring them needs the same
+  `secret.key` the backup was taken with. A backup with Secrets is refused if
+  the key is missing or wrong, before anything is written.
+- Restore is offline. Run it on a new data dir before the node's first start,
+  never against a running server. It works the same with the default sqlite
+  store (omit `--store=raft`).
+
+**Security.** A backup holds every record, but Secrets stay sealed. Keep the
+file together with the key that opens it, and treat it as sensitive: it still
+carries the portal password hash and join state.
+
 ## Try it: cluster
 
 On the server machine (add `--with-agent` to also run workloads on it):
