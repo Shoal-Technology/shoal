@@ -67,6 +67,10 @@ type Config struct {
 	// RaftNodeID names this node in the Raft cluster (StoreRaft only);
 	// default is the host name.
 	RaftNodeID string
+	// RaftJoinBundle is a file written by `shoal cluster join-bundle`. Before
+	// anything else starts, New installs its CA and secret key into DataDir.
+	// It refuses if DataDir already holds different PKI (see bundle.go).
+	RaftJoinBundle string
 
 	// leaderGate is a test hook that records which nodes run the leader
 	// tasks. Nil in production.
@@ -145,6 +149,10 @@ type Server struct {
 
 	shutdown     chan struct{} // closed when Serve starts shutting down
 	shutdownOnce sync.Once
+
+	// membership serializes RemoveServer calls on this node, so the voter
+	// count it checks is still valid when the change is proposed.
+	membership sync.Mutex
 }
 
 // AdminConfigPath is where the server writes the CLI's credentials.
@@ -159,6 +167,17 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
+	}
+	// The bundle must land before LoadOrCreateCA, or this server would
+	// generate a CA of its own first.
+	if cfg.RaftJoinBundle != "" {
+		installed, err := installJoinBundle(cfg.RaftJoinBundle, cfg.DataDir, cfg.EncryptionKeyFile)
+		if err != nil {
+			return nil, err
+		}
+		if installed {
+			cfg.Log.Info("installed join bundle", "file", cfg.RaftJoinBundle)
+		}
 	}
 	now := cfg.Now()
 	ca, created, err := security.LoadOrCreateCA(filepath.Join(cfg.DataDir, "pki"), now)

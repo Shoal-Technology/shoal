@@ -186,6 +186,38 @@ func (s *Store) AddVoter(ctx context.Context, id raft.ServerID, addr raft.Server
 	}
 	return nil
 }
+
+// RemoveServer removes a member through the leader. It returns ErrNotLeader
+// on a follower. Removing the leader itself is allowed: it steps down after
+// the change commits.
+func (s *Store) RemoveServer(ctx context.Context, id raft.ServerID) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	err := s.raft.RemoveServer(id, 0, applyTimeout).Error()
+	if errors.Is(err, raft.ErrNotLeader) || errors.Is(err, raft.ErrLeadershipLost) {
+		return ErrNotLeader
+	}
+	if err != nil {
+		return fmt.Errorf("remove server %s: %w", id, err)
+	}
+	return nil
+}
+
+// Configuration returns the membership this node currently knows. A
+// follower may lag the leader by a few entries.
+func (s *Store) Configuration() (raft.Configuration, error) {
+	f := s.raft.GetConfiguration()
+	if err := f.Error(); err != nil {
+		return raft.Configuration{}, fmt.Errorf("read raft configuration: %w", err)
+	}
+	return f.Configuration(), nil
+}
+
+// AppliedIndex returns the highest log index this node has applied to its
+// state.
+func (s *Store) AppliedIndex() uint64 { return s.raft.AppliedIndex() }
+
 func (s *Store) waitLeader(ctx context.Context) error {
 	timeout := time.NewTimer(leaderTimeout)
 	defer timeout.Stop()

@@ -43,6 +43,58 @@ service Control {
   // only). It is idempotent. A server that is not the leader returns
   // FAILED_PRECONDITION with the leader's API address in the message.
   rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse);
+  // ClusterStatus lists the raft members and the indexes of the server that
+  // answers (raft store only). Any server can answer.
+  rpc ClusterStatus(ClusterStatusRequest) returns (ClusterStatusResponse);
+  // RemoveServer removes a raft member through the leader. It refuses to
+  // remove the last voter. Removing the leader itself is allowed: the leader
+  // steps down once the change is committed.
+  rpc RemoveServer(RemoveServerRequest) returns (RemoveServerResponse);
+  // JoinBundle returns the cluster CA and the secret encryption key, packed
+  // for --raft-join-bundle on a new server. The bundle is a cluster secret.
+  rpc JoinBundle(JoinBundleRequest) returns (JoinBundleResponse);
+}
+
+message ClusterStatusRequest {}
+
+message ClusterStatusResponse {
+  // members lists every raft voter, in no particular order.
+  repeated ClusterMember members = 1;
+  // leader_api_address is the leader's API address, from the leader record.
+  // Empty if no leader has written one yet.
+  string leader_api_address = 2;
+  // commit_index and applied_index are those of the answering server.
+  uint64 commit_index = 3;
+  uint64 applied_index = 4;
+  // node_id is the raft ID of the answering server.
+  string node_id = 5;
+}
+
+message ClusterMember {
+  string node_id = 1;
+  string raft_address = 2;
+  bool voter = 3;
+  // leader is true for the member the answering server sees as leader.
+  bool leader = 4;
+}
+
+message RemoveServerRequest {
+  string node_id = 1;
+}
+
+message RemoveServerResponse {
+  // commit_index is the leader's commit index after the removal.
+  uint64 commit_index = 1;
+}
+
+message JoinBundleRequest {}
+
+message JoinBundleResponse {
+  // bundle is a JSON document holding the cluster CA certificate and key and
+  // the secret encryption key. Treat it as a cluster secret.
+  bytes bundle = 1;
+  // ca_hash is the CA hash the bundle carries, for the operator to compare.
+  string ca_hash = 2;
 }
 
 message JoinClusterRequest {

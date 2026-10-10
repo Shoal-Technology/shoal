@@ -28,6 +28,9 @@ const (
 	Control_RestartWorkload_FullMethodName = "/shoal.v1alpha1.Control/RestartWorkload"
 	Control_ResetUIPassword_FullMethodName = "/shoal.v1alpha1.Control/ResetUIPassword"
 	Control_JoinCluster_FullMethodName     = "/shoal.v1alpha1.Control/JoinCluster"
+	Control_ClusterStatus_FullMethodName   = "/shoal.v1alpha1.Control/ClusterStatus"
+	Control_RemoveServer_FullMethodName    = "/shoal.v1alpha1.Control/RemoveServer"
+	Control_JoinBundle_FullMethodName      = "/shoal.v1alpha1.Control/JoinBundle"
 )
 
 // ControlClient is the client API for Control service.
@@ -57,6 +60,16 @@ type ControlClient interface {
 	// only). It is idempotent. A server that is not the leader returns
 	// FAILED_PRECONDITION with the leader's API address in the message.
 	JoinCluster(ctx context.Context, in *JoinClusterRequest, opts ...grpc.CallOption) (*JoinClusterResponse, error)
+	// ClusterStatus lists the raft members and the indexes of the server that
+	// answers (raft store only). Any server can answer.
+	ClusterStatus(ctx context.Context, in *ClusterStatusRequest, opts ...grpc.CallOption) (*ClusterStatusResponse, error)
+	// RemoveServer removes a raft member through the leader. It refuses to
+	// remove the last voter. Removing the leader itself is allowed: the leader
+	// steps down once the change is committed.
+	RemoveServer(ctx context.Context, in *RemoveServerRequest, opts ...grpc.CallOption) (*RemoveServerResponse, error)
+	// JoinBundle returns the cluster CA and the secret encryption key, packed
+	// for --raft-join-bundle on a new server. The bundle is a cluster secret.
+	JoinBundle(ctx context.Context, in *JoinBundleRequest, opts ...grpc.CallOption) (*JoinBundleResponse, error)
 }
 
 type controlClient struct {
@@ -166,6 +179,36 @@ func (c *controlClient) JoinCluster(ctx context.Context, in *JoinClusterRequest,
 	return out, nil
 }
 
+func (c *controlClient) ClusterStatus(ctx context.Context, in *ClusterStatusRequest, opts ...grpc.CallOption) (*ClusterStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClusterStatusResponse)
+	err := c.cc.Invoke(ctx, Control_ClusterStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) RemoveServer(ctx context.Context, in *RemoveServerRequest, opts ...grpc.CallOption) (*RemoveServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveServerResponse)
+	err := c.cc.Invoke(ctx, Control_RemoveServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) JoinBundle(ctx context.Context, in *JoinBundleRequest, opts ...grpc.CallOption) (*JoinBundleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JoinBundleResponse)
+	err := c.cc.Invoke(ctx, Control_JoinBundle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -193,6 +236,16 @@ type ControlServer interface {
 	// only). It is idempotent. A server that is not the leader returns
 	// FAILED_PRECONDITION with the leader's API address in the message.
 	JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error)
+	// ClusterStatus lists the raft members and the indexes of the server that
+	// answers (raft store only). Any server can answer.
+	ClusterStatus(context.Context, *ClusterStatusRequest) (*ClusterStatusResponse, error)
+	// RemoveServer removes a raft member through the leader. It refuses to
+	// remove the last voter. Removing the leader itself is allowed: the leader
+	// steps down once the change is committed.
+	RemoveServer(context.Context, *RemoveServerRequest) (*RemoveServerResponse, error)
+	// JoinBundle returns the cluster CA and the secret encryption key, packed
+	// for --raft-join-bundle on a new server. The bundle is a cluster secret.
+	JoinBundle(context.Context, *JoinBundleRequest) (*JoinBundleResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -229,6 +282,15 @@ func (UnimplementedControlServer) ResetUIPassword(context.Context, *ResetUIPassw
 }
 func (UnimplementedControlServer) JoinCluster(context.Context, *JoinClusterRequest) (*JoinClusterResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JoinCluster not implemented")
+}
+func (UnimplementedControlServer) ClusterStatus(context.Context, *ClusterStatusRequest) (*ClusterStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClusterStatus not implemented")
+}
+func (UnimplementedControlServer) RemoveServer(context.Context, *RemoveServerRequest) (*RemoveServerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveServer not implemented")
+}
+func (UnimplementedControlServer) JoinBundle(context.Context, *JoinBundleRequest) (*JoinBundleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method JoinBundle not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -406,6 +468,60 @@ func _Control_JoinCluster_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_ClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClusterStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).ClusterStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_ClusterStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).ClusterStatus(ctx, req.(*ClusterStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_RemoveServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).RemoveServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_RemoveServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).RemoveServer(ctx, req.(*RemoveServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_JoinBundle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinBundleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).JoinBundle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_JoinBundle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).JoinBundle(ctx, req.(*JoinBundleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -444,6 +560,18 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "JoinCluster",
 			Handler:    _Control_JoinCluster_Handler,
+		},
+		{
+			MethodName: "ClusterStatus",
+			Handler:    _Control_ClusterStatus_Handler,
+		},
+		{
+			MethodName: "RemoveServer",
+			Handler:    _Control_RemoveServer_Handler,
+		},
+		{
+			MethodName: "JoinBundle",
+			Handler:    _Control_JoinBundle_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
