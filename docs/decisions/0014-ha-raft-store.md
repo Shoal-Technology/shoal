@@ -104,7 +104,7 @@ aftstore.LeaderCh() reports this node as leader. The server
   from the start of grace, not from a stale stored heartbeat. Agents get one
   full window to reach the new leader before eviction can start.
 
-## Pass 2b: not done yet
+## Pass 2b: not done yet (join is done in pass 2c, below)
 - Join: `--raft-join` and `--raft-advertise`, the admin-only join RPC, and
   the idempotent rejoin path are not implemented. Bootstrap and join are
   described here as the target design: node 1 starts with `--store=raft` and
@@ -121,3 +121,33 @@ aftstore.LeaderCh() reports this node as leader. The server
   leadership or in raft metadata. Neither is built yet.
 - The 3-node in-process test (join, follower write, leader failover) is not
   written.
+
+## Pass 2c: join (done)
+- Bootstrap: the first node starts with `--store=raft` and no `--raft-join`.
+  It bootstraps a one-voter cluster. When it gains leadership it writes the
+  `Cluster/leader` record: its API address, raft node ID and raft address.
+  The record is written before the leader tasks start.
+- Join: a node started with `--raft-join=<leader API address>` and no raft
+  state does not bootstrap. It calls the admin-only
+  `Control.JoinCluster(node_id, raft_addr)` on that address, retrying with
+  backoff for up to 2 minutes. If the call reaches a follower, the follower
+  returns FailedPrecondition with the leader's API address in the message,
+  and the joiner follows it once. The join runs before the readiness wait,
+  because a new node knows no leader until it is added.
+- `--raft-advertise` is the raft address other nodes dial. It defaults to
+  the bound raft address.
+- Idempotence: the leader calls AddVoter. Re-adding a voter with the same ID
+  and address is a no-op. A restart with `--raft-join` calls JoinCluster
+  again, so it is safe. A restarted node that binds a new raft port updates
+  its address the same way.
+- Shared PKI: all servers in one cluster share the cluster CA (`pki/`) and
+  the secret encryption key (`secret.key`). An operator copies both from an
+  existing server's data dir before a joining node's first start. The
+  joiner's admin credentials come from that CA, so without the copy the
+  leader rejects the join. A command for this copy is not built.
+- Readiness fix: a joining follower can know a leader while its commit
+  index is still 0. `WaitReady` now requires a non-zero commit index before
+  it reports a follower ready.
+- Not done: write forwarding. Only JoinCluster redirects. Other writes on a
+  follower still return ErrNotLeader to the caller, and the CLI does not
+  retry against the leader yet.
