@@ -320,8 +320,76 @@ message RouteStatus {
   // Accepted or Rejected. Set by the controller in later passes.
   string state = 1;
   string message = 2;
-  // Mirrors the Certificate record once TLS issuance exists.
+  // For tls auto: CertPending, CertIssued or CertError. Empty otherwise.
+  // Set by the controller from the Certificate record (ADR 0015, pass C).
   string cert_state = 3;
+  // Why the certificate is in CertError, or empty.
+  string cert_message = 4;
+  // Expiry of the issued certificate, set when cert_state is CertIssued.
+  google.protobuf.Timestamp cert_not_after = 5;
+}
+
+// Certificate is internal: the automatic TLS certificate for one host. Its
+// name is the host. The spec holds the private key and is encrypted at rest.
+message Certificate {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  CertificateSpec spec = 4;
+  CertificateStatus status = 5;
+}
+
+message CertificateSpec {
+  // PEM chain, leaf first. Empty until the first issuance succeeds.
+  string chain_pem = 1;
+  // PEM EC private key (P-256) for the leaf.
+  string key_pem = 2;
+}
+
+message CertificateStatus {
+  google.protobuf.Timestamp not_before = 1;
+  google.protobuf.Timestamp not_after = 2;
+  string issuer = 3;
+  // The last failure, empty after a success.
+  string last_error = 4;
+  // Earliest time the next attempt may run (backoff or Retry-After).
+  google.protobuf.Timestamp next_attempt = 5;
+  // Consecutive failures; drives the backoff.
+  int32 failures = 6;
+}
+
+// AcmeAccount is internal: the ACME account for one directory URL (the name).
+message AcmeAccount {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  AcmeAccountSpec spec = 4;
+  AcmeAccountStatus status = 5;
+}
+
+message AcmeAccountSpec {
+  // PEM EC private key (P-256) of the account. Encrypted at rest.
+  string account_key_pem = 1;
+  string directory_url = 2;
+  string email = 3;
+}
+
+message AcmeAccountStatus {
+  string registration_uri = 1;
+}
+
+// AcmeChallenge is internal: one pending HTTP-01 token. The name is the token.
+message AcmeChallenge {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  AcmeChallengeSpec spec = 4;
+}
+
+message AcmeChallengeSpec {
+  string host = 1;
+  string key_authorization = 2;
+  google.protobuf.Timestamp expires_at = 3;
 }
 
 // UIAuthSpec is internal: the web portal's admin password hash.

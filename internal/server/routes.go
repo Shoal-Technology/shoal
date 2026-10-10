@@ -14,9 +14,9 @@ import (
 	"example.com/shoal/internal/resource"
 )
 
-// routeSnapshot builds the ingress configuration for node (ADR 0015, pass
-// B2). A node without the edge label gets a snapshot with Edge false and no
-// routes, so it never receives a Secret.
+// routeSnapshot builds the ingress configuration for node (ADR 0015, passes
+// B2 and C1). A node without the edge label gets a snapshot with Edge false and
+// no routes, so it never receives a Secret or an issued key.
 func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.RouteSnapshot, error) {
 	nrec, err := s.store.Get(ctx, v1alpha1.KindNode, node)
 	if err != nil {
@@ -60,6 +60,7 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 	if err != nil {
 		return nil, err
 	}
+	autoHosts := map[string]bool{}
 	for _, r := range rrecs {
 		rt, err := objects.Route(r)
 		if err != nil {
@@ -79,6 +80,9 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 				er.CertPem, er.KeyPem = cert, key
 			}
 		}
+		if spec.GetTls() == "auto" {
+			autoHosts[spec.GetHost()] = true
+		}
 		snap.Routes = append(snap.Routes, er)
 	}
 	slices.SortFunc(snap.Routes, func(x, y *v1alpha1.EdgeRoute) int {
@@ -90,6 +94,46 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 		}
 		return len(y.PathPrefix) - len(x.PathPrefix)
 	})
+
+	// Issued certificates for tls auto hosts. A host with no issued
+	// certificate yet keeps the edge's self-signed fallback.
+	crecs, err := s.store.List(ctx, v1alpha1.KindCertificate)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range crecs {
+		if !autoHosts[r.Name] {
+			continue
+		}
+		c, err := objects.Certificate(r)
+		if err != nil {
+			return nil, err
+		}
+		if c.Spec.GetChainPem() == "" {
+			continue
+		}
+		snap.Certificates = append(snap.Certificates, &v1alpha1.EdgeCertificate{
+			Host: r.Name, ChainPem: []byte(c.Spec.GetChainPem()), KeyPem: []byte(c.Spec.GetKeyPem()),
+		})
+	}
+
+	// HTTP-01 tokens that are still live. Expired ones are left out even if
+	// the manager did not delete them (for example after a crash).
+	now := s.now()
+	hrecs, err := s.store.List(ctx, v1alpha1.KindAcmeChallenge)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range hrecs {
+		ch, err := objects.AcmeChallenge(r)
+		if err != nil {
+			return nil, err
+		}
+		if !ch.Spec.GetExpiresAt().AsTime().After(now) {
+			continue
+		}
+		snap.Challenges = append(snap.Challenges, &v1alpha1.EdgeChallenge{Token: r.Name, KeyAuthorization: ch.Spec.GetKeyAuthorization()})
+	}
 	return snap, nil
 }
 

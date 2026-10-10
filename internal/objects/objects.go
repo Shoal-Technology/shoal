@@ -105,6 +105,30 @@ func Route(r store.Record) (*v1alpha1.Route, error) {
 	return rt, decode(r, rt.Spec, rt.Status)
 }
 
+// Certificate decodes a Certificate record (the store must decrypt it first).
+func Certificate(r store.Record) (*v1alpha1.Certificate, error) {
+	c := &v1alpha1.Certificate{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindCertificate, Metadata: Meta(r),
+		Spec: &v1alpha1.CertificateSpec{}, Status: &v1alpha1.CertificateStatus{},
+	}
+	return c, decode(r, c.Spec, c.Status)
+}
+
+// AcmeAccount decodes an AcmeAccount record (the store must decrypt it first).
+func AcmeAccount(r store.Record) (*v1alpha1.AcmeAccount, error) {
+	a := &v1alpha1.AcmeAccount{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindAcmeAccount, Metadata: Meta(r),
+		Spec: &v1alpha1.AcmeAccountSpec{}, Status: &v1alpha1.AcmeAccountStatus{},
+	}
+	return a, decode(r, a.Spec, a.Status)
+}
+
+// AcmeChallenge decodes an AcmeChallenge record (the store must decrypt it first).
+func AcmeChallenge(r store.Record) (*v1alpha1.AcmeChallenge, error) {
+	c := &v1alpha1.AcmeChallenge{ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindAcmeChallenge, Metadata: Meta(r), Spec: &v1alpha1.AcmeChallengeSpec{}}
+	return c, decode(r, c.Spec, nil)
+}
+
 // JoinTokenSpec decodes a JoinToken record's spec.
 func JoinTokenSpec(r store.Record) (*v1alpha1.JoinTokenSpec, error) {
 	s := &v1alpha1.JoinTokenSpec{}

@@ -35,6 +35,9 @@ func newServerCmd(c *cli) *cobra.Command {
 		nf                         networkFlags
 		nodeName                   string
 		stopTimeout                time.Duration
+		acmeDirectory, acmeEmail   string
+		acmeCARoots                string
+		acmeDisable                bool
 	)
 	cmd := &cobra.Command{
 		Use:   "server",
@@ -62,7 +65,8 @@ joins without a token: a complete single-node cluster in one process.`,
 			srv, err := server.New(ctx, server.Config{DataDir: dataDir, AdvertiseAddress: advertise, Log: log,
 				ClusterCIDR: clusterCIDR, ServiceCIDR: serviceCIDR, EncryptionKeyFile: keyFile,
 				StoreBackend: storeBackend, RaftBindAddr: raftBind, RaftNodeID: raftNodeID,
-				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle, RestoreFrom: restoreFrom, Version: version})
+				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle, RestoreFrom: restoreFrom, Version: version,
+				AcmeDirectory: acmeDir(acmeDisable, acmeDirectory), AcmeEmail: acmeEmail, AcmeCARoots: acmeCARoots})
 			if err != nil {
 				return err
 			}
@@ -126,10 +130,22 @@ joins without a token: a complete single-node cluster in one process.`,
 	cmd.Flags().StringVar(&uiKey, "ui-key", "", "private key file for --ui-cert")
 	cmd.Flags().StringSliceVar(&uiNames, "ui-name", nil, "extra host names or IPs for the portal's certificate (repeatable)")
 	cmd.Flags().StringVar(&nodeName, "node-name", "", "name of the local node with --with-agent (default: host name)")
+	cmd.Flags().StringVar(&acmeDirectory, "acme-directory", server.LetsEncryptProduction, "ACME directory for automatic certificates (tls: auto). Default is Let's Encrypt production; use "+server.LetsEncryptStaging+" for tests (staging certificates are not trusted by browsers)")
+	cmd.Flags().StringVar(&acmeEmail, "acme-email", "", "contact email registered with the ACME account (recommended)")
+	cmd.Flags().BoolVar(&acmeDisable, "acme-disable", false, "do not obtain automatic certificates; tls: auto routes stay CertPending")
+	cmd.Flags().StringVar(&acmeCARoots, "acme-ca-roots", "", "PEM file of extra root certificates for the ACME server (for a test CA such as pebble)")
 	cmd.Flags().DurationVar(&stopTimeout, "stop-timeout", 10*time.Second, "grace period before SIGKILL (local agent)")
 	rf.register(cmd.Flags())
 	nf.register(cmd.Flags())
 	return cmd
+}
+
+// acmeDir is the ACME directory the server uses: empty when disabled.
+func acmeDir(disable bool, dir string) string {
+	if disable {
+		return ""
+	}
+	return dir
 }
 
 // servePortal serves the web portal over HTTPS until ctx is done; stop

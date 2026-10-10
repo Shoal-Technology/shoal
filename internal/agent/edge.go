@@ -29,6 +29,7 @@ type Edge struct {
 	log                 *slog.Logger
 	proxy               *edge.Proxy
 	certs               *edge.CertStore
+	challenges          *edge.ChallengeStore
 
 	mu      sync.Mutex
 	servers []*http.Server
@@ -43,9 +44,10 @@ type Edge struct {
 func NewEdge(httpAddr, httpsAddr string, log *slog.Logger) *Edge {
 	return &Edge{
 		httpAddr: httpAddr, httpsAddr: httpsAddr, log: log,
-		proxy: edge.NewProxy(edge.Config{AccessLog: edge.SlogAccess(log)}),
-		certs: &edge.CertStore{},
-		bound: map[string]string{}, self: map[string]*tls.Certificate{}, warned: map[string]bool{},
+		proxy:      edge.NewProxy(edge.Config{AccessLog: edge.SlogAccess(log)}),
+		certs:      &edge.CertStore{},
+		challenges: &edge.ChallengeStore{},
+		bound:      map[string]string{}, self: map[string]*tls.Certificate{}, warned: map[string]bool{},
 	}
 }
 
@@ -89,7 +91,22 @@ func (e *Edge) Apply(snap *v1alpha1.RouteSnapshot) error {
 			certs[host] = &c
 		}
 	}
-	// tls: auto gets a self-signed certificate until ACME exists (pass C).
+	// Issued certificates (ADR 0015, pass C) cover tls auto hosts. A Secret
+	// certificate for the same host was taken above and wins.
+	for _, ic := range snap.GetCertificates() {
+		host := strings.ToLower(ic.GetHost())
+		if _, ok := certs[host]; ok {
+			continue
+		}
+		c, err := tls.X509KeyPair(ic.GetChainPem(), ic.GetKeyPem())
+		if err != nil {
+			e.log.Warn("issued certificate is not usable; the host keeps its fallback", "host", host, "err", err)
+			continue
+		}
+		certs[host] = &c
+	}
+	// tls: auto without an issued certificate gets a self-signed one until
+	// issuance succeeds.
 	// It never replaces a certificate from a Secret on the same host.
 	for _, r := range snap.GetRoutes() {
 		host := strings.ToLower(r.GetHost())
@@ -114,6 +131,11 @@ func (e *Edge) Apply(snap *v1alpha1.RouteSnapshot) error {
 	if err := e.startLocked(); err != nil {
 		return err
 	}
+	tokens := make(map[string]string, len(snap.GetChallenges()))
+	for _, ch := range snap.GetChallenges() {
+		tokens[ch.GetToken()] = ch.GetKeyAuthorization()
+	}
+	e.challenges.Replace(tokens)
 	e.certs.Replace(certs)
 	e.proxy.SetTable(table)
 	e.applied = snap.GetRevision()
@@ -157,7 +179,7 @@ func (e *Edge) startLocked() error {
 		if err != nil {
 			return fail(err)
 		}
-		srv := e.proxy.NewServer(e.httpAddr, edge.HTTPHandler(e.proxy, nil))
+		srv := e.proxy.NewServer(e.httpAddr, edge.HTTPHandler(e.proxy, e.challenges))
 		started = append(started, srv)
 		e.bound["http"] = ln.Addr().String()
 		go e.serve(srv, ln, "http")
@@ -167,7 +189,7 @@ func (e *Edge) startLocked() error {
 		if err != nil {
 			return fail(err)
 		}
-		srv := e.proxy.NewServer(e.httpsAddr, e.proxy)
+		srv := e.proxy.NewServer(e.httpsAddr, edge.HTTPSHandler(e.proxy))
 		started = append(started, srv)
 		e.bound["https"] = ln.Addr().String()
 		go e.serve(srv, tls.NewListener(ln, e.certs.TLSConfig()), "https")
@@ -197,6 +219,7 @@ func (e *Edge) stopLocked() {
 	e.servers = nil
 	clear(e.bound)
 	e.certs.Replace(nil)
+	e.challenges.Replace(nil)
 	if t, err := edge.NewTable(nil); err == nil {
 		e.proxy.SetTable(t)
 	}

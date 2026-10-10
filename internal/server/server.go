@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -74,6 +75,19 @@ type Config struct {
 	// RestoreFrom is a backup file (shoal-backup/v1). Set, New loads it into
 	// an empty data dir before first start and creates a new cluster.
 	RestoreFrom string
+	// AcmeDirectory is the ACME directory for automatic certificates (tls:
+	// auto). Empty disables them. The shoal command defaults it to Let's
+	// Encrypt production (LetsEncryptProduction); use LetsEncryptStaging for tests.
+	AcmeDirectory string
+	// AcmeEmail is the contact registered with the ACME account.
+	AcmeEmail string
+	// AcmeCARoots is a PEM file of extra roots for the ACME server (a test CA
+	// such as pebble). Empty uses the system roots.
+	AcmeCARoots string
+	// acmeClientFor is a test hook that replaces the real ACME client. Nil in
+	// production.
+	acmeClientFor func(directory string, key *ecdsa.PrivateKey) acmeClient
+
 	// Version is the server version recorded in backups.
 	Version string
 
@@ -87,6 +101,20 @@ const (
 	StoreSQLite = "sqlite"
 	StoreRaft   = "raft"
 )
+
+// encryptedKinds are the kinds whose specs are sealed at rest and in backups:
+// Secrets, and the internal TLS kinds that hold private keys (ADR 0015).
+var encryptedKinds = []string{v1alpha1.KindSecret, v1alpha1.KindCertificate, v1alpha1.KindAcmeAccount, v1alpha1.KindAcmeChallenge}
+
+// isEncryptedKind reports whether records of kind are sealed.
+func isEncryptedKind(kind string) bool {
+	for _, k := range encryptedKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
 
 // raftReadyTimeout bounds the wait for the raft store at startup. A node with
 // no leader fails New after this long instead of hanging.
@@ -146,6 +174,11 @@ type Server struct {
 	raft *raftstore.Store
 	// exporter reads the inner store for Backup (sealed Secrets).
 	exporter store.Exporter
+
+	// acks tracks which edge streams were sent which HTTP-01 tokens.
+	acks *edgeAcks
+	// certs issues and renews automatic certificates; nil when AcmeDirectory is empty.
+	certs *certManager
 
 	// gate is the test hook from Config.leaderGate; nil in production.
 	gate *leaderGate
@@ -266,7 +299,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	// Everything goes through the encrypting store, so Secrets are only
 	// ever written encrypted.
-	st, err := store.NewEncryptingStore(inner, encKey, v1alpha1.KindSecret)
+	st, err := store.NewEncryptingStore(inner, encKey, encryptedKinds...)
 	if err != nil {
 		inner.Close()
 		return nil, err
@@ -289,6 +322,14 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		logs:       newLogBroker(),
 		leadership: leadership,
 		shutdown:   make(chan struct{}),
+	}
+	s.acks = newEdgeAcks()
+	if cfg.AcmeDirectory != "" {
+		s.certs, err = newCertManager(s, cfg)
+		if err != nil {
+			st.Close()
+			return nil, err
+		}
 	}
 	if err := s.ensureAdminConfig(); err != nil {
 		st.Close()
@@ -344,7 +385,12 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) now() time.Time { return s.cfg.Now() }
+func (s *Server) now() time.Time {
+	if s.cfg.Now == nil {
+		return time.Now()
+	}
+	return s.cfg.Now()
+}
 
 // AdvertiseAddress is the host:port clients use to reach the server.
 func (s *Server) AdvertiseAddress() string { return s.cfg.AdvertiseAddress }
@@ -471,6 +517,13 @@ func (s *Server) runLeaderTasks(ctx context.Context) {
 		}
 	}
 	var wg sync.WaitGroup
+	if s.certs != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.certs.Run(ctx)
+		}()
+	}
 	wg.Add(3)
 	go func() {
 		defer wg.Done()

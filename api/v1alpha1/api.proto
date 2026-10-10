@@ -287,6 +287,24 @@ message RouteSnapshot {
   string version = 3;
   // Sorted by host, then longest path prefix first.
   repeated EdgeRoute routes = 4;
+  // HTTP-01 tokens to answer on port 80 (ADR 0015, pass C).
+  repeated EdgeChallenge challenges = 5;
+  // Issued certificates for tls auto hosts (ADR 0015, pass C). A Secret
+  // certificate for the same host takes precedence on the edge.
+  repeated EdgeCertificate certificates = 6;
+}
+
+// EdgeChallenge is one HTTP-01 token and its key authorization.
+message EdgeChallenge {
+  string token = 1;
+  string key_authorization = 2;
+}
+
+// EdgeCertificate is an issued certificate for one host. Only edges receive it.
+message EdgeCertificate {
+  string host = 1;
+  bytes chain_pem = 2;
+  bytes key_pem = 3;
 }
 
 // EdgeRoute is one Route with what the edge needs to serve it.

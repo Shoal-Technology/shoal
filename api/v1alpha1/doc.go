@@ -17,6 +17,11 @@ const (
 	KindJoinToken = "JoinToken" // internal
 	KindUIAuth    = "UIAuth"    // internal
 
+	// Internal kinds for automatic TLS (ADR 0015, pass C). Not user-appliable.
+	KindCertificate   = "Certificate"
+	KindAcmeAccount   = "AcmeAccount"
+	KindAcmeChallenge = "AcmeChallenge"
+
 	// DNSDomain is the domain of Service names: <service>.shoal.
 	DNSDomain = "shoal"
 )

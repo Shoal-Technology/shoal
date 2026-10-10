@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -105,6 +106,52 @@ func SelfSigned(hosts ...string) (*tls.Certificate, error) {
 var DefaultChallengeHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 })
+
+// ChallengeStore answers ACME HTTP-01 challenges from the tokens the server
+// last sent (ADR 0015, pass C). Unknown tokens get 404. Replace swaps the whole
+// set; a server snapshot without challenges clears it.
+type ChallengeStore struct {
+	tokens atomic.Pointer[map[string]string] // token -> key authorization
+}
+
+// Replace installs the token set, keyed by token.
+func (c *ChallengeStore) Replace(tokens map[string]string) {
+	m := make(map[string]string, len(tokens))
+	for k, v := range tokens {
+		m[k] = v
+	}
+	c.tokens.Store(&m)
+}
+
+// ServeHTTP answers /.well-known/acme-challenge/<token> with the key
+// authorization as text/plain, or 404 for anything else.
+func (c *ChallengeStore) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimPrefix(r.URL.Path, acmeChallengePrefix)
+	if token == "" || strings.Contains(token, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	if m := c.tokens.Load(); m != nil {
+		if ka, ok := (*m)[token]; ok {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			_, _ = io.WriteString(w, ka)
+			return
+		}
+	}
+	http.NotFound(w, r)
+}
+
+// HTTPSHandler is the port 443 handler. It serves the proxy, but never the
+// ACME challenge path: challenges are answered on HTTP only (ADR 0015).
+func HTTPSHandler(p *Proxy) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, acmeChallengePrefix) {
+			http.NotFound(w, r)
+			return
+		}
+		p.ServeHTTP(w, r)
+	})
+}
 
 // HTTPHandler is the port 80 handler. ACME challenge paths go to challenge
 // (DefaultChallengeHandler when nil). Routes with redirectHttp get a 308 to

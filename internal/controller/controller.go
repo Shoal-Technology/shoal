@@ -69,7 +69,7 @@ func New(cfg Config) *Controller {
 // Run reconciles on every relevant change (debounced) and every Interval,
 // until ctx is done.
 func (c *Controller) Run(ctx context.Context) {
-	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret)
+	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate)
 	tick := time.NewTicker(c.cfg.Interval)
 	defer tick.Stop()
 	for {

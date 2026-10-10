@@ -382,16 +382,21 @@ func printServices(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
 
 func printRoutes(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tHOST\tPATH\tSERVICE\tPORT\tTLS\tSTATUS\tMESSAGE\tAGE")
+	fmt.Fprintln(tw, "NAME\tHOST\tPATH\tSERVICE\tPORT\tTLS\tSTATUS\tMESSAGE\tCERT\tCERT EXPIRES\tAGE")
 	for _, o := range items {
 		r := o.GetRoute()
 		state := r.GetStatus().GetState()
 		if state == "" {
 			state = "Pending" // the controller has not reconciled it yet
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\n", r.GetMetadata().GetName(), r.GetSpec().GetHost(),
+		expires := "-"
+		if na := r.GetStatus().GetCertNotAfter(); na != nil {
+			expires = na.AsTime().Format("2006-01-02")
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n", r.GetMetadata().GetName(), r.GetSpec().GetHost(),
 			r.GetSpec().GetPathPrefix(), r.GetSpec().GetService(), r.GetSpec().GetPort(), r.GetSpec().GetTls(),
-			state, dash(r.GetStatus().GetMessage()), age(now, r.GetMetadata().GetCreatedAt().AsTime()))
+			state, dash(r.GetStatus().GetMessage()), dash(r.GetStatus().GetCertState()), expires,
+			age(now, r.GetMetadata().GetCreatedAt().AsTime()))
 	}
 	return tw.Flush()
 }

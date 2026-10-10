@@ -5,15 +5,23 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/objects"
 	"example.com/shoal/internal/resource"
 )
 
-// syncRouteStatus sets each Route's status from its Service and, for tls:
-// secret, its Secret (ADR 0015, pass B2). The controller is the only writer
-// of Route status. Only changes are written.
+// Route certificate states (RouteStatus.cert_state).
+const (
+	CertPending = "CertPending"
+	CertIssued  = "CertIssued"
+	CertError   = "CertError"
+)
+
+// syncRouteStatus sets each Route's status from its Service, its Secret (tls:
+// secret) and its Certificate (tls: auto; ADR 0015, passes B2 and C1). The
+// controller is the only writer of Route status. Only changes are written.
 func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 	rrecs, err := c.st.List(ctx, v1alpha1.KindRoute)
 	if err != nil {
@@ -24,6 +32,10 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 		return []error{err}
 	}
 	secrecs, err := c.st.List(ctx, v1alpha1.KindSecret)
+	if err != nil {
+		return []error{err}
+	}
+	certrecs, err := c.st.List(ctx, v1alpha1.KindCertificate)
 	if err != nil {
 		return []error{err}
 	}
@@ -43,6 +55,14 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 		}
 		secrets[r.Name] = sec.Spec.GetData()
 	}
+	certs := map[string]*v1alpha1.Certificate{}
+	for _, r := range certrecs {
+		cert, err := objects.Certificate(r)
+		if err != nil {
+			return []error{err}
+		}
+		certs[r.Name] = cert
+	}
 
 	var errs []error
 	for _, r := range rrecs {
@@ -53,7 +73,10 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 		}
 		data, found := secrets[rt.Spec.GetTlsSecret()]
 		state, msg := resource.RouteStatusFor(rt, svcs[rt.Spec.GetService()], data, found)
-		st := &v1alpha1.RouteStatus{State: state, Message: msg, CertState: rt.Status.GetCertState()}
+		st := &v1alpha1.RouteStatus{State: state, Message: msg}
+		if rt.Spec.GetTls() == "auto" {
+			st.CertState, st.CertMessage, st.CertNotAfter = certStatus(certs[rt.Spec.GetHost()])
+		}
 		if proto.Equal(rt.Status, st) {
 			continue
 		}
@@ -67,4 +90,24 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 		}
 	}
 	return errs
+}
+
+// certStatus maps a host's Certificate record to the Route's cert fields. A
+// certificate that exists but failed its last renewal is CertError and keeps
+// its expiry, so the operator sees both.
+func certStatus(cert *v1alpha1.Certificate) (state, msg string, notAfter *timestamppb.Timestamp) {
+	if cert == nil {
+		return CertPending, "", nil
+	}
+	if cert.Spec.GetChainPem() == "" {
+		if e := cert.Status.GetLastError(); e != "" {
+			return CertError, e, nil
+		}
+		return CertPending, "", nil
+	}
+	notAfter = cert.Status.GetNotAfter()
+	if e := cert.Status.GetLastError(); e != "" {
+		return CertError, e, notAfter
+	}
+	return CertIssued, "", notAfter
 }

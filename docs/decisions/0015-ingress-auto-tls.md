@@ -1,6 +1,6 @@
 # 0015: Ingress and automatic TLS
 
-Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Passes C to E are not implemented.
+Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Pass C1 (ACME issuance and renewal on the leader, HTTP-01 challenges on edges) is implemented; see Pass C1 below. Pass D (pebble in CI) and E are not implemented.
 
 ## Context
 Workloads are reachable inside the cluster through Services (ADR 0012): a
@@ -429,6 +429,68 @@ Taken when the ADR was accepted. Each one answers an open question below.
     two-node run, are not verified;
   - ports 80 and 443 are not exercised anywhere. Tests use 127.0.0.1:0
     only, and the VPS is not run as an edge.
+
+### Pass C1: ACME issuance and renewal (implemented)
+- **Kinds.** `Certificate` (name = host; spec holds the chain and key PEM,
+  status holds notBefore, notAfter, issuer, lastError, nextAttempt and the
+  failure count), `AcmeAccount` (name = directory URL; spec holds the account
+  key, directory and email; status holds the registration URI) and
+  `AcmeChallenge` (name = token; spec holds host, key authorization and
+  expiry). All three are internal and not user-appliable. They are in
+  `encryptedKinds` (`internal/server/server.go`) with `Secret`, so specs are
+  sealed on disk and in backups. Restore checks the same list.
+- **Flags.** `shoal server --acme-directory` (default Let's Encrypt
+  production, `https://acme-v02.api.letsencrypt.org/directory`; staging is
+  `https://acme-staging-v02.api.letsencrypt.org/directory` and is the choice
+  for any test that reaches a CA), `--acme-email`, `--acme-disable` (routes
+  stay `CertPending`), `--acme-ca-roots` (PEM roots for a test CA such as
+  pebble). An empty directory in the library disables the manager.
+- **Client.** `acmeClient` in `internal/server/acme.go` covers register,
+  authorize order, HTTP-01 lookup, accept, wait order, create cert and fetch
+  cert. The real implementation wraps `golang.org/x/crypto/acme`. Registration
+  passes `acme.AcceptTOS`, so the first certificate accepts the CA's terms
+  for the configured account. Rate-limit answers become `rateLimitError`
+  with the Retry-After delay.
+- **Manager.** `certManager` (`internal/server/certs.go`) runs only inside
+  `runLeaderTasks`, so it is leader-gated like the controllers. For each
+  `tls: auto` host it issues when the Certificate is missing, renews when
+  less than 30 days remain before notAfter, and honours `nextAttempt`. Failure
+  backs off 1m, 2m, 4m, and so on, capped at 24h, and a Retry-After longer
+  than the backoff wins. The error goes to `lastError`. Certificates of hosts
+  with no `auto` Route are deleted.
+- **Order.** Write one `AcmeChallenge` per token, wait for the challenge
+  signal (below), call Accept, wait for the order, create the CSR and
+  certificate, store the result, then delete the challenge records. Deletion
+  runs on success and on failure.
+- **Challenge signal.** The server records, per connected agent stream, whether
+  the node is an edge and which tokens its last snapshot carried. The manager
+  waits until at least one edge is connected and every connected edge has been
+  sent every token, with a 2-minute cap. The signal is "sent": the snapshot has
+  been handed to the node's gRPC stream. It does not prove the edge applied it.
+  The gap is one stream send against a CA round trip after Accept, so it is
+  narrow but not zero. An acknowledgement carried on the heartbeat would close
+  it. That is left for a later pass.
+- **Snapshot.** `RouteSnapshot` gained `challenges` (unexpired tokens) and
+  `certificates` (the chain and key for each `auto` host with an issued
+  certificate; edges only). The edge serves challenges from a
+  `ChallengeStore` on the HTTP listener only. Unknown tokens get 404, and the
+  HTTPS listener returns 404 for the challenge path. An issued certificate
+  replaces the self-signed fallback by SNI through `CertStore.Replace`, with
+  no restart. Precedence is Secret, then issued, then self-signed.
+- **Route status.** The controller is still the only writer of Route status.
+  For `tls: auto` it reads the host's Certificate: `CertPending` with no chain,
+  `CertIssued` with `cert_not_after`, or `CertError` with `cert_message` when
+  the last attempt failed. `shoal get routes` adds CERT and CERT EXPIRES
+  columns.
+- **Deviations from Pass C in the plan.** The manager checks every minute, not
+  every 12 hours, so a new Route issues promptly. The 30-day renewal window is
+  unchanged. The ADR's "rate limit tracked in status" is implemented as
+  `nextAttempt` plus the Retry-After wait; no separate directory-limit table
+  exists.
+- **Not verified.** No real ACME server was used, so Let's Encrypt and pebble
+  are untested. The tests use an in-process fake CA. The pebble CI pass (D)
+  is the first real protocol test. The CERT columns of `shoal get routes`
+  were not checked against live output.
 
 ## Open questions
 - Resolved: see Decisions 1 to 4 above.

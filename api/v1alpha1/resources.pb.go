@@ -2296,8 +2296,13 @@ type RouteStatus struct {
 	// Accepted or Rejected. Set by the controller in later passes.
 	State   string `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// Mirrors the Certificate record once TLS issuance exists.
-	CertState     string `protobuf:"bytes,3,opt,name=cert_state,json=certState,proto3" json:"cert_state,omitempty"`
+	// For tls auto: CertPending, CertIssued or CertError. Empty otherwise.
+	// Set by the controller from the Certificate record (ADR 0015, pass C).
+	CertState string `protobuf:"bytes,3,opt,name=cert_state,json=certState,proto3" json:"cert_state,omitempty"`
+	// Why the certificate is in CertError, or empty.
+	CertMessage string `protobuf:"bytes,4,opt,name=cert_message,json=certMessage,proto3" json:"cert_message,omitempty"`
+	// Expiry of the issued certificate, set when cert_state is CertIssued.
+	CertNotAfter  *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=cert_not_after,json=certNotAfter,proto3" json:"cert_not_after,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2353,6 +2358,550 @@ func (x *RouteStatus) GetCertState() string {
 	return ""
 }
 
+func (x *RouteStatus) GetCertMessage() string {
+	if x != nil {
+		return x.CertMessage
+	}
+	return ""
+}
+
+func (x *RouteStatus) GetCertNotAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CertNotAfter
+	}
+	return nil
+}
+
+// Certificate is internal: the automatic TLS certificate for one host. Its
+// name is the host. The spec holds the private key and is encrypted at rest.
+type Certificate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *CertificateSpec       `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Status        *CertificateStatus     `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Certificate) Reset() {
+	*x = Certificate{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Certificate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Certificate) ProtoMessage() {}
+
+func (x *Certificate) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Certificate.ProtoReflect.Descriptor instead.
+func (*Certificate) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *Certificate) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *Certificate) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Certificate) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *Certificate) GetSpec() *CertificateSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *Certificate) GetStatus() *CertificateStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type CertificateSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// PEM chain, leaf first. Empty until the first issuance succeeds.
+	ChainPem string `protobuf:"bytes,1,opt,name=chain_pem,json=chainPem,proto3" json:"chain_pem,omitempty"`
+	// PEM EC private key (P-256) for the leaf.
+	KeyPem        string `protobuf:"bytes,2,opt,name=key_pem,json=keyPem,proto3" json:"key_pem,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CertificateSpec) Reset() {
+	*x = CertificateSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CertificateSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CertificateSpec) ProtoMessage() {}
+
+func (x *CertificateSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CertificateSpec.ProtoReflect.Descriptor instead.
+func (*CertificateSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *CertificateSpec) GetChainPem() string {
+	if x != nil {
+		return x.ChainPem
+	}
+	return ""
+}
+
+func (x *CertificateSpec) GetKeyPem() string {
+	if x != nil {
+		return x.KeyPem
+	}
+	return ""
+}
+
+type CertificateStatus struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	NotBefore *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=not_before,json=notBefore,proto3" json:"not_before,omitempty"`
+	NotAfter  *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
+	Issuer    string                 `protobuf:"bytes,3,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	// The last failure, empty after a success.
+	LastError string `protobuf:"bytes,4,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	// Earliest time the next attempt may run (backoff or Retry-After).
+	NextAttempt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=next_attempt,json=nextAttempt,proto3" json:"next_attempt,omitempty"`
+	// Consecutive failures; drives the backoff.
+	Failures      int32 `protobuf:"varint,6,opt,name=failures,proto3" json:"failures,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CertificateStatus) Reset() {
+	*x = CertificateStatus{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CertificateStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CertificateStatus) ProtoMessage() {}
+
+func (x *CertificateStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CertificateStatus.ProtoReflect.Descriptor instead.
+func (*CertificateStatus) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *CertificateStatus) GetNotBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotBefore
+	}
+	return nil
+}
+
+func (x *CertificateStatus) GetNotAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotAfter
+	}
+	return nil
+}
+
+func (x *CertificateStatus) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *CertificateStatus) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+func (x *CertificateStatus) GetNextAttempt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NextAttempt
+	}
+	return nil
+}
+
+func (x *CertificateStatus) GetFailures() int32 {
+	if x != nil {
+		return x.Failures
+	}
+	return 0
+}
+
+// AcmeAccount is internal: the ACME account for one directory URL (the name).
+type AcmeAccount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *AcmeAccountSpec       `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Status        *AcmeAccountStatus     `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcmeAccount) Reset() {
+	*x = AcmeAccount{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcmeAccount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcmeAccount) ProtoMessage() {}
+
+func (x *AcmeAccount) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcmeAccount.ProtoReflect.Descriptor instead.
+func (*AcmeAccount) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *AcmeAccount) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *AcmeAccount) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *AcmeAccount) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *AcmeAccount) GetSpec() *AcmeAccountSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *AcmeAccount) GetStatus() *AcmeAccountStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type AcmeAccountSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// PEM EC private key (P-256) of the account. Encrypted at rest.
+	AccountKeyPem string `protobuf:"bytes,1,opt,name=account_key_pem,json=accountKeyPem,proto3" json:"account_key_pem,omitempty"`
+	DirectoryUrl  string `protobuf:"bytes,2,opt,name=directory_url,json=directoryUrl,proto3" json:"directory_url,omitempty"`
+	Email         string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcmeAccountSpec) Reset() {
+	*x = AcmeAccountSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcmeAccountSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcmeAccountSpec) ProtoMessage() {}
+
+func (x *AcmeAccountSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcmeAccountSpec.ProtoReflect.Descriptor instead.
+func (*AcmeAccountSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *AcmeAccountSpec) GetAccountKeyPem() string {
+	if x != nil {
+		return x.AccountKeyPem
+	}
+	return ""
+}
+
+func (x *AcmeAccountSpec) GetDirectoryUrl() string {
+	if x != nil {
+		return x.DirectoryUrl
+	}
+	return ""
+}
+
+func (x *AcmeAccountSpec) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type AcmeAccountStatus struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	RegistrationUri string                 `protobuf:"bytes,1,opt,name=registration_uri,json=registrationUri,proto3" json:"registration_uri,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AcmeAccountStatus) Reset() {
+	*x = AcmeAccountStatus{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcmeAccountStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcmeAccountStatus) ProtoMessage() {}
+
+func (x *AcmeAccountStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcmeAccountStatus.ProtoReflect.Descriptor instead.
+func (*AcmeAccountStatus) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *AcmeAccountStatus) GetRegistrationUri() string {
+	if x != nil {
+		return x.RegistrationUri
+	}
+	return ""
+}
+
+// AcmeChallenge is internal: one pending HTTP-01 token. The name is the token.
+type AcmeChallenge struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *AcmeChallengeSpec     `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AcmeChallenge) Reset() {
+	*x = AcmeChallenge{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcmeChallenge) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcmeChallenge) ProtoMessage() {}
+
+func (x *AcmeChallenge) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcmeChallenge.ProtoReflect.Descriptor instead.
+func (*AcmeChallenge) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *AcmeChallenge) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *AcmeChallenge) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *AcmeChallenge) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *AcmeChallenge) GetSpec() *AcmeChallengeSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+type AcmeChallengeSpec struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Host             string                 `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	KeyAuthorization string                 `protobuf:"bytes,2,opt,name=key_authorization,json=keyAuthorization,proto3" json:"key_authorization,omitempty"`
+	ExpiresAt        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *AcmeChallengeSpec) Reset() {
+	*x = AcmeChallengeSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AcmeChallengeSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AcmeChallengeSpec) ProtoMessage() {}
+
+func (x *AcmeChallengeSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AcmeChallengeSpec.ProtoReflect.Descriptor instead.
+func (*AcmeChallengeSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *AcmeChallengeSpec) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *AcmeChallengeSpec) GetKeyAuthorization() string {
+	if x != nil {
+		return x.KeyAuthorization
+	}
+	return ""
+}
+
+func (x *AcmeChallengeSpec) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
 // UIAuthSpec is internal: the web portal's admin password hash.
 type UIAuthSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2364,7 +2913,7 @@ type UIAuthSpec struct {
 
 func (x *UIAuthSpec) Reset() {
 	*x = UIAuthSpec{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[33]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2925,7 @@ func (x *UIAuthSpec) String() string {
 func (*UIAuthSpec) ProtoMessage() {}
 
 func (x *UIAuthSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[33]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2938,7 @@ func (x *UIAuthSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UIAuthSpec.ProtoReflect.Descriptor instead.
 func (*UIAuthSpec) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{33}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UIAuthSpec) GetPasswordHash() []byte {
@@ -2419,7 +2968,7 @@ type JoinToken struct {
 
 func (x *JoinToken) Reset() {
 	*x = JoinToken{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[34]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2431,7 +2980,7 @@ func (x *JoinToken) String() string {
 func (*JoinToken) ProtoMessage() {}
 
 func (x *JoinToken) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[34]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2444,7 +2993,7 @@ func (x *JoinToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinToken.ProtoReflect.Descriptor instead.
 func (*JoinToken) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{34}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *JoinToken) GetApiVersion() string {
@@ -2490,7 +3039,7 @@ type JoinTokenSpec struct {
 
 func (x *JoinTokenSpec) Reset() {
 	*x = JoinTokenSpec{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[35]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2502,7 +3051,7 @@ func (x *JoinTokenSpec) String() string {
 func (*JoinTokenSpec) ProtoMessage() {}
 
 func (x *JoinTokenSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[35]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2515,7 +3064,7 @@ func (x *JoinTokenSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinTokenSpec.ProtoReflect.Descriptor instead.
 func (*JoinTokenSpec) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{35}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *JoinTokenSpec) GetSecretHash() []byte {
@@ -2753,12 +3302,57 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\n" +
 	"tls_secret\x18\x06 \x01(\tR\ttlsSecret\x12(\n" +
 	"\rredirect_http\x18\a \x01(\bH\x00R\fredirectHttp\x88\x01\x01B\x10\n" +
-	"\x0e_redirect_http\"\\\n" +
+	"\x0e_redirect_http\"\xc1\x01\n" +
 	"\vRouteStatus\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1d\n" +
 	"\n" +
-	"cert_state\x18\x03 \x01(\tR\tcertState\"l\n" +
+	"cert_state\x18\x03 \x01(\tR\tcertState\x12!\n" +
+	"\fcert_message\x18\x04 \x01(\tR\vcertMessage\x12@\n" +
+	"\x0ecert_not_after\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\fcertNotAfter\"\xea\x01\n" +
+	"\vCertificate\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x123\n" +
+	"\x04spec\x18\x04 \x01(\v2\x1f.shoal.v1alpha1.CertificateSpecR\x04spec\x129\n" +
+	"\x06status\x18\x05 \x01(\v2!.shoal.v1alpha1.CertificateStatusR\x06status\"G\n" +
+	"\x0fCertificateSpec\x12\x1b\n" +
+	"\tchain_pem\x18\x01 \x01(\tR\bchainPem\x12\x17\n" +
+	"\akey_pem\x18\x02 \x01(\tR\x06keyPem\"\x99\x02\n" +
+	"\x11CertificateStatus\x129\n" +
+	"\n" +
+	"not_before\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tnotBefore\x127\n" +
+	"\tnot_after\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bnotAfter\x12\x16\n" +
+	"\x06issuer\x18\x03 \x01(\tR\x06issuer\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x04 \x01(\tR\tlastError\x12=\n" +
+	"\fnext_attempt\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vnextAttempt\x12\x1a\n" +
+	"\bfailures\x18\x06 \x01(\x05R\bfailures\"\xea\x01\n" +
+	"\vAcmeAccount\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x123\n" +
+	"\x04spec\x18\x04 \x01(\v2\x1f.shoal.v1alpha1.AcmeAccountSpecR\x04spec\x129\n" +
+	"\x06status\x18\x05 \x01(\v2!.shoal.v1alpha1.AcmeAccountStatusR\x06status\"t\n" +
+	"\x0fAcmeAccountSpec\x12&\n" +
+	"\x0faccount_key_pem\x18\x01 \x01(\tR\raccountKeyPem\x12#\n" +
+	"\rdirectory_url\x18\x02 \x01(\tR\fdirectoryUrl\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\">\n" +
+	"\x11AcmeAccountStatus\x12)\n" +
+	"\x10registration_uri\x18\x01 \x01(\tR\x0fregistrationUri\"\xb3\x01\n" +
+	"\rAcmeChallenge\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x125\n" +
+	"\x04spec\x18\x04 \x01(\v2!.shoal.v1alpha1.AcmeChallengeSpecR\x04spec\"\x8f\x01\n" +
+	"\x11AcmeChallengeSpec\x12\x12\n" +
+	"\x04host\x18\x01 \x01(\tR\x04host\x12+\n" +
+	"\x11key_authorization\x18\x02 \x01(\tR\x10keyAuthorization\x129\n" +
+	"\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"l\n" +
 	"\n" +
 	"UIAuthSpec\x12#\n" +
 	"\rpassword_hash\x18\x01 \x01(\fR\fpasswordHash\x129\n" +
@@ -2791,7 +3385,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -2826,17 +3420,25 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*Route)(nil),                 // 30: shoal.v1alpha1.Route
 	(*RouteSpec)(nil),             // 31: shoal.v1alpha1.RouteSpec
 	(*RouteStatus)(nil),           // 32: shoal.v1alpha1.RouteStatus
-	(*UIAuthSpec)(nil),            // 33: shoal.v1alpha1.UIAuthSpec
-	(*JoinToken)(nil),             // 34: shoal.v1alpha1.JoinToken
-	(*JoinTokenSpec)(nil),         // 35: shoal.v1alpha1.JoinTokenSpec
-	nil,                           // 36: shoal.v1alpha1.NodeSpec.LabelsEntry
-	nil,                           // 37: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 38: shoal.v1alpha1.ConfigSpec.DataEntry
-	(*timestamppb.Timestamp)(nil), // 39: google.protobuf.Timestamp
+	(*Certificate)(nil),           // 33: shoal.v1alpha1.Certificate
+	(*CertificateSpec)(nil),       // 34: shoal.v1alpha1.CertificateSpec
+	(*CertificateStatus)(nil),     // 35: shoal.v1alpha1.CertificateStatus
+	(*AcmeAccount)(nil),           // 36: shoal.v1alpha1.AcmeAccount
+	(*AcmeAccountSpec)(nil),       // 37: shoal.v1alpha1.AcmeAccountSpec
+	(*AcmeAccountStatus)(nil),     // 38: shoal.v1alpha1.AcmeAccountStatus
+	(*AcmeChallenge)(nil),         // 39: shoal.v1alpha1.AcmeChallenge
+	(*AcmeChallengeSpec)(nil),     // 40: shoal.v1alpha1.AcmeChallengeSpec
+	(*UIAuthSpec)(nil),            // 41: shoal.v1alpha1.UIAuthSpec
+	(*JoinToken)(nil),             // 42: shoal.v1alpha1.JoinToken
+	(*JoinTokenSpec)(nil),         // 43: shoal.v1alpha1.JoinTokenSpec
+	nil,                           // 44: shoal.v1alpha1.NodeSpec.LabelsEntry
+	nil,                           // 45: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 46: shoal.v1alpha1.ConfigSpec.DataEntry
+	(*timestamppb.Timestamp)(nil), // 47: google.protobuf.Timestamp
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	39, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	39, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	47, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	47, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	2,  // 3: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
 	13, // 4: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
@@ -2846,7 +3448,7 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	9,  // 8: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
 	12, // 9: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
 	6,  // 10: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	39, // 11: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	47, // 11: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
 	4,  // 12: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
 	5,  // 13: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
 	5,  // 14: shoal.v1alpha1.EnvSource.config:type_name -> shoal.v1alpha1.KeyRef
@@ -2858,20 +3460,20 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	16, // 20: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
 	17, // 21: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
 	2,  // 22: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	39, // 23: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
-	39, // 24: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	47, // 23: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	47, // 24: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
 	0,  // 25: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	19, // 26: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
 	20, // 27: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	36, // 28: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
-	39, // 29: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	44, // 28: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
+	47, // 29: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
 	21, // 30: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
 	0,  // 31: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	23, // 32: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	37, // 33: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	45, // 33: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
 	0,  // 34: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	25, // 35: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	38, // 36: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	46, // 36: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
 	0,  // 37: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	27, // 38: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
 	29, // 39: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
@@ -2879,15 +3481,28 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	0,  // 41: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	31, // 42: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
 	32, // 43: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
-	39, // 44: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
-	0,  // 45: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	35, // 46: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	39, // 47: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
-	48, // [48:48] is the sub-list for method output_type
-	48, // [48:48] is the sub-list for method input_type
-	48, // [48:48] is the sub-list for extension type_name
-	48, // [48:48] is the sub-list for extension extendee
-	0,  // [0:48] is the sub-list for field type_name
+	47, // 44: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
+	0,  // 45: shoal.v1alpha1.Certificate.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	34, // 46: shoal.v1alpha1.Certificate.spec:type_name -> shoal.v1alpha1.CertificateSpec
+	35, // 47: shoal.v1alpha1.Certificate.status:type_name -> shoal.v1alpha1.CertificateStatus
+	47, // 48: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
+	47, // 49: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
+	47, // 50: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
+	0,  // 51: shoal.v1alpha1.AcmeAccount.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	37, // 52: shoal.v1alpha1.AcmeAccount.spec:type_name -> shoal.v1alpha1.AcmeAccountSpec
+	38, // 53: shoal.v1alpha1.AcmeAccount.status:type_name -> shoal.v1alpha1.AcmeAccountStatus
+	0,  // 54: shoal.v1alpha1.AcmeChallenge.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	40, // 55: shoal.v1alpha1.AcmeChallenge.spec:type_name -> shoal.v1alpha1.AcmeChallengeSpec
+	47, // 56: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
+	47, // 57: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	0,  // 58: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	43, // 59: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
+	47, // 60: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	61, // [61:61] is the sub-list for method output_type
+	61, // [61:61] is the sub-list for method input_type
+	61, // [61:61] is the sub-list for extension type_name
+	61, // [61:61] is the sub-list for extension extendee
+	0,  // [0:61] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_resources_proto_init() }
@@ -2904,7 +3519,7 @@ func file_api_v1alpha1_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

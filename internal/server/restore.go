@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/backup"
 	"example.com/shoal/internal/security"
 	"example.com/shoal/internal/store"
@@ -43,7 +42,7 @@ func planRestore(cfg Config) (*restorePlan, error) {
 	}
 	hasSecrets := false
 	for _, r := range dump.Records {
-		if r.Kind == v1alpha1.KindSecret {
+		if isEncryptedKind(r.Kind) {
 			hasSecrets = true
 			break
 		}
@@ -57,7 +56,7 @@ func planRestore(cfg Config) (*restorePlan, error) {
 	case err != nil:
 		return nil, err
 	default:
-		if err := store.CheckEncrypted(key, dump.Records, v1alpha1.KindSecret); err != nil {
+		if err := store.CheckEncrypted(key, dump.Records, encryptedKinds...); err != nil {
 			return nil, fmt.Errorf("backup %s: %w: restore needs the secret.key the backup was taken with", cfg.RestoreFrom, err)
 		}
 	}

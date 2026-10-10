@@ -52,6 +52,8 @@ func (a *agentService) Sync(stream v1alpha1.Agent_SyncServer) error {
 		return err
 	}
 	name, addr := c.id.Name, peerAddr(ctx)
+	a.s.acks.connect(name)
+	defer a.s.acks.disconnect(name)
 	if err := stream.Send(&v1alpha1.ServerMessage{Msg: &v1alpha1.ServerMessage_Config{Config: &v1alpha1.SyncConfig{
 		HeartbeatInterval: durationpb.New(a.s.cfg.HeartbeatInterval),
 	}}}); err != nil {
@@ -111,7 +113,7 @@ func (a *agentService) Sync(stream v1alpha1.Agent_SyncServer) error {
 // forwards log requests: it is the stream's only sender.
 func (a *agentService) pushAssignments(ctx context.Context, node string, stream v1alpha1.Agent_SyncServer, logReqs <-chan *v1alpha1.LogRequest) error {
 	// Snapshots depend on replicas, the data they reference, Services and the mesh.
-	events := a.s.store.Watch(ctx, v1alpha1.KindReplica, v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindNode, v1alpha1.KindRoute)
+	events := a.s.store.Watch(ctx, v1alpha1.KindReplica, v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindNode, v1alpha1.KindRoute, v1alpha1.KindCertificate, v1alpha1.KindAcmeChallenge)
 	resync := time.NewTicker(a.s.cfg.AssignmentResync)
 	defer resync.Stop()
 	last, force := "", true
@@ -135,6 +137,7 @@ func (a *agentService) pushAssignments(ctx context.Context, node string, stream 
 		if err != nil {
 			return apiError(err)
 		}
+		a.s.acks.sent(node, rsnap.GetEdge(), challengeTokens(rsnap))
 		if err := routes.push(stream, rsnap, a.s.now(), force); err != nil {
 			return err
 		}
