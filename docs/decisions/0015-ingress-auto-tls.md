@@ -1,0 +1,334 @@
+# 0015: Ingress and automatic TLS
+
+Status: Proposed (Phase 6 follow-up; design only, no code yet)
+
+## Context
+Workloads are reachable inside the cluster through Services (ADR 0012): a
+virtual IP, `<name>.shoal` DNS, and iptables load balancing on every node.
+Nothing yet brings HTTP traffic from outside the cluster to a Service. Users
+today either publish host ports (`hostPort`, one node, no TLS) or put their
+own reverse proxy in front. Shoal should offer a small, built-in HTTP
+ingress: host and path routing to a Service, TLS certificates obtained and
+renewed automatically, and no extra component to install.
+
+The design has to fit the existing shape of the system:
+- Agents connect outbound to the server over gRPC with mTLS (ADR 0003). The
+  server never dials a node, so any inbound listener must live on the node
+  and receive its config through the existing agent session.
+- Object kinds are protobuf messages in `api/v1alpha1/resources.proto`,
+  decoded in `internal/objects`, validated in `internal/resource`
+  (`kinds.go`, `workload.go`) and applied through `internal/server/objects.go`.
+- Secrets are encrypted by `store.EncryptingStore` (AES-256-GCM, key from
+  `--encryption-key-file`, AAD = kind/name) for the kinds listed in
+  `server.go` (today only `Secret`).
+- The control plane is either sqlite (single node) or the Raft store (ADR
+  0014). Controllers run only while the node is leader, using the
+  `LeaderCh()` pattern.
+- The service proxy and DNS are in `internal/network` and run on every
+  agent. Service endpoints (`Service.status.endpoints`) are already
+  computed by the controller and delivered in the assignment snapshot.
+
+## Decision
+
+### 1. Object model: `Route`
+A new kind `Route`. One Route maps one host and optional path prefix to one
+Service port. The name is `Route` rather than `Ingress` to avoid confusion
+with the Kubernetes object of the same name.
+
+```yaml
+kind: Route
+metadata:
+  name: web
+spec:
+  host: app.example.com       # required, lowercase DNS name, no IP, no wildcard in v1
+  pathPrefix: /               # optional, default "/", must start with "/"
+  service: web                # Service name (names are cluster-wide)
+  port: 80                    # Service port (not the target port)
+  tls: auto                   # auto | none | secret
+  # tlsSecret: web-cert       # only with tls: secret; a Secret holding PEM cert + key
+  redirectHttp: true          # port 80 answers 308 to https; default true when tls != none
+```
+
+Proto: `RouteSpec { string host; string path_prefix; string service; int32
+port; TlsMode tls; string tls_secret; bool redirect_http; }` with
+`enum TlsMode { TLS_AUTO = 0; TLS_NONE = 1; TLS_SECRET = 2; }`. Default
+`tls` is `auto`. `RouteStatus { string state; string message; string
+cert_state; }`, where `state` is `Accepted` or `Rejected` (for example
+Service missing, duplicate host and path) and `cert_state` mirrors the
+Certificate record (section 3).
+
+Validation (`internal/resource`, same place as Service validation):
+- host is a valid DNS name, lowercased, at most 253 characters, not an IP;
+- pathPrefix starts with `/`, has no query, at most 256 characters;
+- `(host, pathPrefix)` is unique across Routes. Duplicate routes are
+  Rejected, not silently merged. Ties on one host go to the longest prefix;
+- `tls: secret` requires `tlsSecret`, and the Secret must exist when the
+  route is accepted;
+- `tls: none` forbids `redirectHttp: true`.
+
+Apply: `shoal apply -f` accepts `Route` in `objects.go` next to Workload,
+Service, Secret and Config. CLI and portal gain list, get and delete through
+the same paths.
+
+### 2. Edge proxy: labelled nodes, not the servers
+The edge runs in the agent, on nodes labelled `shoal.dev/edge=true`
+(`shoal agent --edge-listen :80,:443` enables it on that node; the label is
+what the server uses to push route config). Nodes without the label bind no
+ports.
+
+Why agents and not servers:
+- agents are the nodes with container bridges, and the proxy needs to reach
+  container IPs without a VIP hop;
+- servers hold the control plane; exposing 80/443 there mixes concerns and
+  makes a public HTTP flood hit Raft;
+- agents already accept config through the session, so no new inbound path
+  to the server is needed.
+
+Operators point DNS at the edge nodes (two or more for availability). DNS is
+external and out of scope; Shoal does not manage A records.
+
+Reaching endpoints: the edge does not use the iptables VIP. It takes the
+Service's `status.endpoints` (ready replicas only, from the controller) and
+dials `endpointIP:targetPort` directly, round robin over the endpoints. Cross-node
+traffic goes over the WireGuard mesh routes that already exist (ADR 0012);
+same-node traffic goes over the bridge. Pass B verifies that the host can
+route to container subnets from the host namespace.
+
+Route config reaches the edge through the existing agent session. The server
+adds a `RouteSnapshot` to the same stream that carries `AssignmentSnapshot`
+(`internal/agent/connected.go`). It contains the Routes, their target
+endpoints, and certificate bundles for edge nodes only. Like the assignment
+snapshot, the agent caches the last snapshot on disk, so the edge keeps
+serving during a server outage. The snapshot is versioned by store revision,
+and the edge applies only newer ones.
+
+Health-aware selection: the controller only lists Ready endpoints, which
+handles most cases. On top of that the edge does passive checks: a dial
+failure or a 502/503/504 from an endpoint puts it in a 10-second cooldown,
+and the request is retried once on another endpoint. Active HTTP probes are
+out of scope for v1.
+
+HTTP proxy: `net/http/httputil.ReverseProxy` with a custom transport. It
+handles websockets (connection upgrade) without extra code. Inbound HTTP/1.1
+and HTTP/2 are served by `net/http` (HTTP/2 over TLS through the standard
+ALPN support; cleartext h2c is not in v1). Upstream is HTTP/1.1 only in v1.
+
+Timeouts (defaults, configurable per agent later): read-header 10s, idle
+120s, upstream dial 5s, upstream response-header 60s. No whole-request write
+timeout, so streaming responses and websockets keep working.
+
+Headers: the edge sets `X-Forwarded-For` to the client address it sees
+(overwriting any client-supplied value), `X-Forwarded-Proto` and
+`X-Forwarded-Host` from the connection. It does not trust upstream proxies in
+v1; a load balancer in front of the edge is not supported until PROXY
+protocol is added (open question).
+
+Access logs: one structured JSON line per request through the agent's
+`slog` logger, with host, route name, method, path (without query), status,
+bytes, duration and upstream endpoint. Query strings are not logged because
+they often carry tokens.
+
+### 3. ACME and certificates
+Client: the lower-level `golang.org/x/crypto/acme` client, not `autocert`.
+`autocert` owns its own cache, challenge handling and renewal loop per
+process. That fits one process per domain, not one leader ordering for
+several edges that share challenge tokens through the store. The lower-level
+client gives control over which node orders, where tokens are stored, and when
+the leader accepts a challenge.
+
+Account: the leader creates one ECDSA P-256 account key per ACME directory
+(record kind `AcmeAccount`, keyed by directory URL). The key is encrypted at
+rest by the same mechanism as Secrets. Changing the directory (staging or
+production) creates a new account and does not reuse the old key.
+
+Staging: `shoal server --acme-staging` selects the Let's Encrypt staging
+directory. The default is production. Staging certificates are not trusted by
+browsers, so the Route status shows the issuer and whether it is staging.
+
+Certificate records: kind `Certificate`, name = host, containing the PEM chain,
+the private key, not-before and not-after, the ACME order URL and the
+renewal state. The private key is stored encrypted. The `EncryptingStore`
+kind list grows from `Secret` to `Secret, Certificate, AcmeAccount,
+AcmeChallenge`. Raft snapshots and backups then carry only ciphertext. Keys
+are never written to plain files on servers.
+
+Only Routes with `tls: auto` produce a Certificate. A Certificate is never
+issued for a host without a Route, so a client cannot make Shoal request
+certificates for arbitrary names.
+
+HTTP-01 challenge with several edges: the leader writes one `AcmeChallenge`
+record per token (name = token, value = key authorization, expiry 10
+minutes). The server includes the active challenges in `RouteSnapshot`, and
+every edge answers `GET /.well-known/acme-challenge/<token>` from its local
+copy. Validation can reach any edge, so the leader does not call `Accept`
+until every connected edge has acknowledged the snapshot revision that
+includes the token (acks ride on the existing heartbeat). If an edge
+disconnects during validation, the order is retried. The challenge path is
+always served on port 80 before any redirect.
+
+Leader gating: an `ingress` controller runs only while `LeaderCh()` reports
+this node as leader, like the other controllers (ADR 0014). It is the only
+writer of Certificate and AcmeAccount records. Orders are restartable: the
+order URL is stored in the Certificate record, so a new leader resumes an
+in-flight order or starts a new one after its token expires.
+
+Renewal: check every 12 hours with up to one hour of jitter. Renew when less
+than 30 days remain on a 90-day certificate. On failure, retry with
+exponential backoff from 1 hour, capped at 24 hours. Renewal is not blocked
+by the Route being edited, only by the Route existing with `tls: auto`.
+
+Rate limits: the controller reads the directory's limits and tracks them in
+the Certificate status. A `rateLimited` error sets `retryAfter` and suppresses
+new orders for that host until it passes. The relevant limits (verify the
+current numbers before pass C) are duplicate certificates per week, failed
+validations per hostname per hour, and new orders per account per window.
+
+Hot load: edges store the current `tls.Certificate` values in an atomic
+pointer. `tls.Config.GetCertificate` looks up the SNI name there. A new
+`RouteSnapshot` swaps the pointer without restarting the listener or dropping
+connections. Existing connections keep the old certificate until they close.
+
+Before a certificate exists, a `tls: auto` route has no certificate. The edge
+fails the TLS handshake for that name, and the Route status says
+`cert_state: Pending`.
+
+### 4. HTTP features in scope for v1
+In scope:
+- host and path-prefix routing (longest prefix wins, then route order);
+- websockets (via ReverseProxy upgrade);
+- HTTP/2 over TLS;
+- timeouts as above;
+- `X-Forwarded-*` as above;
+- round-robin over Ready endpoints, with passive cooldown;
+- access logs.
+
+Out of scope, recorded as later work:
+- rate limiting and connection limits (later pass, per Route);
+- authentication or authorization at the edge (forward auth, OIDC);
+- canary or weighted routing across Services;
+- header rewriting and redirect rules beyond `redirectHttp`;
+- active health probes;
+- upstream TLS and h2c;
+- PROXY protocol and trusted forwarders;
+- wildcard hosts, and DNS-01 challenges (needed for wildcard certificates
+  and for hosts where HTTP-01 cannot reach an edge);
+- TCP and UDP ingress.
+
+### 5. Security
+- SNI: the TLS listener accepts only names that have a certificate in the
+  edge's current snapshot. Unknown or missing SNI fails the handshake; it
+  does not present a default certificate.
+- Unknown host on HTTP or HTTPS: the edge returns a fixed `404 Not Found`
+  with a generic body, the same for every unknown host, with no list of
+  routes, no Service names, and no version string. Response timing is not
+  equalised; that is accepted.
+- Hostnames are case-folded and the port is stripped before lookup. Host
+  headers with other shapes get the same 404.
+- Certificate keys: encrypted in the store (section 3); in memory on edges
+  only; the edge's cached snapshot file is written with 0600 permissions and
+  contains the keys only if pass B decides to cache them (open question).
+  Keys travel to edges over the existing mTLS agent session, the same trust
+  boundary that Secrets already cross today.
+- Who may create Routes: not defined yet. Shoal has no RBAC. Any client that
+  can apply objects can create or change Routes, so anyone who can apply
+  Routes can also point a hostname at any Service and request a certificate
+  for it. RBAC is a prerequisite for multi-team clusters and is listed as
+  later work. Until then, Route creation is as privileged as Secret creation.
+- Route creation does not run a host ownership check. ACME HTTP-01 proves
+  control of the name, which is the only check v1 performs.
+- Logs never contain query strings, cookies or Authorization headers.
+
+### 6. Testing plan
+Unit tests (`go test ./...`, no network):
+- `Route` validation: hosts, prefixes, duplicates, tls-mode rules;
+- routing table: longest prefix, case folding, port stripping;
+- endpoint selection: round robin over Ready endpoints, cooldown and retry;
+- certificate selection by SNI, and hot swap via snapshot;
+- `EncryptingStore` round trip for the new kinds (store test pattern);
+- rate-limit and backoff logic, with a fake clock.
+
+In-process tests with a fake ACME server: pebble
+(`github.com/letsencrypt/pebble`), run as a child process from a test with a
+build tag (`acme_integration`). Its `challtestsrv` resolves test names to
+loopback. The pebble config sets its HTTP-01 validation port to the edge's
+test listener port. The test edge binds an ephemeral loopback port, never
+80 or 443. The x/crypto/acme package has no fake server of its own, so pebble
+is the only option that exercises the real protocol. The fake-server tests
+cover: first issuance, renewal at the threshold, multi-edge validation
+(two edge processes, the token answered by the one that did not order),
+leader failover mid-order, and rate-limit responses (pebble's configurable
+limits or an injected error).
+
+CI workflow (`.github/workflows/ingress.yml`): runs on a disposable GitHub
+hosted runner, installs pebble and runs the `acme_integration` tests. Nothing
+in CI binds 80 or 443 on a shared machine.
+
+Shared VPS: `codex-vps` must never bind 80 or 443 for ingress work. Tests use
+only loopback ephemeral ports. `--edge-listen` defaults to empty, so an
+ordinary `shoal agent` binds nothing new. Manual testing on the VPS uses
+high ports only (for example 8080 and 8443), and the Makefile target for
+the edge refuses ports 80 and 443 unless `SHOAL_EDGE_ALLOW_PRIVILEGED=1` is
+set on a disposable machine.
+
+### 7. Implementation plan
+Each pass is about one agent session and leaves the tree green.
+
+- **Pass A: Route object, validation, CLI.** Proto messages and generated
+  code; `Route` in `objects.go` and `internal/resource`; apply, get, list and
+  delete through the CLI and API; unique-host check; status `Accepted` or
+  `Rejected`. No edge, no ACME. Tests: validation and apply round trips.
+- **Pass B: edge proxy with static or self-signed certificates.**
+  `RouteSnapshot` in the agent session and cache; `--edge-listen` and the
+  edge label; ReverseProxy with endpoint round robin, cooldown, timeouts,
+  `X-Forwarded-*`, access logs, redirect and the 404 path; certificates from
+  `tls: secret` Secrets, plus a self-signed certificate for local tests.
+  Verifies host-to-container-subnet reachability on a two-node setup.
+- **Pass C: ACME, certificate store, leader renewal.** `Certificate` and
+  `AcmeAccount` kinds added to the encrypted kinds list; the `ingress`
+  controller under leader gating; the HTTP-01 flow with `AcmeChallenge`
+  records, the snapshot acks and the staging flag; renewal timing, backoff
+  and rate-limit tracking; hot cert load on edges. Tests: unit tests, plus
+  pebble locally.
+- **Pass D: CI with pebble.** `ingress.yml` on a disposable runner; the
+  `acme_integration` suite; the VPS guard in the Makefile; docs for the
+  staging flag and DNS setup.
+- **Pass E: hardening and docs.** Access-log review, timeout and header
+  edge cases (websocket close, slow clients), a README section, and a
+  two-node manual check on the VPS using high ports only.
+
+Passes A and B can be built before C. Without C, `tls: auto` routes stay
+Pending and the edge serves only `tls: none` and `tls: secret` routes.
+
+## Consequences
+- Edges are agents, so the ingress IP is whichever edge DNS points at. Two
+  or more edges are needed for availability, and DNS failover is the
+  operator's job. A load balancer in front is not supported in v1.
+- Config and certificates reuse the agent session and the encrypted store.
+  No new trust channel and no new inbound port on servers.
+- Certificate issuance depends on leader gating and on edge acks. A
+  partitioned edge can delay validation; the leader retries rather than
+  giving up.
+- Let's Encrypt limits are external. A misconfigured Route can hit them, so
+  staging must be the default for any test, and the backoff and status
+  fields exist to make that visible.
+- Route creation is as powerful as Secret creation until RBAC exists.
+- Endpoint selection depends on the controller's readiness view, which
+  already has the partition caveats in ADR 0012. Passive cooldown reduces
+  the window but does not remove it.
+- No WAF, auth, rate limits or canary routing in v1. Users who need them
+  keep a separate proxy in front, which the edge does not prevent.
+
+## Open questions
+- Should edges cache certificate private keys on disk for restarts without
+  a server, or hold them in memory and wait for the server? Decide in pass B.
+- Edge label name and default: `shoal.dev/edge=true` is a proposal. Should
+  servers ever be allowed to carry it?
+- PROXY protocol support, needed for load balancers in front of edges and
+  for real client IPs.
+- DNS-01 provider plugins, needed for wildcard hosts. Which providers, if any?
+- Whether `RouteSnapshot` should be a separate gRPC stream rather than part
+  of the assignment snapshot, to avoid head-of-line effects on replica
+  reconciliation.
+- Exact Let's Encrypt limits and their current values (verify in pass C).
+- How the edge reports certificate expiry to operators: a status field on
+  Route, a portal view, or both.
