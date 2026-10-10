@@ -1,6 +1,6 @@
 # 0015: Ingress and automatic TLS
 
-Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented; passes B to E are not.
+Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers; no agent wiring, no ACME) is implemented. The rest of pass B and passes C to E are not.
 
 ## Context
 Workloads are reachable inside the cluster through Services (ADR 0012): a
