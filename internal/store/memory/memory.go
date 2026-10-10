@@ -97,8 +97,14 @@ func (s *Store) Create(_ context.Context, rec store.Record) (store.Record, error
 		if _, ok := s.records[k]; ok {
 			return store.Event{}, fmt.Errorf("%s %q: %w", rec.Kind, rec.Name, store.ErrExists)
 		}
+		// A caller that replicates writes (raftstore) supplies the UID so
+		// every replica assigns the same one; otherwise it is random.
+		uid := rec.UID
+		if uid == "" {
+			uid = store.NewUID()
+		}
 		out = store.Record{
-			Kind: rec.Kind, Name: rec.Name, UID: store.NewUID(), Generation: 1, Revision: rev,
+			Kind: rec.Kind, Name: rec.Name, UID: uid, Generation: 1, Revision: rev,
 			CreatedAt: now, UpdatedAt: now, Spec: bytes.Clone(rec.Spec), Status: bytes.Clone(rec.Status),
 		}
 		s.records[k] = out
@@ -162,6 +168,29 @@ func (s *Store) Delete(_ context.Context, kind, name string, generation int64) e
 
 func (s *Store) Watch(ctx context.Context, kinds ...string) <-chan store.Event {
 	return s.hub.Subscribe(ctx, kinds...)
+}
+
+// Dump returns the current revision and every record, for snapshots.
+func (s *Store) Dump() (int64, []store.Record) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]store.Record, 0, len(s.records))
+	for _, r := range s.records {
+		out = append(out, clone(r))
+	}
+	return s.rev, out
+}
+
+// Load replaces all records and the revision with a Dump result. It
+// publishes no events; watchers resync on their own schedule.
+func (s *Store) Load(rev int64, recs []store.Record) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.rev = rev
+	s.records = make(map[key]store.Record, len(recs))
+	for _, r := range recs {
+		s.records[key{r.Kind, r.Name}] = clone(r)
+	}
 }
 
 func (s *Store) Close() error { return nil }
