@@ -1,0 +1,24 @@
+name: HA chaos
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ha-chaos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run three-node Raft chaos scenario
+        run: bash hack/ha-chaos.sh
+      - name: Upload server logs and step evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ha-chaos-evidence
+          path: test-results/
+          retention-days: 14
