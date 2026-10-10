@@ -62,8 +62,8 @@ and Configs. To keep the portal off the network, use
 
 By default the server keeps its state in SQLite (`--store=sqlite`). With
 `--store=raft` the state is kept in a Raft log under `<data-dir>/raft`
-instead (ADR 0014). The raft store runs one node for now: that node is always
-the leader, and joining more nodes is not supported yet.
+instead (ADR 0014). Several servers can share one raft cluster; see
+[Cluster membership](#cluster-membership) below.
 
 ```sh
 sudo ./bin/shoal server --store=raft
@@ -76,6 +76,50 @@ sudo ./bin/shoal server --store=raft
 
 Switching an existing data dir between backends does not migrate data. The
 server starts with an empty store on the other backend.
+
+## Cluster membership
+
+Servers with `--store=raft` can form one cluster. Each new server first needs
+the cluster CA and secret key. A join bundle carries both, so nothing has to
+be copied by hand. On an existing server, as admin:
+
+```sh
+sudo ./bin/shoal cluster join-bundle --out /root/join.bundle
+```
+
+Move the file to the new server over a private channel, then start it:
+
+```sh
+sudo ./bin/shoal server --store=raft --raft-node-id=node-2 \
+  --raft-join=10.0.0.5:7443 --raft-join-bundle=/root/join.bundle
+```
+
+`--raft-join-bundle` installs the CA and key into `--data-dir` before the
+first start. It refuses if the data dir already holds a different CA or
+secret key, and writes nothing in that case. Running again with the same
+bundle changes nothing, so the flag can stay in the service unit.
+
+Inspect and change the membership (admin):
+
+```sh
+sudo ./bin/shoal cluster status         # members, voters, leader, indexes
+sudo ./bin/shoal cluster remove node-3  # remove a member by its node ID
+```
+
+- `status` lists each member with its raft address, voter and leader flags.
+  It also shows the leader's API address and the commit and applied index of
+  the server you asked.
+- `remove` refuses to remove the last voter. It can remove the leader
+  itself: the leader steps down once the change commits, and the others elect
+  a new leader. Stop the removed server's process afterwards. A removed server
+  that keeps running may try to start elections.
+
+**Security.** A join bundle is a cluster secret. It holds the CA private key,
+which can issue certificates for the cluster, and the key that decrypts
+Secrets. `join-bundle` creates the file with mode 0600 and refuses to
+overwrite one. Move it only over a channel you trust, and delete it once the
+new server has started. Each bundle issue is logged on the server with a
+warning and the caller's address.
 
 ## Try it: cluster
 

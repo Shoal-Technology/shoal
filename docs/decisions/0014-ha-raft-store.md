@@ -1,7 +1,8 @@
 # 0014: HA Raft store
 
-Status: Accepted (implemented in Phase 6; multi-node join (pass 2c) and write
-forwarding (pass 2d) are done; a membership CLI and backup are pending)
+Status: Accepted (implemented in Phase 6; multi-node join (pass 2c), write
+forwarding (pass 2d) and the membership CLI with join bundle (pass 2e) are
+done; a backup command is pending)
 
 ## Context
 ADR 0002 keeps the `Store` contract small (single-object compare-and-swap,
@@ -74,8 +75,7 @@ restart replays a short log.
   for control-plane traffic, but status heartbeats need to be watched for
   write amplification.
 - Watch consumers must tolerate missed events after a snapshot restore.
-- Not done yet: multi-node join, write forwarding from followers, a
-  membership CLI, and a backup command (see pass 2b above).
+- Not done yet: a backup command.
 
 ## Wiring
 Pass 2a wires the raft store into the server as an opt-in backend
@@ -141,10 +141,9 @@ aftstore.LeaderCh() reports this node as leader. The server
   again, so it is safe. A restarted node that binds a new raft port updates
   its address the same way.
 - Shared PKI: all servers in one cluster share the cluster CA (`pki/`) and
-  the secret encryption key (`secret.key`). An operator copies both from an
-  existing server's data dir before a joining node's first start. The
-  joiner's admin credentials come from that CA, so without the copy the
-  leader rejects the join. A command for this copy is not built.
+  the secret encryption key (`secret.key`). The joiner's admin credentials
+  come from that CA, so without these files the leader rejects the join.
+  Pass 2e replaces the manual copy with a join bundle (see pass 2e below).
 - Readiness fix: a joining follower can know a leader while its commit
   index is still 0. `WaitReady` now requires a non-zero commit index before
   it reports a follower ready.
@@ -177,4 +176,42 @@ Option B is implemented.
   surviving follower, reads of pre- and post-failover records, and leader
   tasks running on the new leader only. A test-only gate counts overlapping
   leader-task runs.
-- Still not done: a membership CLI and a backup command.
+- Still not done: a backup command. (The membership CLI is done in pass 2e.)
+
+## Pass 2e: membership CLI and join bundle (done)
+- `Control.ClusterStatus` (admin) lists the raft members (node ID, raft
+  address, voter, leader), the leader's API address from the leader record,
+  and the commit and applied index of the server that answers. Any server
+  can answer. Its view may lag the leader by a few entries.
+- `Control.RemoveServer` (admin) runs raft RemoveServer on the leader. A
+  follower forwards it like any write. It refuses to remove the last voter
+  (FailedPrecondition), returns NotFound for an unknown ID, and serializes
+  removals on the node. Removing the leader itself is allowed: it steps down
+  once the change commits, and the others elect a new leader. The cluster
+  does not stop the removed server. The operator does, because a removed
+  server that keeps running may try to start elections.
+- `Control.JoinBundle` (admin) returns a JSON bundle, format
+  `shoal-join-bundle/v1`: the CA certificate (PEM), the CA key (PEM), the
+  secret encryption key, and the CA hash. `shoal cluster join-bundle --out`
+  writes it with mode 0600 and refuses to overwrite a file.
+- `shoal server --raft-join-bundle=<file>` installs the bundle in `New`,
+  before the CA is loaded, so no CA is generated first. It checks that the
+  CA certificate is PEM and matches the CA hash. Then, for each of
+  `pki/ca.crt`, `pki/ca.key` and the secret key file, it checks the target
+  before it writes anything. An absent file is created with mode 0600
+  (O_EXCL). A file that is byte-identical to the bundle is kept. A file that
+  differs makes the whole install fail, so a data dir that holds another
+  cluster's PKI is never overwritten. Running again with the same bundle is a
+  no-op.
+- Security: the bundle is a cluster secret. The CA key can issue
+  certificates for the cluster, and the secret key decrypts Secrets at rest.
+  It grants nothing that copying `pki/` and `secret.key` by hand did not
+  already grant. What changes is that the copy is explicit, file mode 0600,
+  and logged: each issue writes a warning with the caller's address. The
+  operator must still move it over a trusted channel and delete it after use.
+  The file is not encrypted, so its protection is file mode, the admin TLS
+  channel and handling.
+- Tests (`internal/server/membership_test.go`): `TestClusterStatus`,
+  `TestClusterRefusesLastVoter`, `TestClusterRemoveLeader`,
+  `TestClusterJoinBundle` and `TestClusterJoinBundleConflictingPKI`. They run
+  in process on 127.0.0.1:0.
