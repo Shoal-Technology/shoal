@@ -2,14 +2,19 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 
 	"example.com/shoal/api/v1alpha1"
+	"example.com/shoal/internal/security"
 )
 
 func raftOpts(nodeID, joinAddr string) func(*Config) {
@@ -101,4 +106,134 @@ func TestRaftJoinCluster(t *testing.T) {
 		info, err := n2b.ClusterLeader(ctx)
 		return err == nil && info == want
 	})
+}
+
+// adminTLS returns the admin client TLS config from a server's data dir.
+func adminTLS(t *testing.T, dir string) *tls.Config {
+	t.Helper()
+	cfg, err := security.LoadClientConfig(AdminConfigPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := cfg.Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p.TLS()
+}
+
+// forwardingClient dials addr the way the CLI does: writes that reach a
+// follower are retried once on the leader.
+func forwardingClient(t *testing.T, addr string, tc *tls.Config) v1alpha1.ControlClient {
+	t.Helper()
+	conn, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(credentials.NewTLS(tc)),
+		grpc.WithUnaryInterceptor(LeaderRetry(tc)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	return v1alpha1.NewControlClient(conn)
+}
+
+// workloadYAML is webYAML under another name, so each write creates a record.
+func workloadYAML(name string) string {
+	return strings.ReplaceAll(webYAML, "name: web }", "name: "+name+" }")
+}
+
+// TestRaftWriteForwarding runs the three-node cluster through a write on a
+// follower, a leader failover and more writes. It checks that the leader
+// tasks run on one node at a time (ADR 0014, pass 2d).
+func TestRaftWriteForwarding(t *testing.T) {
+	ctx := context.Background()
+	gate := newLeaderGate()
+	gated := func(nodeID, join string) func(*Config) {
+		return func(c *Config) {
+			raftOpts(nodeID, join)(c)
+			c.leaderGate = gate
+		}
+	}
+
+	dir1 := t.TempDir()
+	n1 := startServer(t, dir1, &clock{}, gated("node-1", ""))
+	dir2 := t.TempDir()
+	copyCluster(t, dir1, dir2)
+	n2 := startServer(t, dir2, &clock{}, gated("node-2", n1.addr))
+	dir3 := t.TempDir()
+	copyCluster(t, dir1, dir3)
+	n3 := startServer(t, dir3, &clock{}, gated("node-3", n1.addr))
+	tc := adminTLS(t, dir1)
+
+	eventually(t, "leader record on every node", func() bool {
+		for _, n := range []*testServer{n1, n2, n3} {
+			info, err := n.ClusterLeader(ctx)
+			if err != nil || info.APIAddress != n1.addr {
+				return false
+			}
+		}
+		return true
+	})
+	eventually(t, "leader tasks on node-1", func() bool {
+		holders, _ := gate.snapshot()
+		return len(holders) == 1 && holders[0] == "node-1"
+	})
+
+	// (a) A plain client gets the leader's address from a follower. The
+	// forwarding client gets the write done.
+	_, err := n2.admin(t).Apply(ctx, &v1alpha1.ApplyRequest{Objects: decode(t, workloadYAML("before"))})
+	wantCode(t, err, codes.FailedPrecondition, n1.addr)
+	if _, err := forwardingClient(t, n2.addr, tc).Apply(ctx, &v1alpha1.ApplyRequest{Objects: decode(t, workloadYAML("before"))}); err != nil {
+		t.Fatalf("write via follower: %v", err)
+	}
+	admin1 := n1.admin(t)
+	eventually(t, "forwarded write visible on the leader", func() bool {
+		_, err := admin1.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: "before"})
+		return err == nil
+	})
+
+	// (b) The leader stops. A survivor takes over and rewrites the leader
+	// record. A write through the other survivor still succeeds.
+	n1.stop()
+	var leader, follower *testServer
+	eventually(t, "new leader record on the survivors", func() bool {
+		i2, err2 := n2.ClusterLeader(ctx)
+		i3, err3 := n3.ClusterLeader(ctx)
+		if err2 != nil || err3 != nil || i2 != i3 || i2.RaftNodeID == "node-1" {
+			return false
+		}
+		switch i2.APIAddress {
+		case n2.addr:
+			leader, follower = n2, n3
+		case n3.addr:
+			leader, follower = n3, n2
+		default:
+			return false
+		}
+		return true
+	})
+	if _, err := forwardingClient(t, follower.addr, tc).Apply(ctx, &v1alpha1.ApplyRequest{Objects: decode(t, workloadYAML("after"))}); err != nil {
+		t.Fatalf("write via surviving follower after failover: %v", err)
+	}
+	for _, n := range []*testServer{leader, follower} {
+		client := n.admin(t)
+		eventually(t, "records from before and after failover readable on "+n.addr, func() bool {
+			for _, name := range []string{"before", "after"} {
+				if _, err := client.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: name}); err != nil {
+					return false
+				}
+			}
+			return true
+		})
+	}
+
+	// (c) The leader tasks run on the new leader only, and never on two
+	// nodes at once.
+	wantID := leader.cfg.RaftNodeID
+	eventually(t, "leader tasks on the new leader only", func() bool {
+		holders, _ := gate.snapshot()
+		return len(holders) == 1 && holders[0] == wantID
+	})
+	if _, violations := gate.snapshot(); violations != 0 {
+		t.Fatalf("leader tasks ran on two nodes at once %d times", violations)
+	}
 }

@@ -1,6 +1,56 @@
 package server
 
-import "context"
+import (
+	"context"
+	"sort"
+	"sync"
+)
+
+// leaderGate is a test hook. It tracks which nodes are running the leader
+// tasks and counts each moment when more than one node runs them.
+type leaderGate struct {
+	mu         sync.Mutex
+	running    map[string]bool
+	violations int
+}
+
+func newLeaderGate() *leaderGate {
+	return &leaderGate{running: map[string]bool{}}
+}
+
+func (g *leaderGate) enter(node string) {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.running[node] = true
+	if len(g.running) > 1 {
+		g.violations++
+	}
+}
+
+func (g *leaderGate) leave(node string) {
+	if g == nil {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	delete(g.running, node)
+}
+
+// snapshot returns the nodes running the leader tasks, sorted, and the number
+// of overlaps seen so far.
+func (g *leaderGate) snapshot() ([]string, int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var nodes []string
+	for n := range g.running {
+		nodes = append(nodes, n)
+	}
+	sort.Strings(nodes)
+	return nodes, g.violations
+}
 
 // alwaysLeader is the leadership signal for the sqlite store: one node,
 // always the leader. The channel is never closed.

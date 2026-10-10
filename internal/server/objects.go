@@ -27,6 +27,9 @@ func apiError(err error) error {
 		return err
 	}
 	switch {
+	case isNotLeader(err):
+		// Callers name the leader's address; see unaryLeader and writeRPCError.
+		return status.Error(codes.FailedPrecondition, notLeaderMsg)
 	case errors.Is(err, store.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrExists):

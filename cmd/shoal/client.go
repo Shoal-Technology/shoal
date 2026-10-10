@@ -75,7 +75,11 @@ func (f *clientFlags) connect() (*client, error) {
 	if f.server != "" {
 		addr = f.server
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(p.TLS())))
+	// A write sent to a follower fails with the leader's address; the
+	// interceptor retries it once there (ADR 0014).
+	conn, err := grpc.NewClient(addr,
+		grpc.WithTransportCredentials(credentials.NewTLS(p.TLS())),
+		grpc.WithUnaryInterceptor(server.LeaderRetry(p.TLS())))
 	if err != nil {
 		return nil, fmt.Errorf("connect to %s: %w", addr, err)
 	}

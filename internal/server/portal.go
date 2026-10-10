@@ -334,14 +334,14 @@ func (p *portal) list(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := p.ctl.List(r.Context(), &v1alpha1.ListRequest{Kind: kind})
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	items := make([]json.RawMessage, 0, len(resp.GetItems()))
 	for _, o := range resp.GetItems() {
 		b, err := jsonOpts.Marshal(resource.Inner(o))
 		if err != nil {
-			writeRPCError(w, err)
+			p.writeRPCError(w, err)
 			return
 		}
 		items = append(items, b)
@@ -356,12 +356,12 @@ func (p *portal) get(w http.ResponseWriter, r *http.Request) {
 	}
 	obj, err := p.ctl.Get(r.Context(), &v1alpha1.GetRequest{Kind: kind, Name: r.PathValue("name")})
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	b, err := jsonOpts.Marshal(resource.Inner(obj))
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -380,7 +380,7 @@ func (p *portal) yaml(w http.ResponseWriter, r *http.Request) {
 	}
 	obj, err := p.ctl.Get(r.Context(), &v1alpha1.GetRequest{Kind: kind, Name: r.PathValue("name")})
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	meta := &v1alpha1.ObjectMeta{Name: r.PathValue("name")}
@@ -398,7 +398,7 @@ func (p *portal) yaml(w http.ResponseWriter, r *http.Request) {
 	}
 	y, err := resource.EncodeYAML(m)
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
@@ -411,7 +411,7 @@ func (p *portal) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := p.ctl.Delete(r.Context(), &v1alpha1.DeleteRequest{Kind: kind, Name: r.PathValue("name")}); err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -431,7 +431,7 @@ func (p *portal) apply(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := p.ctl.Apply(r.Context(), &v1alpha1.ApplyRequest{Objects: objs})
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	var results []map[string]string
@@ -443,7 +443,7 @@ func (p *portal) apply(w http.ResponseWriter, r *http.Request) {
 
 func (p *portal) restart(w http.ResponseWriter, r *http.Request) {
 	if _, err := p.ctl.RestartWorkload(r.Context(), &v1alpha1.RestartWorkloadRequest{Name: r.PathValue("name")}); err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -463,7 +463,7 @@ func (p *portal) scale(w http.ResponseWriter, r *http.Request) {
 		return resource.ValidateWorkload(w)
 	})
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -495,19 +495,19 @@ func (p *portal) patchData(w http.ResponseWriter, r *http.Request) {
 	case err == nil && kind == v1alpha1.KindSecret:
 		s, err := objects.Secret(rec)
 		if err != nil {
-			writeRPCError(w, err)
+			p.writeRPCError(w, err)
 			return
 		}
 		data = s.Spec.GetData()
 	case err == nil:
 		c, err := objects.Config(rec)
 		if err != nil {
-			writeRPCError(w, err)
+			p.writeRPCError(w, err)
 			return
 		}
 		data = c.Spec.GetData()
 	case !errors.Is(err, store.ErrNotFound):
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	if data == nil {
@@ -524,7 +524,7 @@ func (p *portal) patchData(w http.ResponseWriter, r *http.Request) {
 		obj = &v1alpha1.Object{Kind: &v1alpha1.Object_Secret{Secret: &v1alpha1.Secret{Metadata: &v1alpha1.ObjectMeta{Name: name}, Spec: &v1alpha1.SecretSpec{Data: data}}}}
 	}
 	if _, err := p.ctl.Apply(r.Context(), &v1alpha1.ApplyRequest{Objects: []*v1alpha1.Object{obj}}); err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -546,7 +546,7 @@ func (p *portal) token(w http.ResponseWriter, r *http.Request) {
 		Ttl: durationpb.New(time.Duration(req.TTLHours) * time.Hour), MaxUses: req.MaxUses, Description: "web portal",
 	})
 	if err != nil {
-		writeRPCError(w, err)
+		p.writeRPCError(w, err)
 		return
 	}
 	writeJSON(w, map[string]any{
@@ -617,7 +617,16 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-func writeRPCError(w http.ResponseWriter, err error) {
+// writeRPCError answers a failed control call. A write that reached a
+// follower gets 503 with the leader's API address in the message, so a
+// client can retry there (ADR 0014).
+func (p *portal) writeRPCError(w http.ResponseWriter, err error) {
+	if isNotLeader(err) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		writeError(w, http.StatusServiceUnavailable, status.Convert(p.s.notLeader(ctx)).Message())
+		return
+	}
 	st := status.Convert(apiError(err))
 	code := http.StatusInternalServerError
 	switch st.Code() {

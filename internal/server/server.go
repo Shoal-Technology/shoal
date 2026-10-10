@@ -67,6 +67,10 @@ type Config struct {
 	// RaftNodeID names this node in the Raft cluster (StoreRaft only);
 	// default is the host name.
 	RaftNodeID string
+
+	// leaderGate is a test hook that records which nodes run the leader
+	// tasks. Nil in production.
+	leaderGate *leaderGate
 }
 
 // Store backends for Config.StoreBackend.
@@ -131,6 +135,9 @@ type Server struct {
 
 	// raft is the raft store (StoreRaft only), nil otherwise.
 	raft *raftstore.Store
+
+	// gate is the test hook from Config.leaderGate; nil in production.
+	gate *leaderGate
 
 	// leadership carries this node's leadership changes. Background writers
 	// run only while it reports true.
@@ -228,6 +235,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		log:   cfg.Log,
 		store: st,
 		raft:  raftStore,
+		gate:  cfg.leaderGate,
 		ca:    ca,
 		nodes: newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
 		ctrl: controller.New(controller.Config{
@@ -281,7 +289,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	s.grpc = grpc.NewServer(
 		grpc.Creds(credentials.NewTLS(security.ServerTLS(ca.Cert, leaf, key))),
-		grpc.ChainUnaryInterceptor(s.unaryAuth),
+		grpc.ChainUnaryInterceptor(s.unaryAuth, s.unaryLeader),
 		grpc.ChainStreamInterceptor(s.streamAuth),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true}),
 		grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}),
@@ -397,6 +405,8 @@ func (s *Server) Close() error { return s.store.Close() }
 // join token cleanup. It runs only while this node is the leader (see
 // runWhileLeader) and returns when ctx is cancelled.
 func (s *Server) runLeaderTasks(ctx context.Context) {
+	s.gate.enter(s.cfg.RaftNodeID)
+	defer s.gate.leave(s.cfg.RaftNodeID)
 	// A new leader must not judge nodes by heartbeats it never saw.
 	s.nodes.beginTerm(s.now())
 	// Followers find the leader's API through this record, so it must be

@@ -1,8 +1,7 @@
 # 0014: HA Raft store
 
-Status: Accepted (implemented in Phase 6, single-node and 3-node in tests;
-server wiring is single-node only; multi-node join and write forwarding are
-pending)
+Status: Accepted (implemented in Phase 6; multi-node join (pass 2c) and write
+forwarding (pass 2d) are done; a membership CLI and backup are pending)
 
 ## Context
 ADR 0002 keeps the `Store` contract small (single-object compare-and-swap,
@@ -48,9 +47,10 @@ observe the latest committed write has to go to the leader. Nothing in this
 ADR relies on follower reads for correctness yet.
 
 ## Write contract
-A write on a follower returns `ErrNotLeader` (checkable with `errors.Is`).
-Nothing is forwarded yet. Forwarding to the leader is the next pass, and
-callers must not assume a write reached the leader until it succeeds.
+A write on a follower returns `ErrNotLeader` (checkable with `errors.Is`) at
+the store. At the API it becomes a FailedPrecondition naming the leader (see
+pass 2d). The CLI retries once on the leader. Callers that do not retry must
+not assume a write reached the leader until it succeeds.
 
 ## Watch and snapshots
 Watch delivers events from applied commands. Restore publishes no events
@@ -150,4 +150,31 @@ aftstore.LeaderCh() reports this node as leader. The server
   it reports a follower ready.
 - Not done: write forwarding. Only JoinCluster redirects. Other writes on a
   follower still return ErrNotLeader to the caller, and the CLI does not
-  retry against the leader yet.
+  retry against the leader yet. (Done in pass 2d, below.)
+
+## Pass 2d: write forwarding (done)
+Option B is implemented.
+- Server: `apiError` maps `raftstore.ErrNotLeader` to
+  `FailedPrecondition` with the message `not the leader`. A unary
+  interceptor (`unaryLeader`, in `internal/server/forward.go`) catches any
+  not-leader error from a handler and replaces it with
+  `not the leader; leader API address is <addr>`. The address comes from the
+  `Cluster/leader` record. If no record exists yet, the message is
+  `not the leader; no leader is known yet` and the client does not retry.
+- Portal: a write that reaches a follower returns HTTP 503 with the same
+  message, so the leader address is in the JSON `error` field. The portal
+  does not redirect the browser; the operator opens the leader's URL.
+- Client: `server.LeaderRetry(tls)` is a unary client interceptor. It is
+  installed by the CLI's `connect`. On a not-leader error it dials the
+  leader's address with the same TLS config and retries the call once.
+  The retry connection has no interceptor, so it cannot loop. A follower
+  rejects a write before it changes anything, so the retry cannot apply a
+  write twice.
+- Scope: unary RPCs only. Streaming RPCs that write (agent streams) are not
+  forwarded. Agents reconnect to a leader through the join flow.
+- Test: `TestRaftWriteForwarding` (cluster_test.go) covers a write through a
+  follower, a leader stop with a new leader record, a write through the
+  surviving follower, reads of pre- and post-failover records, and leader
+  tasks running on the new leader only. A test-only gate counts overlapping
+  leader-task runs.
+- Still not done: a membership CLI and a backup command.
