@@ -24,6 +24,7 @@ func newAgentCmd(c *cli) *cobra.Command {
 		stopTimeout time.Duration
 
 		serverAddr, token, caHash, nodeName string
+		edgeHTTP, edgeHTTPS                 string
 	)
 	cmd := &cobra.Command{
 		Use:   "agent",
@@ -49,9 +50,14 @@ keep running when the agent stops.`,
 			ctx := cmd.Context()
 
 			if !standalone {
+				// The edge listens only while the server says this node is an
+				// edge (the shoal.dev/edge label); see agent.Edge.
+				ingress := agent.NewEdge(edgeHTTP, edgeHTTPS, log)
+				defer ingress.Close()
 				a, closeRT, err := startConnected(ctx, &rf, &nf, log, agent.ConnectedConfig{
 					Server: serverAddr, Token: token, CAHash: caHash, NodeName: nodeName,
 					SyncInterval: interval, Reconciler: agent.Config{StopTimeout: stopTimeout},
+					Edge: ingress,
 				}, nil)
 				if err != nil {
 					return err
@@ -94,6 +100,8 @@ keep running when the agent stops.`,
 	cmd.Flags().StringVarP(&file, "file", "f", "", "replicas file (standalone mode)")
 	cmd.Flags().DurationVar(&interval, "sync-interval", 2*time.Second, "how often to reconcile")
 	cmd.Flags().DurationVar(&stopTimeout, "stop-timeout", 10*time.Second, "grace period before SIGKILL")
+	cmd.Flags().StringVar(&edgeHTTP, "edge-http", ":80", "HTTP listener used while this node is an ingress edge (empty disables)")
+	cmd.Flags().StringVar(&edgeHTTPS, "edge-https", ":443", "HTTPS listener used while this node is an ingress edge (empty disables)")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "server")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "token")
 	return cmd

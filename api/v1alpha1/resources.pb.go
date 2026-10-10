@@ -1425,7 +1425,10 @@ type NodeSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Subnet for the node's containers, assigned by the server from the
 	// cluster CIDR.
-	PodCidr       string `protobuf:"bytes,1,opt,name=pod_cidr,json=podCidr,proto3" json:"pod_cidr,omitempty"`
+	PodCidr string `protobuf:"bytes,1,opt,name=pod_cidr,json=podCidr,proto3" json:"pod_cidr,omitempty"`
+	// Labels set by the operator with `shoal label node`. shoal.dev/edge=true
+	// makes the node an ingress edge (ADR 0015).
+	Labels        map[string]string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1465,6 +1468,13 @@ func (x *NodeSpec) GetPodCidr() string {
 		return x.PodCidr
 	}
 	return ""
+}
+
+func (x *NodeSpec) GetLabels() map[string]string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
 }
 
 type NodeStatus struct {
@@ -2661,9 +2671,13 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
 	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x12,\n" +
 	"\x04spec\x18\x04 \x01(\v2\x18.shoal.v1alpha1.NodeSpecR\x04spec\x122\n" +
-	"\x06status\x18\x05 \x01(\v2\x1a.shoal.v1alpha1.NodeStatusR\x06status\"%\n" +
+	"\x06status\x18\x05 \x01(\v2\x1a.shoal.v1alpha1.NodeStatusR\x06status\"\x9e\x01\n" +
 	"\bNodeSpec\x12\x19\n" +
-	"\bpod_cidr\x18\x01 \x01(\tR\apodCidr\"\xe3\x02\n" +
+	"\bpod_cidr\x18\x01 \x01(\tR\apodCidr\x12<\n" +
+	"\x06labels\x18\x02 \x03(\v2$.shoal.v1alpha1.NodeSpec.LabelsEntryR\x06labels\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe3\x02\n" +
 	"\n" +
 	"NodeStatus\x12\x14\n" +
 	"\x05phase\x18\x01 \x01(\tR\x05phase\x12A\n" +
@@ -2777,7 +2791,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -2815,13 +2829,14 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*UIAuthSpec)(nil),            // 33: shoal.v1alpha1.UIAuthSpec
 	(*JoinToken)(nil),             // 34: shoal.v1alpha1.JoinToken
 	(*JoinTokenSpec)(nil),         // 35: shoal.v1alpha1.JoinTokenSpec
-	nil,                           // 36: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 37: shoal.v1alpha1.ConfigSpec.DataEntry
-	(*timestamppb.Timestamp)(nil), // 38: google.protobuf.Timestamp
+	nil,                           // 36: shoal.v1alpha1.NodeSpec.LabelsEntry
+	nil,                           // 37: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 38: shoal.v1alpha1.ConfigSpec.DataEntry
+	(*timestamppb.Timestamp)(nil), // 39: google.protobuf.Timestamp
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	38, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	38, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	39, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	2,  // 3: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
 	13, // 4: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
@@ -2831,7 +2846,7 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	9,  // 8: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
 	12, // 9: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
 	6,  // 10: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	38, // 11: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	39, // 11: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
 	4,  // 12: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
 	5,  // 13: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
 	5,  // 14: shoal.v1alpha1.EnvSource.config:type_name -> shoal.v1alpha1.KeyRef
@@ -2843,35 +2858,36 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	16, // 20: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
 	17, // 21: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
 	2,  // 22: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	38, // 23: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
-	38, // 24: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	39, // 23: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	39, // 24: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
 	0,  // 25: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	19, // 26: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
 	20, // 27: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	38, // 28: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
-	21, // 29: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
-	0,  // 30: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	23, // 31: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	36, // 32: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
-	0,  // 33: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	25, // 34: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	37, // 35: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
-	0,  // 36: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	27, // 37: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
-	29, // 38: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
-	28, // 39: shoal.v1alpha1.ServiceSpec.ports:type_name -> shoal.v1alpha1.ServicePort
-	0,  // 40: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	31, // 41: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
-	32, // 42: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
-	38, // 43: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
-	0,  // 44: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	35, // 45: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	38, // 46: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
-	47, // [47:47] is the sub-list for method output_type
-	47, // [47:47] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	36, // 28: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
+	39, // 29: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	21, // 30: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
+	0,  // 31: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	23, // 32: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
+	37, // 33: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	0,  // 34: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	25, // 35: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
+	38, // 36: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	0,  // 37: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	27, // 38: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
+	29, // 39: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
+	28, // 40: shoal.v1alpha1.ServiceSpec.ports:type_name -> shoal.v1alpha1.ServicePort
+	0,  // 41: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	31, // 42: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
+	32, // 43: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
+	39, // 44: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	0,  // 45: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	35, // 46: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
+	39, // 47: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	48, // [48:48] is the sub-list for method output_type
+	48, // [48:48] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_resources_proto_init() }
@@ -2888,7 +2904,7 @@ func file_api_v1alpha1_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

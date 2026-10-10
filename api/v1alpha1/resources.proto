@@ -208,6 +208,9 @@ message NodeSpec {
   // Subnet for the node's containers, assigned by the server from the
   // cluster CIDR.
   string pod_cidr = 1;
+  // Labels set by the operator with `shoal label node`. shoal.dev/edge=true
+  // makes the node an ingress edge (ADR 0015).
+  map<string, string> labels = 2;
 }
 
 message NodeStatus {

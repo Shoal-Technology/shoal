@@ -57,6 +57,9 @@ type ConnectedConfig struct {
 	// Network, if set, applies Services and mesh peers on the node and
 	// serves DNS.
 	Network Network
+	// Edge, if set, receives the route snapshots the server sends to edge
+	// nodes (ADR 0015, pass B2).
+	Edge RouteSink
 	// WireguardEndpoint overrides the host:port other nodes use to reach
 	// this node's mesh (default: the address the server sees).
 	WireguardEndpoint string
@@ -388,6 +391,11 @@ func (c *Connected) session(ctx context.Context) error {
 			}
 			if snap := msg.GetAssignments(); snap != nil {
 				c.setAssignments(snap)
+			}
+			if rs := msg.GetRoutes(); rs != nil && c.cfg.Edge != nil {
+				if err := c.cfg.Edge.Apply(rs); err != nil {
+					c.log.Warn("ignoring route snapshot", "revision", rs.GetRevision(), "err", err)
+				}
 			}
 			if req := msg.GetLogs(); req != nil {
 				go c.uploadLogs(sctx, req)

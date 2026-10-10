@@ -23,6 +23,7 @@ const (
 	Control_Get_FullMethodName             = "/shoal.v1alpha1.Control/Get"
 	Control_List_FullMethodName            = "/shoal.v1alpha1.Control/List"
 	Control_Delete_FullMethodName          = "/shoal.v1alpha1.Control/Delete"
+	Control_SetNodeLabels_FullMethodName   = "/shoal.v1alpha1.Control/SetNodeLabels"
 	Control_CreateJoinToken_FullMethodName = "/shoal.v1alpha1.Control/CreateJoinToken"
 	Control_Logs_FullMethodName            = "/shoal.v1alpha1.Control/Logs"
 	Control_RestartWorkload_FullMethodName = "/shoal.v1alpha1.Control/RestartWorkload"
@@ -47,6 +48,9 @@ type ControlClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*Object, error)
 	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	// SetNodeLabels adds, changes and removes labels on a Node (ADR 0015:
+	// the edge label that marks a node as an ingress edge).
+	SetNodeLabels(ctx context.Context, in *SetNodeLabelsRequest, opts ...grpc.CallOption) (*SetNodeLabelsResponse, error)
 	CreateJoinToken(ctx context.Context, in *CreateJoinTokenRequest, opts ...grpc.CallOption) (*CreateJoinTokenResponse, error)
 	// Logs streams the logs of a workload's replicas (or one replica), merged
 	// from their nodes.
@@ -119,6 +123,16 @@ func (c *controlClient) Delete(ctx context.Context, in *DeleteRequest, opts ...g
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteResponse)
 	err := c.cc.Invoke(ctx, Control_Delete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SetNodeLabels(ctx context.Context, in *SetNodeLabelsRequest, opts ...grpc.CallOption) (*SetNodeLabelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetNodeLabelsResponse)
+	err := c.cc.Invoke(ctx, Control_SetNodeLabels_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +251,9 @@ type ControlServer interface {
 	Get(context.Context, *GetRequest) (*Object, error)
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
+	// SetNodeLabels adds, changes and removes labels on a Node (ADR 0015:
+	// the edge label that marks a node as an ingress edge).
+	SetNodeLabels(context.Context, *SetNodeLabelsRequest) (*SetNodeLabelsResponse, error)
 	CreateJoinToken(context.Context, *CreateJoinTokenRequest) (*CreateJoinTokenResponse, error)
 	// Logs streams the logs of a workload's replicas (or one replica), merged
 	// from their nodes.
@@ -286,6 +303,9 @@ func (UnimplementedControlServer) List(context.Context, *ListRequest) (*ListResp
 }
 func (UnimplementedControlServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedControlServer) SetNodeLabels(context.Context, *SetNodeLabelsRequest) (*SetNodeLabelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetNodeLabels not implemented")
 }
 func (UnimplementedControlServer) CreateJoinToken(context.Context, *CreateJoinTokenRequest) (*CreateJoinTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateJoinToken not implemented")
@@ -403,6 +423,24 @@ func _Control_Delete_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServer).Delete(ctx, req.(*DeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SetNodeLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetNodeLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SetNodeLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SetNodeLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SetNodeLabels(ctx, req.(*SetNodeLabelsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -584,6 +622,10 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _Control_Delete_Handler,
+		},
+		{
+			MethodName: "SetNodeLabels",
+			Handler:    _Control_SetNodeLabels_Handler,
 		},
 		{
 			MethodName: "CreateJoinToken",

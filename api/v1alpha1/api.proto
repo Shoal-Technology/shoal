@@ -30,6 +30,9 @@ service Control {
   rpc Get(GetRequest) returns (Object);
   rpc List(ListRequest) returns (ListResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
+  // SetNodeLabels adds, changes and removes labels on a Node (ADR 0015:
+  // the edge label that marks a node as an ingress edge).
+  rpc SetNodeLabels(SetNodeLabelsRequest) returns (SetNodeLabelsResponse);
   rpc CreateJoinToken(CreateJoinTokenRequest) returns (CreateJoinTokenResponse);
   // Logs streams the logs of a workload's replicas (or one replica), merged
   // from their nodes.
@@ -267,7 +270,52 @@ message ServerMessage {
     SyncConfig config = 1;
     AssignmentSnapshot assignments = 2;
     LogRequest logs = 3;
+    RouteSnapshot routes = 4;
   }
+}
+
+// RouteSnapshot is the ingress configuration for an edge node (ADR 0015,
+// pass B2). The server sends it only to nodes labelled shoal.dev/edge=true.
+// Other nodes never receive it, so they never see route certificates.
+message RouteSnapshot {
+  // Increases with each change the server sends. An agent ignores a
+  // snapshot older than the one it applied.
+  int64 revision = 1;
+  // False tells the edge to stop its listeners (the node lost the label).
+  bool edge = 2;
+  // Identifies the content, for logging.
+  string version = 3;
+  // Sorted by host, then longest path prefix first.
+  repeated EdgeRoute routes = 4;
+}
+
+// EdgeRoute is one Route with what the edge needs to serve it.
+message EdgeRoute {
+  string name = 1;
+  string host = 2;
+  string path_prefix = 3;
+  // auto, none or secret (as in the Route).
+  string tls = 4;
+  bool redirect_http = 5;
+  // Ready endpoints as host:port (the Service's ready replica IPs and the
+  // target port of the Route's Service port).
+  repeated string endpoints = 6;
+  // PEM certificate and key, only for tls secret. Decrypted by the server.
+  bytes cert_pem = 7;
+  bytes key_pem = 8;
+}
+
+message SetNodeLabelsRequest {
+  string node = 1;
+  // Labels to add or change.
+  map<string, string> set = 2;
+  // Label keys to remove.
+  repeated string remove = 3;
+}
+
+message SetNodeLabelsResponse {
+  // All labels of the node after the change.
+  map<string, string> labels = 1;
 }
 
 // AssignmentSnapshot is the complete set of replicas the node should run.

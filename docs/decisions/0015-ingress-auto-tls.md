@@ -1,6 +1,6 @@
 # 0015: Ingress and automatic TLS
 
-Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers; no agent wiring, no ACME) is implemented. The rest of pass B and passes C to E are not.
+Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Passes C to E are not implemented.
 
 ## Context
 Workloads are reachable inside the cluster through Services (ADR 0012): a
@@ -71,10 +71,13 @@ Service, Secret and Config. CLI and portal gain list, get and delete through
 the same paths.
 
 ### 2. Edge proxy: labelled nodes, not the servers
-The edge runs in the agent, on nodes labelled `shoal.dev/edge=true`
-(`shoal agent --edge-listen :80,:443` enables it on that node; the label is
-what the server uses to push route config). Nodes without the label bind no
-ports.
+The edge runs in the agent, on nodes labelled `shoal.dev/edge=true`. An
+operator sets the label with `shoal label node <name> shoal.dev/edge=true`,
+which stores it in `NodeSpec.labels`. The server sends route config only to
+labelled nodes, and an agent binds its listeners (`--edge-http`, default
+`:80`, and `--edge-https`, default `:443`; an empty value disables one) only
+after a route snapshot says the node is an edge. Nodes without the label bind
+no ports and never receive a route snapshot.
 
 Why agents and not servers:
 - agents are the nodes with container bridges, and the proxy needs to reach
@@ -326,10 +329,13 @@ Taken when the ADR was accepted. Each one answers an open question below.
    endpoints, never keys. After an edge restart without a server, its
    `tls: auto` and `tls: secret` routes have no certificate until the server
    sends a snapshot again. This is the cost of not writing keys to disk.
-2. **Edge label is `shoal.dev/edge=true`, and servers may carry it.** The
-   label marks a node as a candidate edge. The edge binds ports only when the
-   agent runs with `--edge-listen`, so the label alone opens nothing. A server
-   that also runs an agent may carry the label.
+2. **Edge label is `shoal.dev/edge=true`, set by the operator.** The label
+   marks a node as an edge and is stored in `NodeSpec.labels`, set only by
+   `shoal label node` (the server's Control API). An agent cannot label
+   itself, because a self-declared edge would receive every route Secret. A
+   server that also runs an agent may carry the label. The `--edge-http` and
+   `--edge-https` flags pick the listen addresses (section 2); the label is
+   what makes the server send route config to the node.
 3. **PROXY protocol and DNS-01 are deferred.** Neither is in v1. A load
    balancer in front of edges is unsupported. Wildcard hosts are rejected at
    validation with a message that says so.
@@ -360,8 +366,8 @@ Taken when the ADR was accepted. Each one answers an open question below.
   field cannot look like it does something.
 - **redirectHttp:** defaults to true unless tls is `none`. An explicit true
   with `tls: none` is rejected.
-- **Status:** apply stores the spec only. `RouteStatus` exists in the API but is
-  written by the controller in a later pass, so it is empty after pass A.
+- **Status:** apply stores the spec only, so status is empty after apply. The
+  controller writes it from pass B2 on (see Pass B2).
 
 ### Conflicts and matching (longest prefix)
 - Two Routes with the same host and the same pathPrefix are rejected, whether
@@ -375,6 +381,54 @@ Taken when the ADR was accepted. Each one answers an open question below.
   (or the prefix ends in `/`). So `/api` matches `/api` and `/api/users` but
   not `/apix`. `/` matches everything. Because identical host and prefix pairs
   are rejected, the longest match is always unique.
+
+### Pass B2: route delivery and edge listeners (implemented)
+- **Snapshot.** `RouteSnapshot` is `ServerMessage.routes` on the agent's Sync
+  stream, next to assignments. `internal/server/routes.go` builds it
+  (`routeSnapshot`) and `routePusher` sends it when the content changes, on
+  each resync, and once with `edge: false` when the label is removed. A node
+  without the label never gets one.
+- **Contents.** All Routes, sorted by host, then longest prefix first. Each
+  Route's endpoints are the Ready replica IPs in `Service.status.endpoints`
+  (the same source the service proxy uses) at the target port of the
+  Route's Service port (`resource.RouteEndpoints`). A Route whose Service
+  or port is missing has no endpoints. `tls: secret` Routes carry the
+  decrypted PEM certificate and key, sent only on the edge's stream.
+- **Revision.** The server takes the revision from its clock in nanoseconds
+  and makes it strictly increase per stream. `Edge.Apply` ignores any
+  snapshot older than the one it applied.
+- **Agent.** `internal/agent/edge.go` (`Edge`). `Apply` installs the table
+  with `edge.Proxy.SetTable` and the certificates with `CertStore.Replace`.
+  Listeners start on the first enabled snapshot and close when a snapshot
+  says the node is not an edge. A rejected snapshot (for example two Routes
+  on one host and prefix) leaves the previous state in place.
+- **TLS in B2.** `tls: secret` uses the delivered certificate. `tls: auto`
+  uses a self-signed certificate per host, kept in memory, and logs one
+  warning per host until ACME exists (pass C). `tls: none` is HTTP only.
+  Keys stay in memory and nothing is written to disk. When several Routes
+  share a host, the first `secret` Route on that host supplies the
+  certificate; `auto` is used only when no `secret` Route covers the host.
+- **Secret format.** `tls: secret` reads PEM in the Secret's `tls.crt` and
+  `tls.key` keys.
+- **RouteStatus.** The controller writes it on every pass
+  (`internal/controller/routes.go`). `state` is `Ready`, or the first reason
+  the Route cannot serve yet: `ServiceNotFound`, `PortNotFound`,
+  `NoEndpoints`, `SecretNotFound` or `SecretInvalid`. `message` says why.
+  `cert_state` stays empty until pass C. `shoal get routes` shows STATUS and
+  MESSAGE. This replaces the `Accepted`/`Rejected` values sketched in
+  section 1. Those describe the apply-time checks, which pass A already does
+  and which still run as before.
+- **Labels.** `NodeSpec.labels`, set through the `SetNodeLabels` Control RPC
+  and `shoal label node NAME KEY=VALUE` (`KEY-` removes a label).
+- **Not done in B2:**
+  - no on-disk cache of route snapshots: an edge restarted while the server
+    is down serves no routes until it reconnects. Route config without keys
+    could be cached later; this pass does not do it;
+  - no real-host check. HTTP-01 and the ACME flow are pass C;
+  - the reachability of container subnets from the host namespace, and a
+    two-node run, are not verified;
+  - ports 80 and 443 are not exercised anywhere. Tests use 127.0.0.1:0
+    only, and the VPS is not run as an edge.
 
 ## Open questions
 - Resolved: see Decisions 1 to 4 above.

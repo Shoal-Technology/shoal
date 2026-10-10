@@ -111,10 +111,11 @@ func (a *agentService) Sync(stream v1alpha1.Agent_SyncServer) error {
 // forwards log requests: it is the stream's only sender.
 func (a *agentService) pushAssignments(ctx context.Context, node string, stream v1alpha1.Agent_SyncServer, logReqs <-chan *v1alpha1.LogRequest) error {
 	// Snapshots depend on replicas, the data they reference, Services and the mesh.
-	events := a.s.store.Watch(ctx, v1alpha1.KindReplica, v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindNode)
+	events := a.s.store.Watch(ctx, v1alpha1.KindReplica, v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindNode, v1alpha1.KindRoute)
 	resync := time.NewTicker(a.s.cfg.AssignmentResync)
 	defer resync.Stop()
 	last, force := "", true
+	var routes routePusher
 	for {
 		snap, err := a.snapshot(ctx, node)
 		if err != nil {
@@ -128,6 +129,14 @@ func (a *agentService) pushAssignments(ctx context.Context, node string, stream 
 				a.s.log.Debug("sent assignments", "node", node, "replicas", len(snap.Assignments), "version", snap.Version)
 			}
 			last = snap.Version
+		}
+		// Routes go only to edge nodes; see routeSnapshot.
+		rsnap, err := a.s.routeSnapshot(ctx, node)
+		if err != nil {
+			return apiError(err)
+		}
+		if err := routes.push(stream, rsnap, a.s.now(), force); err != nil {
+			return err
 		}
 		force = false
 		select {
