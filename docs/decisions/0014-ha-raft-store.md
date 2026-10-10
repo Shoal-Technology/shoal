@@ -1,4 +1,4 @@
-﻿# 0014: HA Raft store
+# 0014: HA Raft store
 
 Status: Accepted (implemented in Phase 6, single-node and 3-node in tests;
 server wiring and forwarding are pending)
@@ -83,7 +83,8 @@ supported.
 - The store lives in <data-dir>/raft. The server calls WaitReady before
   it reads the store or starts any background task.
 - Background writers (node status, controllers, join token cleanup) run only
-  while aftstore.LeaderCh() reports this node as leader. The server
+  while 
+aftstore.LeaderCh() reports this node as leader. The server
   starts them on gaining leadership and cancels them on losing it. With the
   sqlite store the node is always the leader.
 - Writes on a follower return ErrNotLeader. Forwarding and multi-node join
