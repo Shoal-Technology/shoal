@@ -5,7 +5,8 @@
 // proposed and carried in it, so every replica applies identical state.
 // Reads and Watch are served from the local memory.Store.
 //
-// Only a single-node, in-memory cluster is supported so far.
+// Open gives a durable node; the server runs one node so far. Multi-node
+// join and write forwarding are not wired yet.
 package raftstore
 
 import (
@@ -150,6 +151,19 @@ func NewNode(cfg Config) (*Store, error) {
 // knows it. Both are empty if there is none.
 func (s *Store) Leader() (raft.ServerAddress, raft.ServerID) {
 	return s.raft.LeaderWithID()
+}
+
+// IsLeader reports whether this node is the leader right now.
+func (s *Store) IsLeader() bool {
+	return s.raft.State() == raft.Leader
+}
+
+// LeaderCh delivers each change in this node's leadership: true when it
+// becomes leader, false when it stops. Only one goroutine should receive
+// from it. Raft keeps the latest value if the receiver is slow, so a
+// receiver that starts late still sees the current state.
+func (s *Store) LeaderCh() <-chan bool {
+	return s.raft.LeaderCh()
 }
 
 // AddVoter adds a voting member through the leader. It returns ErrNotLeader

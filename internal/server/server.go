@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -21,6 +22,7 @@ import (
 	"example.com/shoal/internal/controller"
 	"example.com/shoal/internal/security"
 	"example.com/shoal/internal/store"
+	"example.com/shoal/internal/store/raftstore"
 	"example.com/shoal/internal/store/sqlite"
 )
 
@@ -50,7 +52,22 @@ type Config struct {
 	AssignmentResync       time.Duration // resend unchanged snapshots, default 30s
 	EvictAfter             time.Duration // replace replicas of silent nodes, default 60s
 	ControllerInterval     time.Duration // periodic controller passes, default 5s
+
+	// StoreBackend selects the state store: StoreSQLite (default) or
+	// StoreRaft. With raft the node is the only voter; see ADR 0014.
+	StoreBackend string
+	// RaftBindAddr is where Raft listens (StoreRaft only); default 127.0.0.1:7445.
+	RaftBindAddr string
+	// RaftNodeID names this node in the Raft cluster (StoreRaft only);
+	// default is the host name.
+	RaftNodeID string
 }
+
+// Store backends for Config.StoreBackend.
+const (
+	StoreSQLite = "sqlite"
+	StoreRaft   = "raft"
+)
 
 func (c *Config) setDefaults() {
 	def := func(v *time.Duration, d time.Duration) {
@@ -78,6 +95,15 @@ func (c *Config) setDefaults() {
 	if c.ServiceCIDR == "" {
 		c.ServiceCIDR = "10.96.0.0/16"
 	}
+	if c.StoreBackend == "" {
+		c.StoreBackend = StoreSQLite
+	}
+	if c.RaftBindAddr == "" {
+		c.RaftBindAddr = "127.0.0.1:7445"
+	}
+	if c.RaftNodeID == "" {
+		c.RaftNodeID, _ = os.Hostname()
+	}
 }
 
 // Server is the control plane.
@@ -92,6 +118,10 @@ type Server struct {
 	cidrs  *cidrAllocator
 	portal *portal
 	grpc   *grpc.Server
+
+	// leadership carries this node's leadership changes. Background writers
+	// run only while it reports true.
+	leadership <-chan bool
 
 	shutdown     chan struct{} // closed when Serve starts shutting down
 	shutdownOnce sync.Once
@@ -139,15 +169,44 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	if created {
 		cfg.Log.Info("generated secret encryption key", "path", cfg.EncryptionKeyFile)
 	}
-	db, err := sqlite.Open(ctx, filepath.Join(cfg.DataDir, "state.db"), cfg.Now)
-	if err != nil {
-		return nil, err
+	var inner store.Store
+	var leadership <-chan bool
+	switch cfg.StoreBackend {
+	case StoreSQLite:
+		db, err := sqlite.Open(ctx, filepath.Join(cfg.DataDir, "state.db"), cfg.Now)
+		if err != nil {
+			return nil, err
+		}
+		inner = db
+		leadership = alwaysLeader()
+	case StoreRaft:
+		if cfg.RaftNodeID == "" {
+			return nil, errors.New("server: RaftNodeID is required with the raft store")
+		}
+		rs, err := raftstore.Open(raftstore.DiskConfig{
+			DataDir:  filepath.Join(cfg.DataDir, "raft"),
+			NodeID:   raft.ServerID(cfg.RaftNodeID),
+			BindAddr: cfg.RaftBindAddr,
+		})
+		if err != nil {
+			return nil, err
+		}
+		// Nothing may read the store or start controllers before the log
+		// replayed on restart has been applied.
+		if err := rs.WaitReady(ctx); err != nil {
+			rs.Close()
+			return nil, fmt.Errorf("raft store not ready: %w", err)
+		}
+		inner = rs
+		leadership = rs.LeaderCh()
+	default:
+		return nil, fmt.Errorf("unknown store backend %q (want %q or %q)", cfg.StoreBackend, StoreSQLite, StoreRaft)
 	}
 	// Everything goes through the encrypting store, so Secrets are only
 	// ever written encrypted.
-	st, err := store.NewEncryptingStore(db, encKey, v1alpha1.KindSecret)
+	st, err := store.NewEncryptingStore(inner, encKey, v1alpha1.KindSecret)
 	if err != nil {
-		db.Close()
+		inner.Close()
 		return nil, err
 	}
 
@@ -162,8 +221,9 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			Store: st, Log: cfg.Log, Now: cfg.Now, EvictAfter: cfg.EvictAfter, Interval: cfg.ControllerInterval,
 			ServiceCIDR: cidrs.services,
 		}),
-		logs:     newLogBroker(),
-		shutdown: make(chan struct{}),
+		logs:       newLogBroker(),
+		leadership: leadership,
+		shutdown:   make(chan struct{}),
 	}
 	if err := s.ensureAdminConfig(); err != nil {
 		st.Close()
@@ -252,18 +312,10 @@ func (s *Server) LocalNodeCredentials(ctx context.Context, name string) (*securi
 func (s *Server) Serve(ctx context.Context, lis net.Listener) error {
 	bg, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.nodes.run(bg, s.cfg.NodeCheckInterval)
-	}()
-	go func() {
-		defer wg.Done()
-		s.ctrl.Run(bg)
-	}()
-	go func() {
-		defer wg.Done()
-		s.runTokenGC(bg, time.Hour)
+		runWhileLeader(bg, s.leadership, s.runLeaderTasks)
 	}()
 
 	stopped := make(chan struct{})
@@ -294,6 +346,27 @@ func (s *Server) Serve(ctx context.Context, lis net.Listener) error {
 
 // Close releases the store. Call it after Serve returns.
 func (s *Server) Close() error { return s.store.Close() }
+
+// runLeaderTasks runs the background writers: node status, controllers and
+// join token cleanup. It runs only while this node is the leader (see
+// runWhileLeader) and returns when ctx is cancelled.
+func (s *Server) runLeaderTasks(ctx context.Context) {
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		s.nodes.run(ctx, s.cfg.NodeCheckInterval)
+	}()
+	go func() {
+		defer wg.Done()
+		s.ctrl.Run(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		s.runTokenGC(ctx, time.Hour)
+	}()
+	wg.Wait()
+}
 
 func (s *Server) runTokenGC(ctx context.Context, interval time.Duration) {
 	tick := time.NewTicker(interval)

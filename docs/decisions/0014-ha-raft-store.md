@@ -75,3 +75,16 @@ restart replays a short log.
 - Watch consumers must tolerate missed events after a snapshot restore.
 - Not done yet: server wiring (which must call `WaitReady`), write
   forwarding from followers, a membership CLI, and a backup command.
+
+## Wiring
+Pass 2a wires the raft store into the server as an opt-in backend
+(shoal server --store=raft, default still sqlite). Only one node is
+supported.
+- The store lives in <data-dir>/raft. The server calls WaitReady before
+  it reads the store or starts any background task.
+- Background writers (node status, controllers, join token cleanup) run only
+  while aftstore.LeaderCh() reports this node as leader. The server
+  starts them on gaining leadership and cancels them on losing it. With the
+  sqlite store the node is always the leader.
+- Writes on a follower return ErrNotLeader. Forwarding and multi-node join
+  are still to do.

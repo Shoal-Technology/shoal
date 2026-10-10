@@ -58,6 +58,25 @@ live logs), nodes (Add node gives you the join command), Services, Secrets
 and Configs. To keep the portal off the network, use
 `--ui-listen 127.0.0.1:7444` and an SSH tunnel; `--ui-listen ""` disables it.
 
+## State store
+
+By default the server keeps its state in SQLite (`--store=sqlite`). With
+`--store=raft` the state is kept in a Raft log under `<data-dir>/raft`
+instead (ADR 0014). The raft store runs one node for now: that node is always
+the leader, and joining more nodes is not supported yet.
+
+```sh
+sudo ./bin/shoal server --store=raft
+```
+
+- `--store`: `sqlite` (default) or `raft`.
+- `--raft-bind`: address Raft listens on, default `127.0.0.1:7445`.
+- `--raft-node-id`: this node's name in the Raft cluster, default the host
+  name. Keep it the same across restarts.
+
+Switching an existing data dir between backends does not migrate data. The
+server starts with an empty store on the other backend.
+
 ## Try it: cluster
 
 On the server machine (add `--with-agent` to also run workloads on it):

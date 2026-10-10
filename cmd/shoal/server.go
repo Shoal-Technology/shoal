@@ -23,6 +23,8 @@ func newServerCmd(c *cli) *cobra.Command {
 		dataDir, listen, advertise string
 		clusterCIDR, serviceCIDR   string
 		keyFile                    string
+		storeBackend, raftBind     string
+		raftNodeID                 string
 		uiListen, uiCert, uiKey    string
 		uiNames                    []string
 		withAgent                  bool
@@ -55,7 +57,8 @@ joins without a token: a complete single-node cluster in one process.`,
 			}
 			ctx := cmd.Context()
 			srv, err := server.New(ctx, server.Config{DataDir: dataDir, AdvertiseAddress: advertise, Log: log,
-				ClusterCIDR: clusterCIDR, ServiceCIDR: serviceCIDR, EncryptionKeyFile: keyFile})
+				ClusterCIDR: clusterCIDR, ServiceCIDR: serviceCIDR, EncryptionKeyFile: keyFile,
+				StoreBackend: storeBackend, RaftBindAddr: raftBind, RaftNodeID: raftNodeID})
 			if err != nil {
 				return err
 			}
@@ -106,6 +109,9 @@ joins without a token: a complete single-node cluster in one process.`,
 	cmd.Flags().StringVar(&clusterCIDR, "cluster-cidr", "10.250.0.0/16", "container subnets: one /24 per node is taken from it")
 	cmd.Flags().StringVar(&serviceCIDR, "service-cidr", "10.96.0.0/16", "virtual IPs for Services")
 	cmd.Flags().StringVar(&keyFile, "encryption-key-file", "", "key that encrypts Secrets at rest (default <data-dir>/secret.key, created on first start; back it up)")
+	cmd.Flags().StringVar(&storeBackend, "store", server.StoreSQLite, "state store: sqlite, or raft (single node, replicated log; see ADR 0014)")
+	cmd.Flags().StringVar(&raftBind, "raft-bind", "127.0.0.1:7445", "address Raft listens on (--store=raft)")
+	cmd.Flags().StringVar(&raftNodeID, "raft-node-id", "", "name of this node in the Raft cluster (--store=raft; default: host name)")
 	cmd.Flags().BoolVar(&withAgent, "with-agent", false, "also run an agent for this machine (single-node cluster)")
 	cmd.Flags().StringVar(&uiListen, "ui-listen", ":7444", "address of the web portal (HTTPS; empty disables it)")
 	cmd.Flags().StringVar(&uiCert, "ui-cert", "", "certificate file for the portal (default: issued by the cluster CA)")
