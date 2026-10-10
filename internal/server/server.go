@@ -69,6 +69,10 @@ const (
 	StoreRaft   = "raft"
 )
 
+// raftReadyTimeout bounds the wait for the raft store at startup. A node with
+// no leader fails New after this long instead of hanging.
+const raftReadyTimeout = 30 * time.Second
+
 func (c *Config) setDefaults() {
 	def := func(v *time.Duration, d time.Duration) {
 		if *v <= 0 {
@@ -193,8 +197,16 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}
 		// Nothing may read the store or start controllers before the log
 		// replayed on restart has been applied.
-		if err := rs.WaitReady(ctx); err != nil {
+		// The wait is bounded: with no leader it fails with an error instead
+		// of blocking forever.
+		wctx, cancel := context.WithTimeout(ctx, raftReadyTimeout)
+		err = rs.WaitReady(wctx)
+		cancel()
+		if err != nil {
 			rs.Close()
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, fmt.Errorf("raft store not ready after %s: no leader or log not caught up (see ADR 0014)", raftReadyTimeout)
+			}
 			return nil, fmt.Errorf("raft store not ready: %w", err)
 		}
 		inner = rs
@@ -351,6 +363,8 @@ func (s *Server) Close() error { return s.store.Close() }
 // join token cleanup. It runs only while this node is the leader (see
 // runWhileLeader) and returns when ctx is cancelled.
 func (s *Server) runLeaderTasks(ctx context.Context) {
+	// A new leader must not judge nodes by heartbeats it never saw.
+	s.nodes.beginTerm(s.now())
 	var wg sync.WaitGroup
 	wg.Add(3)
 	go func() {

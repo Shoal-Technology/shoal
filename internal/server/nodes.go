@@ -34,6 +34,13 @@ type nodeTracker struct {
 
 	mu   sync.Mutex
 	live map[string]*liveNode
+	// graceStart and graceUntil bound the period after this node gained
+	// leadership. The in-memory heartbeats were lost with the previous
+	// leadership, so no node is marked NotReady before graceUntil, and a
+	// node with no live heartbeat is counted from graceStart. Zero when the
+	// tracker has never begun a term.
+	graceStart time.Time
+	graceUntil time.Time
 }
 
 type liveNode struct {
@@ -47,6 +54,18 @@ func newNodeTracker(st store.Store, log *slog.Logger, now func() time.Time, notR
 		store: st, log: log, now: now, notReadyAfter: notReadyAfter, persistEvery: persistEvery,
 		live: map[string]*liveNode{},
 	}
+}
+
+// beginTerm is called when this node gains leadership. It drops the in-memory
+// heartbeats, which describe the previous leader's view, and opens a grace
+// period of notReadyAfter. Agents need that long to reach the new leader, so
+// nodes are not evicted based on empty or stale state.
+func (t *nodeTracker) beginTerm(now time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.live = map[string]*liveNode{}
+	t.graceStart = now
+	t.graceUntil = now.Add(t.notReadyAfter)
 }
 
 // heartbeat records a heartbeat from node name, seen from address addr.
@@ -109,6 +128,7 @@ func (t *nodeTracker) check(ctx context.Context) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	now := t.now()
+	inGrace := now.Before(t.graceUntil)
 	exists := map[string]bool{}
 	var errs []error
 	for _, r := range recs {
@@ -120,14 +140,15 @@ func (t *nodeTracker) check(ctx context.Context) error {
 		}
 		l := t.live[r.Name]
 		if l == nil {
-			// Not seen since the server started: trust the stored status.
-			l = &liveNode{status: n.Status, persistedAt: now}
-			if hb := n.Status.GetLastHeartbeat(); hb != nil {
+			// Not seen this term: trust the stored status, but never count a
+			// heartbeat from before the grace period started.
+			l = &liveNode{status: n.Status, persistedAt: now, lastSeen: t.graceStart}
+			if hb := n.Status.GetLastHeartbeat(); hb != nil && hb.AsTime().After(l.lastSeen) {
 				l.lastSeen = hb.AsTime()
 			}
 			t.live[r.Name] = l
 		}
-		if n.Status.GetPhase() == NodeNotReady || now.Sub(l.lastSeen) < t.notReadyAfter {
+		if inGrace || n.Status.GetPhase() == NodeNotReady || now.Sub(l.lastSeen) < t.notReadyAfter {
 			continue
 		}
 		st := proto.CloneOf(n.Status)
