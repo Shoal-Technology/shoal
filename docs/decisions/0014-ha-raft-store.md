@@ -1,7 +1,8 @@
 # 0014: HA Raft store
 
 Status: Accepted (implemented in Phase 6, single-node and 3-node in tests;
-server wiring and forwarding are pending)
+server wiring is single-node only; multi-node join and write forwarding are
+pending)
 
 ## Context
 ADR 0002 keeps the `Store` contract small (single-object compare-and-swap,
@@ -73,8 +74,8 @@ restart replays a short log.
   for control-plane traffic, but status heartbeats need to be watched for
   write amplification.
 - Watch consumers must tolerate missed events after a snapshot restore.
-- Not done yet: server wiring (which must call `WaitReady`), write
-  forwarding from followers, a membership CLI, and a backup command.
+- Not done yet: multi-node join, write forwarding from followers, a
+  membership CLI, and a backup command (see pass 2b above).
 
 ## Wiring
 Pass 2a wires the raft store into the server as an opt-in backend
@@ -89,3 +90,34 @@ aftstore.LeaderCh() reports this node as leader. The server
   sqlite store the node is always the leader.
 - Writes on a follower return ErrNotLeader. Forwarding and multi-node join
   are still to do.
+
+## Pass 2b: readiness bound and leadership grace (done)
+- `New` waits at most 30s for `WaitReady` (`raftReadyTimeout`). With no
+  leader, or with a log that never catches up, it fails with
+  "raft store not ready after 30s" instead of hanging. The operator fixes
+  the cluster and restarts. Chosen over starting in a not-ready state, which
+  would have every API handler return an error until a leader appears.
+- Each node that gains leadership calls `nodeTracker.beginTerm`. That drops
+  the in-memory heartbeats, which describe the previous leader's view, and
+  opens a grace period of `NodeNotReadyAfter` (default 20s). During grace no
+  node is marked NotReady. A node with no heartbeat in this term is counted
+  from the start of grace, not from a stale stored heartbeat. Agents get one
+  full window to reach the new leader before eviction can start.
+
+## Pass 2b: not done yet
+- Join: `--raft-join` and `--raft-advertise`, the admin-only join RPC, and
+  the idempotent rejoin path are not implemented. Bootstrap and join are
+  described here as the target design: node 1 starts with `--store=raft` and
+  bootstraps (no `--raft-join`); each later node starts with
+  `--raft-join=<existing server API address>` and does not bootstrap. It
+  asks that server for AddVoter(nodeID, advertise). The receiving server
+  forwards to the leader if it is not the leader. A node that is already a
+  voter returns success, so a restart is safe.
+- Write forwarding: the design choice is Option B, a gRPC FailedPrecondition
+  that carries the leader's API address, which the CLI retries. Option A
+  (server-side forwarding) needs a server client that authenticates to the
+  leader with its own admin identity, and that is larger. The leader's API
+  address is still to be stored, either in a store record written on gaining
+  leadership or in raft metadata. Neither is built yet.
+- The 3-node in-process test (join, follower write, leader failover) is not
+  written.
