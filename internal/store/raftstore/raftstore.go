@@ -59,9 +59,10 @@ type result struct {
 
 // Store is a Raft-backed store.Store.
 type Store struct {
-	raft *raft.Raft
-	fsm  *fsm
-	mem  *memory.Store
+	closers []func() error
+	raft    *raft.Raft
+	fsm     *fsm
+	mem     *memory.Store
 }
 
 var _ store.Store = (*Store)(nil)
@@ -247,6 +248,9 @@ func (s *Store) Watch(ctx context.Context, kinds ...string) <-chan store.Event {
 // Close shuts down Raft and the local state.
 func (s *Store) Close() error {
 	err := s.raft.Shutdown().Error()
+	for _, c := range s.closers {
+		_ = c()
+	}
 	_ = s.mem.Close()
 	return err
 }
