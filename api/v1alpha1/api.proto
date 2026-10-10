@@ -39,6 +39,24 @@ service Control {
   // ResetUIPassword sets a new random password for the web portal and
   // returns it.
   rpc ResetUIPassword(ResetUIPasswordRequest) returns (ResetUIPasswordResponse);
+  // JoinCluster adds a server to the raft cluster as a voter (raft store
+  // only). It is idempotent. A server that is not the leader returns
+  // FAILED_PRECONDITION with the leader's API address in the message.
+  rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse);
+}
+
+message JoinClusterRequest {
+  // node_id is the joining server's raft ID.
+  string node_id = 1;
+  // raft_addr is the address other raft nodes dial to reach it.
+  string raft_addr = 2;
+}
+
+message JoinClusterResponse {
+  // commit_index is the leader's commit index when the join completed. A
+  // joining server waits until it has applied this index before it uses the
+  // store.
+  uint64 commit_index = 1;
 }
 
 message RestartWorkloadRequest {

@@ -22,6 +22,10 @@ type DiskConfig struct {
 	// existing state. Empty means the node bootstraps alone with its own
 	// address.
 	Peers []raft.Server
+	// Join means the node joins an existing cluster: with no Raft state it
+	// does not bootstrap, and waits for an existing leader to add it (see
+	// the server's JoinCluster call). Ignored when state already exists.
+	Join bool
 	// Raft overrides the Raft tuning. Nil uses the snapshot defaults below.
 	Raft *raft.Config
 }
@@ -57,7 +61,7 @@ func Open(cfg DiskConfig) (*Store, error) {
 		return fail(fmt.Errorf("check raft state: %w", err))
 	}
 	var boot []raft.Server
-	if !existing {
+	if !existing && !cfg.Join {
 		boot = cfg.Peers
 		if len(boot) == 0 {
 			boot = []raft.Server{{Suffrage: raft.Voter, ID: cfg.NodeID, Address: trans.LocalAddr()}}

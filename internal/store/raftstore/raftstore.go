@@ -65,7 +65,12 @@ type Store struct {
 	raft    *raft.Raft
 	fsm     *fsm
 	mem     *memory.Store
+	addr    raft.ServerAddress
 }
+
+// RaftAddr returns the address this node listens on for Raft. It is the
+// bound address, so a configured port 0 shows the port actually picked.
+func (s *Store) RaftAddr() raft.ServerAddress { return s.addr }
 
 var _ store.Store = (*Store)(nil)
 
@@ -144,7 +149,7 @@ func NewNode(cfg Config) (*Store, error) {
 			return nil, fmt.Errorf("bootstrap raft: %w", err)
 		}
 	}
-	return &Store{raft: r, fsm: f, mem: f.mem}, nil
+	return &Store{raft: r, fsm: f, mem: f.mem, addr: cfg.Address}, nil
 }
 
 // Leader returns the address and ID of the current leader as this node
@@ -288,9 +293,32 @@ func (s *Store) WaitReady(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("read commit index: %w", err)
 			}
-			if s.raft.AppliedIndex() >= commit {
+			// A commit index of 0 means the leader's first AppendEntries has not
+			// set it yet, so the node is not caught up even if it knows a leader.
+			if commit > 0 && s.raft.AppliedIndex() >= commit {
 				return nil
 			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+		}
+	}
+}
+
+// CommitIndex returns the highest log index this node knows to be committed.
+func (s *Store) CommitIndex() (uint64, error) {
+	return strconv.ParseUint(s.raft.Stats()["commit_index"], 10, 64)
+}
+
+// WaitApplied waits until this node has applied log index idx, or ctx ends.
+func (s *Store) WaitApplied(ctx context.Context, idx uint64) error {
+	t := time.NewTicker(5 * time.Millisecond)
+	defer t.Stop()
+	for {
+		if s.raft.AppliedIndex() >= idx {
+			return nil
 		}
 		select {
 		case <-ctx.Done():

@@ -58,6 +58,12 @@ type Config struct {
 	StoreBackend string
 	// RaftBindAddr is where Raft listens (StoreRaft only); default 127.0.0.1:7445.
 	RaftBindAddr string
+	// RaftJoinAddr is the API address of an existing server. Set, the node
+	// joins that cluster instead of bootstrapping one (StoreRaft only).
+	RaftJoinAddr string
+	// RaftAdvertiseAddr is the raft address other nodes dial; default is the
+	// bound raft address (StoreRaft only).
+	RaftAdvertiseAddr string
 	// RaftNodeID names this node in the Raft cluster (StoreRaft only);
 	// default is the host name.
 	RaftNodeID string
@@ -123,6 +129,9 @@ type Server struct {
 	portal *portal
 	grpc   *grpc.Server
 
+	// raft is the raft store (StoreRaft only), nil otherwise.
+	raft *raftstore.Store
+
 	// leadership carries this node's leadership changes. Background writers
 	// run only while it reports true.
 	leadership <-chan bool
@@ -175,6 +184,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	var inner store.Store
 	var leadership <-chan bool
+	var raftStore *raftstore.Store
 	switch cfg.StoreBackend {
 	case StoreSQLite:
 		db, err := sqlite.Open(ctx, filepath.Join(cfg.DataDir, "state.db"), cfg.Now)
@@ -191,24 +201,14 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			DataDir:  filepath.Join(cfg.DataDir, "raft"),
 			NodeID:   raft.ServerID(cfg.RaftNodeID),
 			BindAddr: cfg.RaftBindAddr,
+			Join:     cfg.RaftJoinAddr != "",
 		})
 		if err != nil {
 			return nil, err
 		}
-		// Nothing may read the store or start controllers before the log
-		// replayed on restart has been applied.
-		// The wait is bounded: with no leader it fails with an error instead
-		// of blocking forever.
-		wctx, cancel := context.WithTimeout(ctx, raftReadyTimeout)
-		err = rs.WaitReady(wctx)
-		cancel()
-		if err != nil {
-			rs.Close()
-			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, fmt.Errorf("raft store not ready after %s: no leader or log not caught up (see ADR 0014)", raftReadyTimeout)
-			}
-			return nil, fmt.Errorf("raft store not ready: %w", err)
-		}
+		// WaitReady runs later, once the admin credentials exist and any
+		// join has been made (see below).
+		raftStore = rs
 		inner = rs
 		leadership = rs.LeaderCh()
 	default:
@@ -227,6 +227,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		cfg:   cfg,
 		log:   cfg.Log,
 		store: st,
+		raft:  raftStore,
 		ca:    ca,
 		nodes: newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
 		ctrl: controller.New(controller.Config{
@@ -240,6 +241,39 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	if err := s.ensureAdminConfig(); err != nil {
 		st.Close()
 		return nil, err
+	}
+	var joinIdx uint64
+	if raftStore != nil {
+		// A joining server asks the cluster to add it before it waits for
+		// the log: until then no leader is known to it.
+		if cfg.RaftJoinAddr != "" {
+			joinIdx, err = s.joinCluster(ctx)
+			if err != nil {
+				st.Close()
+				return nil, err
+			}
+		}
+		// Apply up to the leader's commit index at the join. Until then the
+		// store may miss the bootstrap records written before it.
+		if joinIdx > 0 {
+			if err := raftStore.WaitApplied(ctx, joinIdx); err != nil {
+				st.Close()
+				return nil, fmt.Errorf("joined raft cluster but log not applied: %w", err)
+			}
+		}
+		// The wait is bounded: with no leader it fails with an error instead
+		// of blocking forever. Nothing may read the store or start
+		// controllers before the log replayed on restart has been applied.
+		wctx, cancel := context.WithTimeout(ctx, raftReadyTimeout)
+		err = raftStore.WaitReady(wctx)
+		cancel()
+		if err != nil {
+			st.Close()
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, fmt.Errorf("raft store not ready after %s: no leader or log not caught up (see ADR 0014)", raftReadyTimeout)
+			}
+			return nil, fmt.Errorf("raft store not ready: %w", err)
+		}
 	}
 	if err := s.ensureUIPassword(ctx); err != nil {
 		st.Close()
@@ -365,6 +399,23 @@ func (s *Server) Close() error { return s.store.Close() }
 func (s *Server) runLeaderTasks(ctx context.Context) {
 	// A new leader must not judge nodes by heartbeats it never saw.
 	s.nodes.beginTerm(s.now())
+	// Followers find the leader's API through this record, so it must be
+	// written before anything else the leader does.
+	for {
+		err := s.publishLeader(ctx)
+		if err == nil {
+			break
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		s.log.Error("publish leader record failed, retrying", "err", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+	}
 	var wg sync.WaitGroup
 	wg.Add(3)
 	go func() {
