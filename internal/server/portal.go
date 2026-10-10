@@ -72,12 +72,23 @@ func (s *Server) ensureUIPassword(ctx context.Context) error {
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
+	// Only the leader creates the password. A follower can be past
+	// WaitReady and still miss the leader's record, because its commit index
+	// is learned from heartbeats and can trail the log. It reads the
+	// replicated record later instead.
+	if s.raft != nil && !s.raft.IsLeader() {
+		return nil
+	}
 	pw, err := newPassword()
 	if err != nil {
-		return err
+		return fmt.Errorf("startup: generate portal password: %w", err)
 	}
 	if err := s.setUIPassword(ctx, pw); err != nil {
-		return err
+		if isNotLeader(err) {
+			// Leadership moved during startup. The new leader creates it.
+			return nil
+		}
+		return fmt.Errorf("startup: create portal password: %w", err)
 	}
 	path := UIInitialPasswordPath(s.cfg.DataDir)
 	if err := security.WriteFileAtomic(path, []byte(pw+"\n"), 0o600); err != nil {
