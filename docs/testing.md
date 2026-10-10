@@ -86,6 +86,22 @@ Artifacts contain per-request traffic, endpoint/node phases, guest boot evidence
 
 This proves **inter-VM networking on one physical runner**, not two independent physical hosts, ingress/DNS, client-pod-origin traffic, Internet WAN behavior, or host-level HA. Shared VM/service hosts are not modified; all privileged installation and guest execution happens in the disposable runner.
 
+## HA chaos gate (ADR 0014, pass 2g)
+
+Run the manual `HA chaos` workflow (`.github/workflows/ha-chaos.yml`). It calls `hack/ha-chaos.sh` on an Ubuntu 24.04 runner. The script builds the real `shoal` binary and starts three `shoal server --store=raft` processes on 127.0.0.1: node-1 bootstraps, and node-2 and node-3 join with a join bundle. Only the control plane runs: no agent, no containerd and no root. Every step is checked through the CLI with a timeout. On failure the script prints all server logs. Logs and `steps.txt` are uploaded as the `ha-chaos-evidence` artifact.
+
+Verified run [38073411873](https://github.com/kaiserern/shoal/actions/runs/38073411873) on commit `9ba61e8` (2026-10-10 UTC), first attempt, every step passed:
+
+- a) `cluster status` shows 3 voters and 1 leader, the same from all three nodes.
+- b) A write sent to a follower is readable on the leader and on the follower. A follower answers a write with the leader's address and the CLI retries there (ADR 0014, option B). This is a client-side redirect, not a server-side proxy.
+- c) `kill -9` on the leader: a survivor elected a new leader in about 2 seconds. Earlier objects were readable and a new write succeeded.
+- d) The killed node restarted on its data dir with `--raft-join`. Status showed 3 voters and 1 leader on every node, and the node served an object written while it was down.
+- e) SIGSTOP on the leader for 6 seconds: a survivor elected a new leader and accepted a write. After SIGCONT the old leader stepped down, caught up to the new leader's commit index and read the object written during the freeze.
+- f) `shoal backup --out` from the leader, restored with `--restore-from` into a fresh data dir on new ports as a single voter. The restored object is identical to the source.
+- g) `cluster remove node-3` on a survivor: status shows 2 voters and 1 leader.
+
+Limits: SIGSTOP freezes a process. It does not cut the network, so this is not a network partition test. All addresses are loopback on one runner. Agent failover, multi-host networking and power-loss durability are not covered. No Go code changed in this pass, so no Go tests were added; the only check on the VPS was `bash -n`.
+
 ## Worker-loss scenario interpretation
 
 A process crash must be interpreted with its placement precondition. The harness now first crashes one worker while two replicas are spread across two workers, asserting at every recovery poll that the surviving ready replica remains a Service endpoint. It then resets only the disposable workload to restore spread placement before partition tests.

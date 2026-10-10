@@ -13,7 +13,12 @@ reconciling actual state toward declared desired state.
 - Nodes are connected by a WireGuard mesh.
 - Everything can be done with clicks in the built-in web portal.
 
-High availability comes in Phase 6. See
+Phase 6 (high availability) status: the control plane runs as a Raft cluster
+of three servers, with join, write redirection, membership, backup and
+restore. The `HA chaos` gate (`.github/workflows/ha-chaos.yml`) verified
+leader kill, rejoin, a frozen leader, backup/restore and node removal on one
+hosted runner, using loopback addresses only. Multi-host HA and agent
+failover are not verified yet. See [docs/testing.md](docs/testing.md),
 [docs/architecture.md](docs/architecture.md) and the
 [decision records](docs/decisions/).
 

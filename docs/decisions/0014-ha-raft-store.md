@@ -2,7 +2,8 @@
 
 Status: Accepted (implemented in Phase 6; multi-node join (pass 2c), write
 forwarding (pass 2d) and the membership CLI with join bundle (pass 2e) are
-done; backup and restore (pass 2f) are done)
+done; backup and restore (pass 2f) are done; the end-to-end HA chaos gate
+(pass 2g) passed on a hosted runner)
 
 ## Context
 ADR 0002 keeps the `Store` contract small (single-object compare-and-swap,
@@ -270,3 +271,22 @@ Option B is implemented.
   `TestBackupRestoreSqliteIntoRaft`, and `TestRestoreRefusals` (bad sha256
   leaves the data dir untouched, non-empty dir, wrong key, missing key).
   All run in process on 127.0.0.1:0.
+
+## Pass 2g: HA chaos gate (done)
+- `hack/ha-chaos.sh` runs the real binary: three `shoal server --store=raft`
+  processes on 127.0.0.1 (join bundle and `--raft-join` for nodes 2 and 3),
+  then a restored cluster. It drives everything through the CLI and checks
+  membership, a write through a follower, `kill -9` of the leader with
+  failover and rejoin, SIGSTOP/SIGCONT of the leader, backup and restore,
+  and `cluster remove`. It needs no root, agent or containerd.
+- The CLI reaches the server with `--config` (admin.conf). All nodes share
+  one CA, so one admin.conf works against any node with `--server`.
+- Workflow `.github/workflows/ha-chaos.yml` is manual (`workflow_dispatch`),
+  like the other disposable-runner workflows. It has no push trigger.
+- Verified in run 38073411873 on commit 9ba61e8 (docs/testing.md, "HA chaos
+  gate"). No Go bugs were found in that run.
+- A follower does not proxy writes. It returns the leader's address and the
+  CLI retries there (option B). The script verifies that path, not a
+  server-side proxy.
+- Not covered: network partitions (SIGSTOP only freezes a process), multi-host
+  networking, agent failover, and disk durability after power loss.
