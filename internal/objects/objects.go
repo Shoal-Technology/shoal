@@ -96,6 +96,15 @@ func Service(r store.Record) (*v1alpha1.Service, error) {
 	return s, decode(r, s.Spec, s.Status)
 }
 
+// Route decodes a Route record.
+func Route(r store.Record) (*v1alpha1.Route, error) {
+	rt := &v1alpha1.Route{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindRoute, Metadata: Meta(r),
+		Spec: &v1alpha1.RouteSpec{}, Status: &v1alpha1.RouteStatus{},
+	}
+	return rt, decode(r, rt.Spec, rt.Status)
+}
+
 // JoinTokenSpec decodes a JoinToken record's spec.
 func JoinTokenSpec(r store.Record) (*v1alpha1.JoinTokenSpec, error) {
 	s := &v1alpha1.JoinTokenSpec{}

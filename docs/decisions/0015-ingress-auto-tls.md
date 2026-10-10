@@ -1,6 +1,6 @@
 # 0015: Ingress and automatic TLS
 
-Status: Proposed (Phase 6 follow-up; design only, no code yet)
+Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented; passes B to E are not.
 
 ## Context
 Workloads are reachable inside the cluster through Services (ADR 0012): a
@@ -50,8 +50,8 @@ spec:
 ```
 
 Proto: `RouteSpec { string host; string path_prefix; string service; int32
-port; TlsMode tls; string tls_secret; bool redirect_http; }` with
-`enum TlsMode { TLS_AUTO = 0; TLS_NONE = 1; TLS_SECRET = 2; }`. Default
+port; string tls; string tls_secret; optional bool redirect_http; }` (tls is a
+string in pass A, see Decisions). Default
 `tls` is `auto`. `RouteStatus { string state; string message; string
 cert_state; }`, where `state` is `Accepted` or `Rejected` (for example
 Service missing, duplicate host and path) and `cert_state` mirrors the
@@ -318,17 +318,69 @@ Pending and the edge serves only `tls: none` and `tls: secret` routes.
 - No WAF, auth, rate limits or canary routing in v1. Users who need them
   keep a separate proxy in front, which the edge does not prevent.
 
+## Decisions
+Taken when the ADR was accepted. Each one answers an open question below.
+
+1. **Edge keys are held in memory only (v1).** Edges keep no disk cache of
+   certificate private keys. The on-disk snapshot cache may hold Routes and
+   endpoints, never keys. After an edge restart without a server, its
+   `tls: auto` and `tls: secret` routes have no certificate until the server
+   sends a snapshot again. This is the cost of not writing keys to disk.
+2. **Edge label is `shoal.dev/edge=true`, and servers may carry it.** The
+   label marks a node as a candidate edge. The edge binds ports only when the
+   agent runs with `--edge-listen`, so the label alone opens nothing. A server
+   that also runs an agent may carry the label.
+3. **PROXY protocol and DNS-01 are deferred.** Neither is in v1. A load
+   balancer in front of edges is unsupported. Wildcard hosts are rejected at
+   validation with a message that says so.
+4. **RouteSnapshot rides on the existing agent session.** It is sent on the
+   same stream as `AssignmentSnapshot`, not a separate gRPC stream. Pass B
+   decides the message framing; if head-of-line blocking shows up in
+   practice, a separate stream can be added later without changing Route.
+
+### Pass A rules for Route
+- **Wire form of tls:** a string (`auto`, `none`, `secret`), not a protobuf
+  enum. The YAML values are lowercase, and protobuf enum names would force
+  `TLS_SECRET` in manifests. This matches `restartPolicy` and
+  `partitionPolicy`, which are also validated strings.
+- **Host:** a lowercase DNS name of at least two labels, at most 253 characters,
+  no trailing dot, not an IP address, last label not all digits. Uppercase is
+  rejected, not folded, so the stored name is the one users typed. A `*` is
+  rejected with a message saying wildcards are not supported in v1.
+- **pathPrefix:** defaults to `/`. Must start with `/`, at most 256
+  characters, and must not contain `?` or `#`.
+- **service and port:** `service` is a Service name; `port` is 1 to 65535.
+  The service is **not** checked at apply time. Workload selectors and
+  Workload-to-Secret references are not checked at apply either, so Routes
+  follow the same rule. The edge reports a missing Service through
+  `status` in pass B.
+- **tls:** `auto` (default), `none` or `secret`. `secret` requires `tlsSecret`
+  naming a Secret; the Secret is not checked at apply time (same reason as
+  above). `tlsSecret` is also rejected with `auto` and `none`, so a stray
+  field cannot look like it does something.
+- **redirectHttp:** defaults to true unless tls is `none`. An explicit true
+  with `tls: none` is rejected.
+- **Status:** apply stores the spec only. `RouteStatus` exists in the API but is
+  written by the controller in a later pass, so it is empty after pass A.
+
+### Conflicts and matching (longest prefix)
+- Two Routes with the same host and the same pathPrefix are rejected, whether
+  the other one is stored or earlier in the same apply batch. Re-applying a
+  Route to itself is fine. The check reads the store and is not atomic with
+  the write, so two concurrent applies can both pass. A controller-side
+  re-check is the fix if this matters.
+- Routes on one host with different prefixes are allowed. The proxy (pass B)
+  matches a request by longest prefix. A prefix matches a request path when
+  the path equals the prefix, or starts with it and the next character is `/`
+  (or the prefix ends in `/`). So `/api` matches `/api` and `/api/users` but
+  not `/apix`. `/` matches everything. Because identical host and prefix pairs
+  are rejected, the longest match is always unique.
+
 ## Open questions
-- Should edges cache certificate private keys on disk for restarts without
-  a server, or hold them in memory and wait for the server? Decide in pass B.
-- Edge label name and default: `shoal.dev/edge=true` is a proposal. Should
-  servers ever be allowed to carry it?
-- PROXY protocol support, needed for load balancers in front of edges and
-  for real client IPs.
-- DNS-01 provider plugins, needed for wildcard hosts. Which providers, if any?
-- Whether `RouteSnapshot` should be a separate gRPC stream rather than part
-  of the assignment snapshot, to avoid head-of-line effects on replica
-  reconciliation.
+- Resolved: see Decisions 1 to 4 above.
+- Exact Let's Encrypt limits and their current values (verify in pass C).
+- How the edge reports certificate expiry to operators: a status field on
+  Route, a portal view, or both.
 - Exact Let's Encrypt limits and their current values (verify in pass C).
 - How the edge reports certificate expiry to operators: a status field on
   Route, a portal view, or both.

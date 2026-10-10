@@ -13,6 +13,7 @@ const (
 	KindSecret    = "Secret"
 	KindConfig    = "Config"
 	KindService   = "Service"
+	KindRoute     = "Route"
 	KindJoinToken = "JoinToken" // internal
 	KindUIAuth    = "UIAuth"    // internal
 

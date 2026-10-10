@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/objects"
@@ -38,6 +39,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 	type prepared struct {
 		kind, name string
 		spec       []byte
+		msg        proto.Message
 	}
 	var (
 		objs []prepared
@@ -53,7 +55,24 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		if err != nil {
 			return nil, apiError(err)
 		}
-		objs = append(objs, prepared{kind, name, b})
+		objs = append(objs, prepared{kind, name, b, spec})
+	}
+	// Routes must not share a host and path prefix with another Route, either
+	// stored or earlier in this batch. The check is not atomic with the writes,
+	// so two concurrent applies can still both pass; see ADR 0015 pass A.
+	owners, err := c.s.routeOwners(ctx)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	for _, o := range objs {
+		if o.kind != v1alpha1.KindRoute {
+			continue
+		}
+		key := resource.RouteKey(o.msg.(*v1alpha1.RouteSpec))
+		if owner, ok := owners[key]; ok && owner != o.name {
+			errs = append(errs, fmt.Errorf("route %q: host and pathPrefix are already used by route %q", o.name, owner))
+		}
+		owners[key] = o.name
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -95,6 +114,24 @@ func (s *Server) applySpec(ctx context.Context, kind, name string, spec []byte) 
 		return "configured", err
 	}
 	return "", status.Error(codes.Aborted, "too many concurrent changes, try again")
+}
+
+// routeOwners maps the host and path prefix of every stored Route to the
+// Route's name.
+func (s *Server) routeOwners(ctx context.Context) (map[string]string, error) {
+	recs, err := s.store.List(ctx, v1alpha1.KindRoute)
+	if err != nil {
+		return nil, err
+	}
+	owners := make(map[string]string, len(recs))
+	for _, r := range recs {
+		rt, err := objects.Route(r)
+		if err != nil {
+			return nil, err
+		}
+		owners[resource.RouteKey(rt.Spec)] = r.Name
+	}
+	return owners, nil
 }
 
 func (c *controlService) Get(ctx context.Context, req *v1alpha1.GetRequest) (*v1alpha1.Object, error) {
@@ -236,6 +273,12 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 			return nil, err
 		}
 		return &v1alpha1.Object{Kind: &v1alpha1.Object_Service{Service: svc}}, nil
+	case v1alpha1.KindRoute:
+		rt, err := objects.Route(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Route{Route: rt}}, nil
 	}
 	return nil, fmt.Errorf("unexpected kind %q", r.Kind)
 }
@@ -245,10 +288,10 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 func checkKind(kind string) error {
 	switch kind {
 	case v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica,
-		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService:
+		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute:
 		return nil
 	}
-	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Secret or Config)", kind)
+	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Secret or Config)", kind)
 }
 
 // RestartWorkload sets spec.restartedAt, which changes the template and so

@@ -71,10 +71,13 @@ func decodeDoc(doc []byte) (*v1alpha1.Object, error) {
 	case v1alpha1.KindService:
 		s := &v1alpha1.Service{}
 		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Service{Service: s}}, s
+	case v1alpha1.KindRoute:
+		r := &v1alpha1.Route{}
+		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Route{Route: r}}, r
 	case "":
 		return nil, fmt.Errorf("kind is required")
 	default:
-		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Secret, Config)", head.Kind)
+		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Secret, Config)", head.Kind)
 	}
 	if stringy != "" {
 		if j, err = valuesAsStrings(j, stringy); err != nil {
@@ -142,6 +145,8 @@ func Inner(obj *v1alpha1.Object) proto.Message {
 		return k.Config
 	case *v1alpha1.Object_Service:
 		return k.Service
+	case *v1alpha1.Object_Route:
+		return k.Route
 	}
 	return nil
 }

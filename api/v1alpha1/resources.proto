@@ -285,6 +285,42 @@ message ServiceStatus {
   repeated string endpoints = 2;
 }
 
+// Route maps one host and path prefix to one Service port. Pass A only
+// stores and validates Routes; the edge that serves them is ADR 0015.
+message Route {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  RouteSpec spec = 4;
+  RouteStatus status = 5;
+}
+
+message RouteSpec {
+  // Lowercase DNS name, no IP, no wildcard.
+  string host = 1;
+  // Defaults to "/". Longest prefix wins when several Routes match.
+  string path_prefix = 2;
+  // Service name (cluster-wide).
+  string service = 3;
+  // Service port, not the target port.
+  int32 port = 4;
+  // auto (default), none or secret. A string, like the other policy fields,
+  // so the YAML values are the lowercase words.
+  string tls = 5;
+  // Required with tls secret: a Secret holding PEM certificate and key.
+  string tls_secret = 6;
+  // Defaults to true when tls is not none.
+  optional bool redirect_http = 7;
+}
+
+message RouteStatus {
+  // Accepted or Rejected. Set by the controller in later passes.
+  string state = 1;
+  string message = 2;
+  // Mirrors the Certificate record once TLS issuance exists.
+  string cert_state = 3;
+}
+
 // UIAuthSpec is internal: the web portal's admin password hash.
 message UIAuthSpec {
   bytes password_hash = 1;

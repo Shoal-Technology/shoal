@@ -1,0 +1,17 @@
+# A Route sends HTTP traffic for app.example.com/ to the Service "web".
+# Apply with: shoal apply -f examples/route.yaml
+# The Service is not checked when the Route is applied; the edge reports a
+# missing Service once it exists (ADR 0015, pass B).
+# Edge serving is not implemented yet (pass B), so this only stores the Route.
+apiVersion: v1alpha1
+kind: Route
+metadata:
+  name: web
+spec:
+  host: app.example.com
+  pathPrefix: /
+  service: web
+  port: 80
+  tls: auto
+  # tls: secret and tlsSecret: web-cert would use a Secret holding PEM cert and key.
+  # redirectHttp defaults to true when tls is not none.

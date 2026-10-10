@@ -215,6 +215,7 @@ const NAV = [
   { path: "workloads", label: "Workloads", kind: "workloads" },
   { path: "replicas", label: "Replicas", kind: "replicas" },
   { path: "services", label: "Services", kind: "services" },
+  { path: "routes", label: "Routes", kind: "routes" },
   { section: "Configuration" },
   { path: "secrets", label: "Secrets", kind: "secrets" },
   { path: "configs", label: "Configs", kind: "configs" },
@@ -230,6 +231,7 @@ const ROUTES = [
   [/^workloads\/([^/]+)$/, workloadPage],
   [/^replicas$/, replicasPage],
   [/^services$/, servicesPage],
+  [/^routes$/, routesPage],
   [/^secrets$/, (args) => dataListPage("secrets", args)],
   [/^secrets\/([^/]+)$/, (args) => dataPage("secrets", args)],
   [/^configs$/, (args) => dataListPage("configs", args)],
@@ -794,6 +796,27 @@ async function servicesPage() {
         { title: "Age", cell: (s) => age(s.metadata.createdAt) },
         { title: "", class: "actions", cell: (s) => h("button", { class: "link danger", onclick: () => confirmDelete(`service ${name(s)}`, () => del("services", name(s))) }, "Delete") },
       ], services, { empty: "No services yet." })))),
+  };
+}
+
+// ---------- Routes ----------
+
+// Read-only list with delete. Routes are created with Apply YAML.
+async function routesPage() {
+  const routes = await list("routes");
+  return {
+    node: h("div", {},
+      header("Routes", null),
+      h("div", { class: "card" }, h("div", { class: "card-body flush" }, table([
+        { title: "Name", cell: (r) => h("strong", {}, name(r)) },
+        { title: "Host", cell: (r) => h("span", { class: "mono" }, r.spec.host) },
+        { title: "Path", cell: (r) => h("span", { class: "mono" }, r.spec.pathPrefix || "/") },
+        { title: "Service", cell: (r) => h("a", { href: "#/services" }, r.spec.service) },
+        { title: "Port", cell: (r) => String(r.spec.port) },
+        { title: "TLS", cell: (r) => r.spec.tls || "auto" },
+        { title: "Age", cell: (r) => age(r.metadata.createdAt) },
+        { title: "", class: "actions", cell: (r) => h("button", { class: "link danger", onclick: () => confirmDelete(`route ${name(r)}`, () => del("routes", name(r))) }, "Delete") },
+      ], routes, { empty: "No routes yet. Create one with Apply YAML." })))),
   };
 }
 

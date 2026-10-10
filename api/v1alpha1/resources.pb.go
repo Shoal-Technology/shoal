@@ -2103,6 +2103,246 @@ func (x *ServiceStatus) GetEndpoints() []string {
 	return nil
 }
 
+// Route maps one host and path prefix to one Service port. Pass A only
+// stores and validates Routes; the edge that serves them is ADR 0015.
+type Route struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *RouteSpec             `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Status        *RouteStatus           `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Route) Reset() {
+	*x = Route{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Route) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Route) ProtoMessage() {}
+
+func (x *Route) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Route.ProtoReflect.Descriptor instead.
+func (*Route) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *Route) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *Route) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Route) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *Route) GetSpec() *RouteSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *Route) GetStatus() *RouteStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type RouteSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Lowercase DNS name, no IP, no wildcard.
+	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	// Defaults to "/". Longest prefix wins when several Routes match.
+	PathPrefix string `protobuf:"bytes,2,opt,name=path_prefix,json=pathPrefix,proto3" json:"path_prefix,omitempty"`
+	// Service name (cluster-wide).
+	Service string `protobuf:"bytes,3,opt,name=service,proto3" json:"service,omitempty"`
+	// Service port, not the target port.
+	Port int32 `protobuf:"varint,4,opt,name=port,proto3" json:"port,omitempty"`
+	// auto (default), none or secret. A string, like the other policy fields,
+	// so the YAML values are the lowercase words.
+	Tls string `protobuf:"bytes,5,opt,name=tls,proto3" json:"tls,omitempty"`
+	// Required with tls secret: a Secret holding PEM certificate and key.
+	TlsSecret string `protobuf:"bytes,6,opt,name=tls_secret,json=tlsSecret,proto3" json:"tls_secret,omitempty"`
+	// Defaults to true when tls is not none.
+	RedirectHttp  *bool `protobuf:"varint,7,opt,name=redirect_http,json=redirectHttp,proto3,oneof" json:"redirect_http,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RouteSpec) Reset() {
+	*x = RouteSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RouteSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RouteSpec) ProtoMessage() {}
+
+func (x *RouteSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RouteSpec.ProtoReflect.Descriptor instead.
+func (*RouteSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *RouteSpec) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *RouteSpec) GetPathPrefix() string {
+	if x != nil {
+		return x.PathPrefix
+	}
+	return ""
+}
+
+func (x *RouteSpec) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *RouteSpec) GetPort() int32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *RouteSpec) GetTls() string {
+	if x != nil {
+		return x.Tls
+	}
+	return ""
+}
+
+func (x *RouteSpec) GetTlsSecret() string {
+	if x != nil {
+		return x.TlsSecret
+	}
+	return ""
+}
+
+func (x *RouteSpec) GetRedirectHttp() bool {
+	if x != nil && x.RedirectHttp != nil {
+		return *x.RedirectHttp
+	}
+	return false
+}
+
+type RouteStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Accepted or Rejected. Set by the controller in later passes.
+	State   string `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// Mirrors the Certificate record once TLS issuance exists.
+	CertState     string `protobuf:"bytes,3,opt,name=cert_state,json=certState,proto3" json:"cert_state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RouteStatus) Reset() {
+	*x = RouteStatus{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RouteStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RouteStatus) ProtoMessage() {}
+
+func (x *RouteStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RouteStatus.ProtoReflect.Descriptor instead.
+func (*RouteStatus) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *RouteStatus) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *RouteStatus) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *RouteStatus) GetCertState() string {
+	if x != nil {
+		return x.CertState
+	}
+	return ""
+}
+
 // UIAuthSpec is internal: the web portal's admin password hash.
 type UIAuthSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2114,7 +2354,7 @@ type UIAuthSpec struct {
 
 func (x *UIAuthSpec) Reset() {
 	*x = UIAuthSpec{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[30]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2126,7 +2366,7 @@ func (x *UIAuthSpec) String() string {
 func (*UIAuthSpec) ProtoMessage() {}
 
 func (x *UIAuthSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[30]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2139,7 +2379,7 @@ func (x *UIAuthSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UIAuthSpec.ProtoReflect.Descriptor instead.
 func (*UIAuthSpec) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{30}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UIAuthSpec) GetPasswordHash() []byte {
@@ -2169,7 +2409,7 @@ type JoinToken struct {
 
 func (x *JoinToken) Reset() {
 	*x = JoinToken{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[31]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2181,7 +2421,7 @@ func (x *JoinToken) String() string {
 func (*JoinToken) ProtoMessage() {}
 
 func (x *JoinToken) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[31]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2194,7 +2434,7 @@ func (x *JoinToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinToken.ProtoReflect.Descriptor instead.
 func (*JoinToken) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{31}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *JoinToken) GetApiVersion() string {
@@ -2240,7 +2480,7 @@ type JoinTokenSpec struct {
 
 func (x *JoinTokenSpec) Reset() {
 	*x = JoinTokenSpec{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[32]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2252,7 +2492,7 @@ func (x *JoinTokenSpec) String() string {
 func (*JoinTokenSpec) ProtoMessage() {}
 
 func (x *JoinTokenSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[32]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2265,7 +2505,7 @@ func (x *JoinTokenSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinTokenSpec.ProtoReflect.Descriptor instead.
 func (*JoinTokenSpec) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{32}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *JoinTokenSpec) GetSecretHash() []byte {
@@ -2481,7 +2721,30 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\rServiceStatus\x12\x1d\n" +
 	"\n" +
 	"cluster_ip\x18\x01 \x01(\tR\tclusterIp\x12\x1c\n" +
-	"\tendpoints\x18\x02 \x03(\tR\tendpoints\"l\n" +
+	"\tendpoints\x18\x02 \x03(\tR\tendpoints\"\xd8\x01\n" +
+	"\x05Route\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x12-\n" +
+	"\x04spec\x18\x04 \x01(\v2\x19.shoal.v1alpha1.RouteSpecR\x04spec\x123\n" +
+	"\x06status\x18\x05 \x01(\v2\x1b.shoal.v1alpha1.RouteStatusR\x06status\"\xdb\x01\n" +
+	"\tRouteSpec\x12\x12\n" +
+	"\x04host\x18\x01 \x01(\tR\x04host\x12\x1f\n" +
+	"\vpath_prefix\x18\x02 \x01(\tR\n" +
+	"pathPrefix\x12\x18\n" +
+	"\aservice\x18\x03 \x01(\tR\aservice\x12\x12\n" +
+	"\x04port\x18\x04 \x01(\x05R\x04port\x12\x10\n" +
+	"\x03tls\x18\x05 \x01(\tR\x03tls\x12\x1d\n" +
+	"\n" +
+	"tls_secret\x18\x06 \x01(\tR\ttlsSecret\x12(\n" +
+	"\rredirect_http\x18\a \x01(\bH\x00R\fredirectHttp\x88\x01\x01B\x10\n" +
+	"\x0e_redirect_http\"\\\n" +
+	"\vRouteStatus\x12\x14\n" +
+	"\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1d\n" +
+	"\n" +
+	"cert_state\x18\x03 \x01(\tR\tcertState\"l\n" +
 	"\n" +
 	"UIAuthSpec\x12#\n" +
 	"\rpassword_hash\x18\x01 \x01(\fR\fpasswordHash\x129\n" +
@@ -2514,7 +2777,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -2546,16 +2809,19 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ServiceSpec)(nil),           // 27: shoal.v1alpha1.ServiceSpec
 	(*ServicePort)(nil),           // 28: shoal.v1alpha1.ServicePort
 	(*ServiceStatus)(nil),         // 29: shoal.v1alpha1.ServiceStatus
-	(*UIAuthSpec)(nil),            // 30: shoal.v1alpha1.UIAuthSpec
-	(*JoinToken)(nil),             // 31: shoal.v1alpha1.JoinToken
-	(*JoinTokenSpec)(nil),         // 32: shoal.v1alpha1.JoinTokenSpec
-	nil,                           // 33: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 34: shoal.v1alpha1.ConfigSpec.DataEntry
-	(*timestamppb.Timestamp)(nil), // 35: google.protobuf.Timestamp
+	(*Route)(nil),                 // 30: shoal.v1alpha1.Route
+	(*RouteSpec)(nil),             // 31: shoal.v1alpha1.RouteSpec
+	(*RouteStatus)(nil),           // 32: shoal.v1alpha1.RouteStatus
+	(*UIAuthSpec)(nil),            // 33: shoal.v1alpha1.UIAuthSpec
+	(*JoinToken)(nil),             // 34: shoal.v1alpha1.JoinToken
+	(*JoinTokenSpec)(nil),         // 35: shoal.v1alpha1.JoinTokenSpec
+	nil,                           // 36: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 37: shoal.v1alpha1.ConfigSpec.DataEntry
+	(*timestamppb.Timestamp)(nil), // 38: google.protobuf.Timestamp
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	35, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	35, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	38, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	38, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	2,  // 3: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
 	13, // 4: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
@@ -2565,7 +2831,7 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	9,  // 8: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
 	12, // 9: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
 	6,  // 10: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	35, // 11: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	38, // 11: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
 	4,  // 12: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
 	5,  // 13: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
 	5,  // 14: shoal.v1alpha1.EnvSource.config:type_name -> shoal.v1alpha1.KeyRef
@@ -2577,32 +2843,35 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	16, // 20: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
 	17, // 21: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
 	2,  // 22: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	35, // 23: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
-	35, // 24: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	38, // 23: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	38, // 24: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
 	0,  // 25: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	19, // 26: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
 	20, // 27: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	35, // 28: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	38, // 28: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
 	21, // 29: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
 	0,  // 30: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	23, // 31: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	33, // 32: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	36, // 32: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
 	0,  // 33: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	25, // 34: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	34, // 35: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	37, // 35: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
 	0,  // 36: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	27, // 37: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
 	29, // 38: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
 	28, // 39: shoal.v1alpha1.ServiceSpec.ports:type_name -> shoal.v1alpha1.ServicePort
-	35, // 40: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
-	0,  // 41: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	32, // 42: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	35, // 43: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
-	44, // [44:44] is the sub-list for method output_type
-	44, // [44:44] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	0,  // 40: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	31, // 41: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
+	32, // 42: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
+	38, // 43: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	0,  // 44: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	35, // 45: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
+	38, // 46: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	47, // [47:47] is the sub-list for method output_type
+	47, // [47:47] is the sub-list for method input_type
+	47, // [47:47] is the sub-list for extension type_name
+	47, // [47:47] is the sub-list for extension extendee
+	0,  // [0:47] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_resources_proto_init() }
@@ -2612,13 +2881,14 @@ func file_api_v1alpha1_resources_proto_init() {
 	}
 	file_api_v1alpha1_resources_proto_msgTypes[2].OneofWrappers = []any{}
 	file_api_v1alpha1_resources_proto_msgTypes[12].OneofWrappers = []any{}
+	file_api_v1alpha1_resources_proto_msgTypes[31].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   35,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -26,13 +26,14 @@ var kindAliases = map[string]string{
 	"secret": v1alpha1.KindSecret, "secrets": v1alpha1.KindSecret,
 	"config": v1alpha1.KindConfig, "configs": v1alpha1.KindConfig, "cfg": v1alpha1.KindConfig,
 	"service": v1alpha1.KindService, "services": v1alpha1.KindService, "svc": v1alpha1.KindService,
+	"route": v1alpha1.KindRoute, "routes": v1alpha1.KindRoute,
 }
 
 func parseKind(s string) (string, error) {
 	if k, ok := kindAliases[strings.ToLower(s)]; ok {
 		return k, nil
 	}
-	return "", fmt.Errorf("unknown resource type %q (want workloads, replicas, nodes, services, secrets or configs)", s)
+	return "", fmt.Errorf("unknown resource type %q (want workloads, replicas, nodes, services, routes, secrets or configs)", s)
 }
 
 func newApplyCmd() *cobra.Command {
@@ -97,7 +98,7 @@ func newGetCmd() *cobra.Command {
 		workload string
 	)
 	cmd := &cobra.Command{
-		Use:   "get workloads|replicas|nodes|services|secrets|configs [NAME]",
+		Use:   "get workloads|replicas|nodes|services|routes|secrets|configs [NAME]",
 		Short: "List objects or show one",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -152,6 +153,8 @@ func newGetCmd() *cobra.Command {
 				return printReplicas(out, items, time.Now(), true)
 			case v1alpha1.KindService:
 				return printServices(out, items, time.Now())
+			case v1alpha1.KindRoute:
+				return printRoutes(out, items, time.Now())
 			case v1alpha1.KindSecret, v1alpha1.KindConfig:
 				return printData(out, items, time.Now())
 			}
@@ -263,7 +266,7 @@ func describeWorkload(w io.Writer, wl *v1alpha1.Workload, replicas []*v1alpha1.O
 func newDeleteCmd() *cobra.Command {
 	var cf clientFlags
 	cmd := &cobra.Command{
-		Use:   "delete workload|replica|node|service|secret|config NAME",
+		Use:   "delete workload|replica|node|service|route|secret|config NAME",
 		Short: "Delete an object",
 		Long: `Delete an object.
 
@@ -373,6 +376,18 @@ func printServices(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\n", s.GetMetadata().GetName(), dash(s.GetStatus().GetClusterIp()),
 			strings.Join(ports, ","), s.GetSpec().GetSelector(), len(s.GetStatus().GetEndpoints()),
 			age(now, s.GetMetadata().GetCreatedAt().AsTime()))
+	}
+	return tw.Flush()
+}
+
+func printRoutes(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tHOST\tPATH\tSERVICE\tPORT\tTLS\tAGE")
+	for _, o := range items {
+		r := o.GetRoute()
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\n", r.GetMetadata().GetName(), r.GetSpec().GetHost(),
+			r.GetSpec().GetPathPrefix(), r.GetSpec().GetService(), r.GetSpec().GetPort(), r.GetSpec().GetTls(),
+			age(now, r.GetMetadata().GetCreatedAt().AsTime()))
 	}
 	return tw.Flush()
 }
