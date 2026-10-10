@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -243,6 +244,46 @@ func (s *Store) Delete(ctx context.Context, kind, name string, generation int64)
 
 func (s *Store) Watch(ctx context.Context, kinds ...string) <-chan store.Event {
 	return s.mem.Watch(ctx, kinds...)
+}
+
+// WaitReady must be called before the node serves reads or runs
+// controllers after a start or restart. Leadership alone does not mean the
+// FSM has applied the log that was committed before the restart. WaitReady
+// waits until the node has a known leader, then:
+//   - on the leader, runs a Raft barrier, which applies everything committed
+//     so far;
+//   - on a follower, waits until the local applied index reaches the commit
+//     index it learned from the leader.
+//
+// Open does not call WaitReady, so a cluster can form while its nodes are
+// still catching up. Writes are not affected: they are proposed through the
+// leader, which is already current when it accepts them.
+func (s *Store) WaitReady(ctx context.Context) error {
+	t := time.NewTicker(5 * time.Millisecond)
+	defer t.Stop()
+	for {
+		if s.raft.State() == raft.Leader {
+			err := s.raft.Barrier(applyTimeout).Error()
+			if errors.Is(err, raft.ErrNotLeader) || errors.Is(err, raft.ErrLeadershipLost) {
+				return ErrNotLeader
+			}
+			return err
+		}
+		if addr, _ := s.raft.LeaderWithID(); addr != "" {
+			commit, err := strconv.ParseUint(s.raft.Stats()["commit_index"], 10, 64)
+			if err != nil {
+				return fmt.Errorf("read commit index: %w", err)
+			}
+			if s.raft.AppliedIndex() >= commit {
+				return nil
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+		}
+	}
 }
 
 // Close shuts down Raft and the local state.

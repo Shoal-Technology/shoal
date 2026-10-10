@@ -22,6 +22,8 @@ type DiskConfig struct {
 	// existing state. Empty means the node bootstraps alone with its own
 	// address.
 	Peers []raft.Server
+	// Raft overrides the Raft tuning. Nil uses the snapshot defaults below.
+	Raft *raft.Config
 }
 
 // Open starts a durable node. Bootstrap happens only when DataDir holds no
@@ -67,9 +69,12 @@ func Open(cfg DiskConfig) (*Store, error) {
 	// (8192 entries, 120s) would replay more on a restart than a small
 	// control plane needs. The threshold stays well above a burst of
 	// heartbeat-driven status writes, so snapshots don't run constantly.
-	rc := raft.DefaultConfig()
-	rc.SnapshotThreshold = 1024
-	rc.SnapshotInterval = 30 * time.Second
+	rc := cfg.Raft
+	if rc == nil {
+		rc = raft.DefaultConfig()
+		rc.SnapshotThreshold = 1024
+		rc.SnapshotInterval = 30 * time.Second
+	}
 
 	s, err := NewNode(Config{
 		NodeID:    cfg.NodeID,
