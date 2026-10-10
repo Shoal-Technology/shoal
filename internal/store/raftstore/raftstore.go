@@ -57,7 +57,7 @@ type result struct {
 	err error
 }
 
-// Store is a single-node Raft-backed store.Store.
+// Store is a Raft-backed store.Store.
 type Store struct {
 	raft *raft.Raft
 	fsm  *fsm
@@ -66,33 +66,44 @@ type Store struct {
 
 var _ store.Store = (*Store)(nil)
 
+// Config describes one Raft node. Transport and the stores are injected so
+// tests can connect nodes in-process and later swap in durable storage.
+type Config struct {
+	// NodeID identifies this node in the cluster.
+	NodeID raft.ServerID
+	// Address is this node's address on Transport.
+	Address raft.ServerAddress
+	// Transport carries Raft RPCs between nodes.
+	Transport raft.Transport
+	// Logs, Stable and Snapshots hold Raft state.
+	Logs      raft.LogStore
+	Stable    raft.StableStore
+	Snapshots raft.SnapshotStore
+	// Raft overrides the Raft timing and tuning. Nil uses fast defaults
+	// suited to in-process clusters. NodeID is always applied to it.
+	Raft *raft.Config
+	// Bootstrap is the initial voter set. Give the same set to every node
+	// that starts the cluster. Empty means the node joins an existing
+	// cluster and does not bootstrap.
+	Bootstrap []raft.Server
+}
+
 // New starts a single-node cluster with in-memory Raft storage, bootstraps
 // it, and waits until this node is leader.
 func New(ctx context.Context) (*Store, error) {
-	f := newFSM()
-
-	conf := raft.DefaultConfig()
-	conf.LocalID = nodeID
-	// A one-node cluster needs no network round trips, so use short timers
-	// to keep startup fast.
-	conf.HeartbeatTimeout = 100 * time.Millisecond
-	conf.ElectionTimeout = 100 * time.Millisecond
-	conf.LeaderLeaseTimeout = 50 * time.Millisecond
-	conf.LogOutput = io.Discard
-
 	addr, trans := raft.NewInmemTransport(raft.ServerAddress(nodeID))
-	r, err := raft.NewRaft(conf, f, raft.NewInmemStore(), raft.NewInmemStore(), raft.NewInmemSnapshotStore(), trans)
+	s, err := NewNode(Config{
+		NodeID:    nodeID,
+		Address:   addr,
+		Transport: trans,
+		Logs:      raft.NewInmemStore(),
+		Stable:    raft.NewInmemStore(),
+		Snapshots: raft.NewInmemSnapshotStore(),
+		Bootstrap: []raft.Server{{Suffrage: raft.Voter, ID: nodeID, Address: addr}},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("start raft: %w", err)
+		return nil, err
 	}
-	boot := r.BootstrapCluster(raft.Configuration{Servers: []raft.Server{
-		{Suffrage: raft.Voter, ID: conf.LocalID, Address: addr},
-	}})
-	if err := boot.Error(); err != nil {
-		_ = r.Shutdown().Error()
-		return nil, fmt.Errorf("bootstrap raft: %w", err)
-	}
-	s := &Store{raft: r, fsm: f, mem: f.mem}
 	if err := s.waitLeader(ctx); err != nil {
 		_ = s.Close()
 		return nil, err
@@ -100,6 +111,60 @@ func New(ctx context.Context) (*Store, error) {
 	return s, nil
 }
 
+// NewNode starts a node from cfg without waiting for leadership. Use
+// Leader or wait on the Raft state to observe elections.
+func NewNode(cfg Config) (*Store, error) {
+	f := newFSM()
+
+	conf := raft.DefaultConfig()
+	if cfg.Raft != nil {
+		conf = cfg.Raft
+	} else {
+		// In-process clusters need no network round trips, so use short
+		// timers to keep startup and elections fast.
+		conf.HeartbeatTimeout = 100 * time.Millisecond
+		conf.ElectionTimeout = 100 * time.Millisecond
+		conf.LeaderLeaseTimeout = 50 * time.Millisecond
+		conf.CommitTimeout = 5 * time.Millisecond
+	}
+	conf.LocalID = cfg.NodeID
+	conf.LogOutput = io.Discard
+
+	r, err := raft.NewRaft(conf, f, cfg.Logs, cfg.Stable, cfg.Snapshots, cfg.Transport)
+	if err != nil {
+		return nil, fmt.Errorf("start raft: %w", err)
+	}
+	if len(cfg.Bootstrap) > 0 {
+		err := r.BootstrapCluster(raft.Configuration{Servers: cfg.Bootstrap}).Error()
+		if err != nil && !errors.Is(err, raft.ErrCantBootstrap) {
+			_ = r.Shutdown().Error()
+			return nil, fmt.Errorf("bootstrap raft: %w", err)
+		}
+	}
+	return &Store{raft: r, fsm: f, mem: f.mem}, nil
+}
+
+// Leader returns the address and ID of the current leader as this node
+// knows it. Both are empty if there is none.
+func (s *Store) Leader() (raft.ServerAddress, raft.ServerID) {
+	return s.raft.LeaderWithID()
+}
+
+// AddVoter adds a voting member through the leader. It returns ErrNotLeader
+// on a follower.
+func (s *Store) AddVoter(ctx context.Context, id raft.ServerID, addr raft.ServerAddress) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	err := s.raft.AddVoter(id, addr, 0, applyTimeout).Error()
+	if errors.Is(err, raft.ErrNotLeader) || errors.Is(err, raft.ErrLeadershipLost) {
+		return ErrNotLeader
+	}
+	if err != nil {
+		return fmt.Errorf("add voter %s: %w", id, err)
+	}
+	return nil
+}
 func (s *Store) waitLeader(ctx context.Context) error {
 	timeout := time.NewTimer(leaderTimeout)
 	defer timeout.Stop()
@@ -250,6 +315,9 @@ func (s *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 
 func (s *fsmSnapshot) Release() {}
 
+// Restore replaces the state from a snapshot. It publishes no Watch events for
+// the restored records: a follower that restores from a snapshot misses the
+// events for those writes, and watchers rely on their periodic resync.
 func (f *fsm) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
 	var data snapshotFile
