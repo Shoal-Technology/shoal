@@ -201,6 +201,7 @@ func newCMFixture(t *testing.T, hosts ...string) *cmFixture {
 		directory: "https://acme.test/directory", email: "ops@example.com",
 		newClient: func(*ecdsa.PrivateKey) acmeClient { return ca },
 		acks:      acks, interval: time.Hour, ackWait: 2 * time.Second, ackPoll: time.Millisecond,
+		acceptTOS: true,
 	}
 	return &cmFixture{clock: clock, raw: raw, st: st, ca: ca, acks: acks, m: m}
 }
@@ -215,13 +216,17 @@ func (f *cmFixture) ackEdge(ctx context.Context, node string) {
 func cmAck(ctx context.Context, st store.Store, acks *edgeAcks, node string) {
 	tick := time.NewTicker(2 * time.Millisecond)
 	defer tick.Stop()
+	var rev int64
 	for {
 		recs, _ := st.List(ctx, v1alpha1.KindAcmeChallenge)
 		tokens := make([]string, 0, len(recs))
 		for _, r := range recs {
 			tokens = append(tokens, r.Name)
 		}
-		acks.sent(node, true, tokens)
+		// The stand-in edge applies each snapshot as soon as it is sent.
+		rev++
+		acks.sent(node, true, rev, tokens)
+		acks.applied(node, rev)
 		select {
 		case <-ctx.Done():
 			return
@@ -481,7 +486,7 @@ func TestCertManagerRunsOnlyWhileLeader(t *testing.T) {
 	gate := newLeaderGate()
 	s, err := New(ctx, Config{
 		DataDir: t.TempDir(), AdvertiseAddress: "127.0.0.1:7443", Log: discard(), Now: clock.Now,
-		AcmeDirectory: "https://acme.test/directory", AcmeEmail: "ops@example.com",
+		AcmeDirectory: "https://acme.test/directory", AcmeEmail: "ops@example.com", AcmeAcceptTOS: true,
 		acmeClientFor: func(string, *ecdsa.PrivateKey) acmeClient { return ca },
 		leaderGate:    gate,
 	})
@@ -614,23 +619,115 @@ func TestEdgeAcksPushedSemantics(t *testing.T) {
 	}
 	a.connect("edge-1")
 	a.connect("plain")
-	a.sent("plain", false, []string{"t1"})
+	a.sent("plain", false, 1, []string{"t1"})
 	if a.pushed([]string{"t1"}) {
 		t.Fatal("a connected node that is not an edge counted")
 	}
-	a.sent("edge-1", true, []string{"t1"})
+	a.sent("edge-1", true, 1, []string{"t1"})
+	a.applied("edge-1", 1)
 	a.connect("edge-2")
-	a.sent("edge-2", true, nil)
+	a.sent("edge-2", true, 1, nil)
+	a.applied("edge-2", 1)
 	if a.pushed([]string{"t1"}) {
 		t.Fatal("edge-2 has not been sent t1, yet pushed")
 	}
-	a.sent("edge-2", true, []string{"t1"})
+	a.sent("edge-2", true, 2, []string{"t1"})
+	if a.pushed([]string{"t1"}) {
+		t.Fatal("edge-2 was sent t1 at revision 2 but has applied 1, yet pushed")
+	}
+	a.applied("edge-2", 2)
 	if !a.pushed([]string{"t1"}) {
-		t.Fatal("every edge was sent t1, not pushed")
+		t.Fatal("every edge applied t1, not pushed")
 	}
 	a.disconnect("edge-2")
 	a.disconnect("edge-1")
 	if a.pushed([]string{"t1"}) {
 		t.Fatal("no edge left, yet pushed")
+	}
+}
+
+// An edge that has been sent the challenge but has not reported it applied
+// keeps the leader waiting, and a stale applied report never moves it back.
+func TestEdgeAcksWaitForApplied(t *testing.T) {
+	a := newEdgeAcks()
+	a.connect("edge-1")
+	a.sent("edge-1", true, 5, []string{"t1"})
+	a.applied("edge-1", 4)
+	if a.pushed([]string{"t1"}) {
+		t.Fatal("applied revision 4 is older than the sent revision 5, yet pushed")
+	}
+	a.applied("edge-1", 5)
+	if !a.pushed([]string{"t1"}) {
+		t.Fatal("applied revision 5 reached, not pushed")
+	}
+	a.applied("edge-1", 2)
+	if !a.pushed([]string{"t1"}) {
+		t.Fatal("a stale applied report moved the acknowledgement back")
+	}
+}
+
+// The leader waits for an edge that is slow to apply the snapshot carrying
+// the challenge, and succeeds once the edge reports it applied.
+func TestWaitPushedWaitsForEdgeToApply(t *testing.T) {
+	a := newEdgeAcks()
+	a.connect("edge-1")
+	a.sent("edge-1", true, 1, []string{"t1"})
+	m := &certManager{acks: a, ackWait: 2 * time.Second, ackPoll: time.Millisecond}
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		a.applied("edge-1", 1)
+	}()
+	start := time.Now()
+	if err := m.waitPushed(context.Background(), []string{"t1"}); err != nil {
+		t.Fatalf("waitPushed: %v", err)
+	}
+	if time.Since(start) < 20*time.Millisecond {
+		t.Fatal("waitPushed returned before the edge applied the snapshot")
+	}
+}
+
+// If the edge never reports the revision applied, waitPushed gives up at the cap.
+func TestWaitPushedCapsWhenEdgeNeverApplies(t *testing.T) {
+	a := newEdgeAcks()
+	a.connect("edge-1")
+	a.sent("edge-1", true, 1, []string{"t1"})
+	m := &certManager{acks: a, ackWait: 50 * time.Millisecond, ackPoll: time.Millisecond}
+	err := m.waitPushed(context.Background(), []string{"t1"})
+	if err == nil {
+		t.Fatal("waitPushed succeeded although the edge never applied the snapshot")
+	}
+}
+
+// Without the operator's --acme-accept-tos no account is registered, no
+// order is placed, and the Route reports CertError with the fixed message.
+func TestTOSNotAcceptedSetsCertError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f := newCMFixture(t, "app.example.com")
+	f.ackEdge(ctx, "edge-1")
+	f.m.acceptTOS = false
+
+	f.pass(t)
+	f.pass(t) // a second pass must not write the same error again
+	orders, accepts, _ := f.ca.counts()
+	if orders != 0 || accepts != 0 || f.ca.registers != 0 {
+		t.Fatalf("CA was contacted without accepting terms: registers=%d orders=%d accepts=%d", f.ca.registers, orders, accepts)
+	}
+	c := f.certOf(t, "app.example.com")
+	if got := c.Status.GetLastError(); got != errTOSNotAccepted {
+		t.Fatalf("lastError = %q, want %q", got, errTOSNotAccepted)
+	}
+	if c.Spec.GetChainPem() != "" {
+		t.Fatal("a certificate exists without accepted terms")
+	}
+	if errTOSNotAccepted != "ACME terms not accepted; start the server with --acme-accept-tos" {
+		t.Fatalf("message changed: %q", errTOSNotAccepted)
+	}
+
+	// Accepting the terms later issues the certificate on the next pass.
+	f.m.acceptTOS = true
+	f.pass(t)
+	if orders, _, _ := f.ca.counts(); orders == 0 {
+		t.Fatal("no order after the terms were accepted")
 	}
 }

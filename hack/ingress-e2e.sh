@@ -173,7 +173,7 @@ mkdir -p "$DATA"
 start_root server "$LOGS/server.log" "$SHOAL" server \
   --data-dir "$DATA" --listen 127.0.0.1:7443 --ui-listen "" \
   --acme-directory "$ACME_DIR" --acme-email ops@shoal.test \
-  --acme-ca-roots "$MINICA"
+  --acme-ca-roots "$MINICA" --acme-accept-tos
 wait_for 90 "server accepts CLI calls" test -s "$CONF"
 wait_for 90 "server answers get nodes" cc get nodes
 

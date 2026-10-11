@@ -1643,8 +1643,11 @@ type Heartbeat struct {
 	// Overrides the endpoint address peers use (default: the address the
 	// server sees).
 	WireguardEndpoint string `protobuf:"bytes,8,opt,name=wireguard_endpoint,json=wireguardEndpoint,proto3" json:"wireguard_endpoint,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Revision of the last RouteSnapshot the node applied (ADR 0015, pass E).
+	// The leader waits on it before it asks the CA to validate a challenge.
+	RoutesRevision int64 `protobuf:"varint,9,opt,name=routes_revision,json=routesRevision,proto3" json:"routes_revision,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Heartbeat) Reset() {
@@ -1731,6 +1734,13 @@ func (x *Heartbeat) GetWireguardEndpoint() string {
 		return x.WireguardEndpoint
 	}
 	return ""
+}
+
+func (x *Heartbeat) GetRoutesRevision() int64 {
+	if x != nil {
+		return x.RoutesRevision
+	}
+	return 0
 }
 
 type ReplicaReport struct {
@@ -3251,7 +3261,7 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"dns_domain\x18\x03 \x01(\tR\tdnsDomain\"P\n" +
 	"\fAgentMessage\x129\n" +
 	"\theartbeat\x18\x01 \x01(\v2\x19.shoal.v1alpha1.HeartbeatH\x00R\theartbeatB\x05\n" +
-	"\x03msg\"\xd1\x02\n" +
+	"\x03msg\"\xfa\x02\n" +
 	"\tHeartbeat\x128\n" +
 	"\bcapacity\x18\x01 \x01(\v2\x1c.shoal.v1alpha1.NodeCapacityR\bcapacity\x12#\n" +
 	"\ragent_version\x18\x02 \x01(\tR\fagentVersion\x12\x0e\n" +
@@ -3260,7 +3270,8 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\breplicas\x18\x05 \x03(\v2\x1d.shoal.v1alpha1.ReplicaReportR\breplicas\x120\n" +
 	"\x14wireguard_public_key\x18\x06 \x01(\tR\x12wireguardPublicKey\x12%\n" +
 	"\x0ewireguard_port\x18\a \x01(\x05R\rwireguardPort\x12-\n" +
-	"\x12wireguard_endpoint\x18\b \x01(\tR\x11wireguardEndpoint\"`\n" +
+	"\x12wireguard_endpoint\x18\b \x01(\tR\x11wireguardEndpoint\x12'\n" +
+	"\x0froutes_revision\x18\t \x01(\x03R\x0eroutesRevision\"`\n" +
 	"\rReplicaReport\x12\x18\n" +
 	"\areplica\x18\x01 \x01(\tR\areplica\x125\n" +
 	"\x06status\x18\x02 \x01(\v2\x1d.shoal.v1alpha1.ReplicaStatusR\x06status\"\xff\x01\n" +

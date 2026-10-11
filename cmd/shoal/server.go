@@ -38,6 +38,7 @@ func newServerCmd(c *cli) *cobra.Command {
 		acmeDirectory, acmeEmail   string
 		acmeCARoots                string
 		acmeDisable                bool
+		acmeAcceptTOS              bool
 	)
 	cmd := &cobra.Command{
 		Use:   "server",
@@ -66,7 +67,7 @@ joins without a token: a complete single-node cluster in one process.`,
 				ClusterCIDR: clusterCIDR, ServiceCIDR: serviceCIDR, EncryptionKeyFile: keyFile,
 				StoreBackend: storeBackend, RaftBindAddr: raftBind, RaftNodeID: raftNodeID,
 				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle, RestoreFrom: restoreFrom, Version: version,
-				AcmeDirectory: acmeDir(acmeDisable, acmeDirectory), AcmeEmail: acmeEmail, AcmeCARoots: acmeCARoots})
+				AcmeDirectory: acmeDir(acmeDisable, acmeDirectory), AcmeEmail: acmeEmail, AcmeCARoots: acmeCARoots, AcmeAcceptTOS: acmeAcceptTOS})
 			if err != nil {
 				return err
 			}
@@ -133,6 +134,7 @@ joins without a token: a complete single-node cluster in one process.`,
 	cmd.Flags().StringVar(&acmeDirectory, "acme-directory", server.LetsEncryptProduction, "ACME directory for automatic certificates (tls: auto). Default is Let's Encrypt production; use "+server.LetsEncryptStaging+" for tests (staging certificates are not trusted by browsers)")
 	cmd.Flags().StringVar(&acmeEmail, "acme-email", "", "contact email registered with the ACME account (recommended)")
 	cmd.Flags().BoolVar(&acmeDisable, "acme-disable", false, "do not obtain automatic certificates; tls: auto routes stay CertPending")
+	cmd.Flags().BoolVar(&acmeAcceptTOS, "acme-accept-tos", false, "accept the ACME server's terms of service for the account. Required before tls: auto routes get certificates; without it they report CertError")
 	cmd.Flags().StringVar(&acmeCARoots, "acme-ca-roots", "", "PEM file of extra root certificates for the ACME server (for a test CA such as pebble)")
 	cmd.Flags().DurationVar(&stopTimeout, "stop-timeout", 10*time.Second, "grace period before SIGKILL (local agent)")
 	rf.register(cmd.Flags())

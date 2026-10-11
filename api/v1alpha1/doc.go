@@ -21,6 +21,9 @@ const (
 	KindCertificate   = "Certificate"
 	KindAcmeAccount   = "AcmeAccount"
 	KindAcmeChallenge = "AcmeChallenge"
+	// KindRouteClaim reserves a Route's host and path prefix (ADR 0015, pass
+	// E). Its name is the reserved key; its spec is the owning Route's name.
+	KindRouteClaim = "RouteClaim"
 
 	// DNSDomain is the domain of Service names: <service>.shoal.
 	DNSDomain = "shoal"

@@ -395,6 +395,13 @@ func (c *Connected) session(ctx context.Context) error {
 			if rs := msg.GetRoutes(); rs != nil && c.cfg.Edge != nil {
 				if err := c.cfg.Edge.Apply(rs); err != nil {
 					c.log.Warn("ignoring route snapshot", "revision", rs.GetRevision(), "err", err)
+				} else {
+					// Report the applied revision now, not at the next tick:
+					// the leader may be waiting on it (ADR 0015, pass E).
+					select {
+					case c.statusChanged <- struct{}{}:
+					default:
+					}
 				}
 			}
 			if req := msg.GetLogs(); req != nil {
@@ -674,6 +681,9 @@ func (c *Connected) heartbeat() *v1alpha1.Heartbeat {
 	if c.cfg.Network != nil {
 		key, port := c.cfg.Network.WireGuard()
 		hb.WireguardPublicKey, hb.WireguardPort, hb.WireguardEndpoint = key, int32(port), c.cfg.WireguardEndpoint
+	}
+	if c.cfg.Edge != nil {
+		hb.RoutesRevision = c.cfg.Edge.AppliedRevision()
 	}
 	return hb
 }

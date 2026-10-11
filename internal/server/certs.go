@@ -38,23 +38,21 @@ const (
 	maxCertErrorLen = 1024
 )
 
-// edgeAcks records, per connected agent stream, whether the node is an edge
-// and which HTTP-01 tokens its last snapshot carried. The leader waits on it
-// before it asks the CA to validate a challenge.
-//
-// The signal is "sent": the server has handed the snapshot to the node's gRPC
-// stream. It does not prove the edge applied it. The window is one stream
-// send, and the CA's validation takes at least a round trip after Accept. An
-// acknowledgement on the heartbeat would close the window; it is left for a
-// later pass.
+// edgeAcks records, per connected agent stream, whether the node is an edge,
+// which HTTP-01 tokens the last snapshot sent to it carried, and the revision
+// the node reports as applied (ADR 0015, pass E). The leader waits on it
+// before it asks the CA to validate a challenge: every connected edge must
+// have applied a snapshot that carries the tokens, not merely been sent one.
 type edgeAcks struct {
 	mu    sync.Mutex
 	conns map[string]*edgeConn // node -> stream state, present while connected
 }
 
 type edgeConn struct {
-	edge   bool
-	tokens map[string]bool
+	edge    bool
+	tokens  map[string]bool
+	sentRev int64 // revision of the last snapshot handed to the stream
+	applied int64 // revision the node reported as applied (heartbeat)
 }
 
 func newEdgeAcks() *edgeAcks { return &edgeAcks{conns: map[string]*edgeConn{}} }
@@ -72,8 +70,8 @@ func (a *edgeAcks) disconnect(node string) {
 	delete(a.conns, node)
 }
 
-// sent records the route snapshot just handed to node's stream.
-func (a *edgeAcks) sent(node string, edge bool, tokens []string) {
+// sent records the route snapshot just handed to node's stream, at revision rev.
+func (a *edgeAcks) sent(node string, edge bool, rev int64, tokens []string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	c, ok := a.conns[node]
@@ -81,14 +79,25 @@ func (a *edgeAcks) sent(node string, edge bool, tokens []string) {
 		return
 	}
 	c.edge = edge
+	c.sentRev = rev
 	c.tokens = make(map[string]bool, len(tokens))
 	for _, t := range tokens {
 		c.tokens[t] = true
 	}
 }
 
+// applied records the revision a node reports as applied. It never moves backwards.
+func (a *edgeAcks) applied(node string, rev int64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if c, ok := a.conns[node]; ok && rev > c.applied {
+		c.applied = rev
+	}
+}
+
 // pushed reports whether at least one edge is connected and every connected
-// edge was sent all of tokens.
+// edge has applied the snapshot it was last sent, and that snapshot carries
+// all of tokens.
 func (a *edgeAcks) pushed(tokens []string) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -98,6 +107,9 @@ func (a *edgeAcks) pushed(tokens []string) bool {
 			continue
 		}
 		edges++
+		if c.applied < c.sentRev {
+			return false
+		}
 		for _, t := range tokens {
 			if !c.tokens[t] {
 				return false
@@ -127,9 +139,16 @@ type certManager struct {
 	newClient func(key *ecdsa.PrivateKey) acmeClient
 	acks      *edgeAcks
 	interval  time.Duration // pass period; a Route change also triggers one
-	ackWait   time.Duration // how long to wait for edges to be sent a challenge
+	ackWait   time.Duration // how long to wait for edges to apply a challenge
 	ackPoll   time.Duration
+	// acceptTOS is set by --acme-accept-tos. Without it no account is
+	// registered and no order is placed; the Route reports CertError.
+	acceptTOS bool
 }
+
+// errTOSNotAccepted is the Route CertError message when the operator has not
+// accepted the CA's terms (ADR 0015, pass E).
+const errTOSNotAccepted = "ACME terms not accepted; start the server with --acme-accept-tos"
 
 // Run makes passes until ctx is done. It runs only while this node is leader.
 func (m *certManager) Run(ctx context.Context) {
@@ -210,6 +229,11 @@ func (m *certManager) ensure(ctx context.Context, host string) error {
 		if next := cert.Status.GetNextAttempt(); next != nil && now.Before(next.AsTime()) {
 			return nil // backing off
 		}
+	}
+	if !m.acceptTOS {
+		// No account and no order without the operator's consent. The
+		// message reaches the Route through Certificate.lastError.
+		return m.setTOSError(ctx, host, cert)
 	}
 	if err := m.issue(ctx, host); err != nil {
 		return m.fail(ctx, host, err)
@@ -475,6 +499,25 @@ func (m *certManager) fail(ctx context.Context, host string, cause error) error 
 	return cause
 }
 
+// setTOSError records that the CA's terms are not accepted for host. It
+// writes only when the message changes, so the pass does not churn the store.
+func (m *certManager) setTOSError(ctx context.Context, host string, cur *v1alpha1.Certificate) error {
+	st := &v1alpha1.CertificateStatus{}
+	if cur != nil {
+		if cur.Status.GetLastError() == errTOSNotAccepted {
+			return nil
+		}
+		st = proto.Clone(cur.Status).(*v1alpha1.CertificateStatus)
+	}
+	st.LastError = errTOSNotAccepted
+	st.NextAttempt = nil
+	if err := m.putStatus(ctx, host, st); err != nil {
+		return err
+	}
+	m.log.Warn("certificate not issued", "host", host, "err", errTOSNotAccepted)
+	return nil
+}
+
 // putStatus writes a Certificate status, creating an empty record first
 // when the host has none yet, so that its backoff survives restarts.
 func (m *certManager) putStatus(ctx context.Context, host string, st *v1alpha1.CertificateStatus) error {
@@ -520,6 +563,7 @@ func newCertManager(s *Server, cfg Config) (*certManager, error) {
 		st: s.store, log: cfg.Log, now: s.now, directory: dir, email: cfg.AcmeEmail,
 		newClient: func(key *ecdsa.PrivateKey) acmeClient { return factory(dir, key) },
 		acks:      s.acks, interval: defaultCertTick, ackWait: defaultAckWait, ackPoll: defaultAckPoll,
+		acceptTOS: cfg.AcmeAcceptTOS,
 	}, nil
 }
 

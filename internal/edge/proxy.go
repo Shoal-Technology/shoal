@@ -239,8 +239,10 @@ func (p *Proxy) markBad(ep string) {
 	p.mu.Unlock()
 }
 
-// upstreamTransport picks an endpoint, dials it, and on a dial failure retries
-// once on another endpoint, but only for idempotent methods with no body.
+// upstreamTransport picks an endpoint and sends the request. An endpoint that
+// refuses the connection, or answers 502, 503 or 504, goes into the passive
+// cooldown. For idempotent methods with no body the request is then retried
+// once on another endpoint (ADR 0015, pass E). Other requests are not retried.
 type upstreamTransport struct {
 	p  *Proxy
 	tr *http.Transport
@@ -257,6 +259,11 @@ func (u *upstreamTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	tried := make(map[string]bool, attempts)
 	var lastErr error = errNoEndpoints
+	// held is a 5xx answer kept in case no other endpoint can be tried. It is
+	// returned to the client rather than an error, so the upstream's own
+	// answer is what the client sees.
+	var held *http.Response
+	var heldEP string
 	for i := 0; i < attempts; i++ {
 		ep, ok := u.p.pick(st.entry, tried)
 		if !ok {
@@ -271,7 +278,20 @@ func (u *upstreamTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		out.URL.Host = ep
 		resp, err := u.tr.RoundTrip(out)
 		if err == nil {
-			return resp, nil
+			if !badGateway(resp.StatusCode) || i == attempts-1 {
+				if held != nil {
+					_ = held.Body.Close()
+				}
+				return resp, nil
+			}
+			// The endpoint answered but cannot serve the request. Cool it
+			// down and try another endpoint, keeping this answer as a fallback.
+			u.p.markBad(ep)
+			if held != nil {
+				_ = held.Body.Close()
+			}
+			held, heldEP = resp, ep
+			continue
 		}
 		lastErr = err
 		if r.Context().Err() != nil || !isDialError(err) {
@@ -279,7 +299,17 @@ func (u *upstreamTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		}
 		u.p.markBad(ep)
 	}
+	if held != nil {
+		st.upstream = heldEP
+		return held, nil
+	}
 	return nil, lastErr
+}
+
+// badGateway reports whether an upstream status means the endpoint cannot
+// serve right now, which is what the passive cooldown reacts to.
+func badGateway(code int) bool {
+	return code == http.StatusBadGateway || code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout
 }
 
 func idempotent(method string) bool {

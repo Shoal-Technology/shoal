@@ -81,6 +81,10 @@ type Config struct {
 	AcmeDirectory string
 	// AcmeEmail is the contact registered with the ACME account.
 	AcmeEmail string
+	// AcmeAcceptTOS accepts the CA's terms of service for the account. Without
+	// it no account is registered and tls: auto Routes report CertError (ADR
+	// 0015, pass E).
+	AcmeAcceptTOS bool
 	// AcmeCARoots is a PEM file of extra roots for the ACME server (a test CA
 	// such as pebble). Empty uses the system roots.
 	AcmeCARoots string

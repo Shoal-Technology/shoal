@@ -80,6 +80,7 @@ func (a *agentService) Sync(stream v1alpha1.Agent_SyncServer) error {
 				errc <- apiError(err)
 				return
 			}
+			a.s.acks.applied(name, hb.GetRoutesRevision())
 			if err := a.storeReports(ctx, name, hb.GetReplicas(), reported); err != nil {
 				errc <- apiError(err)
 				return
@@ -137,10 +138,12 @@ func (a *agentService) pushAssignments(ctx context.Context, node string, stream 
 		if err != nil {
 			return apiError(err)
 		}
-		a.s.acks.sent(node, rsnap.GetEdge(), challengeTokens(rsnap))
 		if err := routes.push(stream, rsnap, a.s.now(), force); err != nil {
 			return err
 		}
+		// The revision in force on this stream: the one just sent, or the
+		// last one sent when the content did not change.
+		a.s.acks.sent(node, rsnap.GetEdge(), routes.revision, challengeTokens(rsnap))
 		force = false
 		select {
 		case <-ctx.Done():

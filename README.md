@@ -334,11 +334,46 @@ Useful flags: `--state-dir` (logs and runtime state, default `/var/lib/shoal`),
 `--pod-cidr` (container subnet, default `10.250.0.0/24`), `--stop-timeout`,
 `--sync-interval`, `--log-format json`.
 
+## Ingress and automatic TLS
+
+A `Route` maps a host and optional path prefix to a Service port. Nodes labelled
+`shoal.dev/edge=true` run the edge: HTTP on `:80` and HTTPS on `:443` (set with
+`--edge-http` and `--edge-https` on the agent; empty disables one).
+
+```sh
+sudo ./bin/shoal label node edge-1 shoal.dev/edge=true
+sudo ./bin/shoal apply -f route.yaml     # kind: Route, tls: auto | secret | none
+```
+
+Automatic certificates come from an ACME CA (Let's Encrypt by default). The
+server asks before it registers an account:
+
+- `--acme-accept-tos` accepts the CA's terms of service. Without it no account
+  is registered and every `tls: auto` Route reports
+  `CertError: ACME terms not accepted; start the server with --acme-accept-tos`.
+- `--acme-directory` selects the CA. Use the staging directory for tests:
+  staging certificates are not trusted by browsers.
+- `--acme-email` is the contact registered with the account (recommended).
+
+Point DNS at the edge nodes yourself. Shoal does not manage A records, and it
+serves HTTP-01 only, so the name must reach an edge on port 80.
+
+Optional `--edge-cache-dir` on the agent keeps a copy of the routes and
+endpoints (never certificates or keys), written 0600 and atomically. An edge
+restarted while the server is down then keeps serving its HTTP routes.
+Certificates still come only from the server, so `tls: secret` and `tls: auto`
+hosts need a connection before they answer HTTPS. The cache is off by default.
+
 ## Tests
 
 ```sh
 make test          # unit tests (any OS)
 make vet           # go vet, including integration-tagged files
 make integration   # against real containerd: needs Linux, root, CNI plugins and network access
+make ingress-e2e   # ingress against pebble: needs CI=true or SHOAL_DISPOSABLE=1
 make proto         # regenerate api/v1alpha1 after editing a .proto (needs protoc + plugins)
 ```
+
+`make integration`, `integration-report` and `ingress-e2e` refuse to run unless
+`CI=true` (GitHub Actions) or `SHOAL_DISPOSABLE=1` is set. They change host
+networking and bind ports, so they must not run on a shared machine.

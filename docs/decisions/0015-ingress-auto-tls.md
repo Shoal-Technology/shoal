@@ -1,6 +1,6 @@
 # 0015: Ingress and automatic TLS
 
-Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Pass C1 (ACME issuance and renewal on the leader, HTTP-01 challenges on edges) is implemented; see Pass C1 below. Pass D (pebble in CI) is implemented for the e2e scope, verified by run 38124009985 (see docs/testing.md); its listed extras below are still open. Pass E is not implemented.
+Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Pass C1 (ACME issuance and renewal on the leader, HTTP-01 challenges on edges) is implemented; see Pass C1 below. Pass D (pebble in CI) is implemented for the e2e scope, verified by run 38124009985 (see docs/testing.md); its listed extras below are still open. Pass E (hardening) is implemented; see Pass E below.
 
 ## Context
 Workloads are reachable inside the cluster through Services (ADR 0012): a
@@ -296,7 +296,7 @@ Each pass is about one agent session and leaves the tree green.
   verified by run 38124009985 on aff0831. Still open from this pass: the
   `acme_integration` suite, the VPS guard in the Makefile, and docs for the
   staging flag and DNS setup.
-- **Pass E: hardening and docs.** Access-log review, timeout and header
+- **Pass E: hardening and docs (implemented; see Pass E).** Access-log review, timeout and header
   edge cases (websocket close, slow clients), a README section, and a
   two-node manual check on the VPS using high ports only.
 
@@ -330,6 +330,8 @@ Taken when the ADR was accepted. Each one answers an open question below.
    endpoints, never keys. After an edge restart without a server, its
    `tls: auto` and `tls: secret` routes have no certificate until the server
    sends a snapshot again. This is the cost of not writing keys to disk.
+   Pass E adds an opt-in cache of routes and endpoints (`--edge-cache-dir`);
+   certificates and keys are never cached, so this decision still holds.
 2. **Edge label is `shoal.dev/edge=true`, set by the operator.** The label
    marks a node as an edge and is stored in `NodeSpec.labels`, set only by
    `shoal label node` (the server's Control API). An agent cannot label
@@ -373,9 +375,8 @@ Taken when the ADR was accepted. Each one answers an open question below.
 ### Conflicts and matching (longest prefix)
 - Two Routes with the same host and the same pathPrefix are rejected, whether
   the other one is stored or earlier in the same apply batch. Re-applying a
-  Route to itself is fine. The check reads the store and is not atomic with
-  the write, so two concurrent applies can both pass. A controller-side
-  re-check is the fix if this matters.
+  Route to itself is fine. The rule is enforced by a reservation record (see
+  Pass E), so two concurrent applies cannot both pass.
 - Routes on one host with different prefixes are allowed. The proxy (pass B)
   matches a request by longest prefix. A prefix matches a request path when
   the path equals the prefix, or starts with it and the next character is `/`
@@ -470,7 +471,7 @@ Taken when the ADR was accepted. Each one answers an open question below.
   been handed to the node's gRPC stream. It does not prove the edge applied it.
   The gap is one stream send against a CA round trip after Accept, so it is
   narrow but not zero. An acknowledgement carried on the heartbeat would close
-  it. That is left for a later pass.
+  it. Pass E closes this gap: see Pass E.
 - **Snapshot.** `RouteSnapshot` gained `challenges` (unexpired tokens) and
   `certificates` (the chain and key for each `auto` host with an issued
   certificate; edges only). The edge serves challenges from a
@@ -492,6 +493,47 @@ Taken when the ADR was accepted. Each one answers an open question below.
   are untested. The tests use an in-process fake CA. The pebble CI pass (D)
   is the first real protocol test. The CERT columns of `shoal get routes`
   were not checked against live output.
+
+### Pass E: hardening (implemented)
+- **Passive cooldown.** A 502, 503 or 504 from an endpoint starts the
+  cooldown, as a dial failure does. An idempotent request without a body is
+  retried once on another endpoint. If the retry also fails, the last
+  upstream answer goes to the client. Other methods are never retried. Tests:
+  internal/edge/proxy_gateway_test.go.
+- **Route reservations.** Each Route holds a RouteClaim record named by its
+  host and path prefix, with the Route name as its spec. The claim is made by
+  store.Create in the same apply, so exactly one of two racing applies wins.
+  Moving or deleting a Route releases its old key, and a batch that fails
+  releases the claims it made. The read-only check stays, for the clearer
+  message and for Routes stored before claims existed; those get a claim on
+  their next apply. Tests: internal/server/route_claim_test.go (16
+  goroutines on the reservation, and 8 concurrent applies through the API,
+  exactly one accepted).
+- **Applied acknowledgement.** The heartbeat carries outes_revision, the
+  revision of the last snapshot the edge applied. The agent sends a heartbeat
+  as soon as it applies a snapshot, so the leader does not wait a heartbeat
+  interval. The server records the revision it sent on each stream. The
+  leader waits until every connected edge has applied the revision it was last
+  sent, and that revision carries the tokens. The 2-minute cap is unchanged.
+  Tests: TestEdgeAcksWaitForApplied, TestWaitPushedWaitsForEdgeToApply and
+  TestWaitPushedCapsWhenEdgeNeverApplies in internal/server/certs_test.go.
+- **Route cache (opt-in).** shoal agent --edge-cache-dir DIR keeps the
+  snapshot without certificates, keys or challenges, in outes.pb (0600,
+  written atomically with security.WriteFileAtomic). The file is removed when
+  the node stops being an edge. On start, LoadCache applies it. HTTP routes
+  serve at once. A 	ls: secret host has no certificate until the server sends
+  one, and a 	ls: auto host uses the self-signed fallback. The default is off,
+  so a node without the flag writes nothing. Tests: internal/agent/edge_cache_test.go.
+- **ACME terms.** shoal server --acme-accept-tos accepts the CA's terms. Without
+  it no account is registered and no order is placed. Each 	ls: auto Route
+  without a certificate reports CertError with ACME terms not accepted; start
+  the server with --acme-accept-tos. A certificate already issued keeps being
+  served; when its renewal falls due, the Route reports the same error. The flag
+  defaults to off.
+- **Disposable guard.** make integration, integration-report and
+  ingress-e2e refuse to run unless CI=true or SHOAL_DISPOSABLE=1.
+- **Not done in pass E:** the access-log review, websocket close and slow-client
+  edge cases, and the two-node manual check on the VPS. These stay open.
 
 ## Open questions
 - Resolved: see Decisions 1 to 4 above.

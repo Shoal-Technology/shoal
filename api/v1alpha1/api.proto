@@ -258,6 +258,9 @@ message Heartbeat {
   // Overrides the endpoint address peers use (default: the address the
   // server sees).
   string wireguard_endpoint = 8;
+  // Revision of the last RouteSnapshot the node applied (ADR 0015, pass E).
+  // The leader waits on it before it asks the CA to validate a challenge.
+  int64 routes_revision = 9;
 }
 
 message ReplicaReport {

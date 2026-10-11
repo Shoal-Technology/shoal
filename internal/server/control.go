@@ -58,8 +58,10 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		objs = append(objs, prepared{kind, name, b, spec})
 	}
 	// Routes must not share a host and path prefix with another Route, either
-	// stored or earlier in this batch. The check is not atomic with the writes,
-	// so two concurrent applies can still both pass; see ADR 0015 pass A.
+	// stored or earlier in this batch. This read-only check gives the clear
+	// message and covers Routes stored before claims existed. It is not
+	// atomic, so the claim reservation below is the real check (ADR 0015,
+	// pass E).
 	owners, err := c.s.routeOwners(ctx)
 	if err != nil {
 		return nil, apiError(err)
@@ -78,11 +80,51 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// Reserve each Route's host and path prefix. Create is atomic, so when
+	// two applies race for one key exactly one reservation succeeds; the other
+	// gets a conflict and nothing is written for it. claims maps each key this
+	// call created to its Route, so the reservations can be undone on failure.
+	claims := map[string]string{}
+	for _, o := range objs {
+		if o.kind != v1alpha1.KindRoute {
+			continue
+		}
+		key := resource.RouteKey(o.msg.(*v1alpha1.RouteSpec))
+		created, err := c.s.reserveRoute(ctx, o.name, key)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if created {
+			claims[key] = o.name
+		}
+	}
+	if err := errors.Join(errs...); err != nil {
+		c.s.releaseClaims(ctx, claims)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	resp := &v1alpha1.ApplyResponse{}
 	for _, o := range objs {
+		var oldKey, newKey string
+		if o.kind == v1alpha1.KindRoute {
+			newKey = resource.RouteKey(o.msg.(*v1alpha1.RouteSpec))
+			if oldKey, err = c.s.storedRouteKey(ctx, o.name); err != nil {
+				c.s.releaseClaims(ctx, claims)
+				return resp, apiError(err)
+			}
+		}
 		action, err := c.s.applySpec(ctx, o.kind, o.name, o.spec)
 		if err != nil {
+			c.s.releaseClaims(ctx, claims)
 			return resp, apiError(fmt.Errorf("apply %s %q: %w", o.kind, o.name, err))
+		}
+		if o.kind == v1alpha1.KindRoute {
+			delete(claims, newKey)
+			// The Route moved to another host or prefix: free the old key.
+			if oldKey != "" && oldKey != newKey {
+				c.s.releaseRoute(ctx, oldKey, o.name)
+			}
 		}
 		c.s.log.Info("object applied", "kind", o.kind, "name", o.name, "action", action)
 		resp.Results = append(resp.Results, &v1alpha1.ApplyResult{Kind: o.kind, Name: o.name, Action: action})
@@ -134,6 +176,70 @@ func (s *Server) routeOwners(ctx context.Context) (map[string]string, error) {
 	return owners, nil
 }
 
+// reserveRoute claims key for the named Route (ADR 0015, pass E). It reports
+// whether this call created the claim. A claim the Route already holds is
+// kept, and a claim held by another Route is a conflict. Create is atomic,
+// so of two racing reservations for one key exactly one succeeds.
+func (s *Server) reserveRoute(ctx context.Context, name, key string) (bool, error) {
+	for range casRetries {
+		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindRouteClaim, Name: key, Spec: []byte(name)})
+		if err == nil {
+			return true, nil
+		}
+		if !errors.Is(err, store.ErrExists) {
+			return false, err
+		}
+		cur, err := s.store.Get(ctx, v1alpha1.KindRouteClaim, key)
+		if errors.Is(err, store.ErrNotFound) {
+			continue // released meanwhile: try again
+		}
+		if err != nil {
+			return false, err
+		}
+		if string(cur.Spec) == name {
+			return false, nil
+		}
+		return false, fmt.Errorf("route %q: host and pathPrefix are already used by route %q", name, string(cur.Spec))
+	}
+	return false, status.Error(codes.Aborted, "too many concurrent changes, try again")
+}
+
+// releaseRoute frees key if the named Route holds it. The delete is
+// conditional on the claim's generation, so it never frees another Route's claim.
+func (s *Server) releaseRoute(ctx context.Context, key, name string) {
+	cur, err := s.store.Get(ctx, v1alpha1.KindRouteClaim, key)
+	if err != nil || string(cur.Spec) != name {
+		return
+	}
+	if err := s.store.Delete(ctx, v1alpha1.KindRouteClaim, key, cur.Generation); err != nil && !errors.Is(err, store.ErrNotFound) && !errors.Is(err, store.ErrConflict) {
+		s.log.Warn("release route claim", "route", name, "key", key, "err", err)
+	}
+}
+
+// releaseClaims frees the reservations made by a failed apply (key to Route).
+func (s *Server) releaseClaims(ctx context.Context, claims map[string]string) {
+	for key, name := range claims {
+		s.releaseRoute(ctx, key, name)
+	}
+}
+
+// storedRouteKey returns the host and path prefix key of a stored Route, or
+// "" when there is no such Route.
+func (s *Server) storedRouteKey(ctx context.Context, name string) (string, error) {
+	rec, err := s.store.Get(ctx, v1alpha1.KindRoute, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	rt, err := objects.Route(rec)
+	if err != nil {
+		return "", err
+	}
+	return resource.RouteKey(rt.Spec), nil
+}
+
 func (c *controlService) Get(ctx context.Context, req *v1alpha1.GetRequest) (*v1alpha1.Object, error) {
 	if req.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
@@ -175,8 +281,19 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
+	var routeKey string
+	if req.GetKind() == v1alpha1.KindRoute {
+		key, err := c.s.storedRouteKey(ctx, req.GetName())
+		if err != nil {
+			return nil, apiError(err)
+		}
+		routeKey = key
+	}
 	if err := c.s.store.Delete(ctx, req.GetKind(), req.GetName(), 0); err != nil {
 		return nil, apiError(err)
+	}
+	if routeKey != "" {
+		c.s.releaseRoute(ctx, routeKey, req.GetName())
 	}
 	if req.GetKind() == v1alpha1.KindNode {
 		// The node's certificate stays valid, but Sync and certificate

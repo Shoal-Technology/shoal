@@ -25,6 +25,7 @@ func newAgentCmd(c *cli) *cobra.Command {
 
 		serverAddr, token, caHash, nodeName string
 		edgeHTTP, edgeHTTPS                 string
+		edgeCacheDir                        string
 	)
 	cmd := &cobra.Command{
 		Use:   "agent",
@@ -54,6 +55,10 @@ keep running when the agent stops.`,
 				// edge (the shoal.dev/edge label); see agent.Edge.
 				ingress := agent.NewEdge(edgeHTTP, edgeHTTPS, log)
 				defer ingress.Close()
+				ingress.UseCache(edgeCacheDir)
+				if err := ingress.LoadCache(); err != nil {
+					log.Warn("edge route cache not used", "err", err)
+				}
 				a, closeRT, err := startConnected(ctx, &rf, &nf, log, agent.ConnectedConfig{
 					Server: serverAddr, Token: token, CAHash: caHash, NodeName: nodeName,
 					SyncInterval: interval, Reconciler: agent.Config{StopTimeout: stopTimeout},
@@ -101,6 +106,7 @@ keep running when the agent stops.`,
 	cmd.Flags().DurationVar(&interval, "sync-interval", 2*time.Second, "how often to reconcile")
 	cmd.Flags().DurationVar(&stopTimeout, "stop-timeout", 10*time.Second, "grace period before SIGKILL")
 	cmd.Flags().StringVar(&edgeHTTP, "edge-http", ":80", "HTTP listener used while this node is an ingress edge (empty disables)")
+	cmd.Flags().StringVar(&edgeCacheDir, "edge-cache-dir", "", "keep a copy of edge routes and endpoints here, 0600, so an edge restarted while the server is down still serves HTTP routes (no certificates or keys are written; default off)")
 	cmd.Flags().StringVar(&edgeHTTPS, "edge-https", ":443", "HTTPS listener used while this node is an ingress edge (empty disables)")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "server")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "token")

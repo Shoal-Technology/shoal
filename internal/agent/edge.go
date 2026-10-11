@@ -3,40 +3,133 @@ package agent
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/edge"
+	"example.com/shoal/internal/security"
 )
 
 // RouteSink receives the route snapshots the server sends to edge nodes.
 type RouteSink interface {
 	Apply(*v1alpha1.RouteSnapshot) error
+	// AppliedRevision is the revision of the last snapshot applied. The
+	// heartbeat reports it so the leader knows the edge has the tokens.
+	AppliedRevision() int64
 }
+
+// cacheFile is the name of the route cache inside the cache directory.
+const cacheFile = "routes.pb"
 
 // Edge runs the ingress listeners on a node the server marks as an edge (ADR
 // 0015, pass B2). It stays idle until a snapshot says the node is an edge, and
 // it closes its listeners when a later snapshot says it is not.
 //
 // Certificates and private keys live only in memory. Nothing is written to
-// disk, as ADR 0015 decides.
+// disk, as ADR 0015 decides. The optional route cache (UseCache, pass E)
+// holds routes and endpoints only; it is written with 0600 and never with
+// certificate material.
 type Edge struct {
 	httpAddr, httpsAddr string
 	log                 *slog.Logger
 	proxy               *edge.Proxy
 	certs               *edge.CertStore
 	challenges          *edge.ChallengeStore
+	cacheDir            string // "" disables the route cache
 
 	mu      sync.Mutex
 	servers []*http.Server
+	// lns are the bound listeners. They are closed directly as well as through
+	// the servers: http.Server.Close does not close a listener whose Serve
+	// goroutine has not started yet, so a dial right after a stop could succeed.
+	lns     []net.Listener
 	bound   map[string]string // "http" and "https" -> bound address while running
 	applied int64             // revision of the last snapshot applied
 	self    map[string]*tls.Certificate
 	warned  map[string]bool
+}
+
+// UseCache keeps a copy of the routes and endpoints in dir, so a restarted
+// edge can serve HTTP routes while the server is unreachable. An empty dir
+// (the default) disables the cache. Call it before LoadCache and Apply.
+func (e *Edge) UseCache(dir string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.cacheDir = dir
+}
+
+// AppliedRevision returns the revision of the last snapshot applied.
+func (e *Edge) AppliedRevision() int64 {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.applied
+}
+
+// LoadCache applies the cached snapshot, if there is one. Its certificates
+// are not cached, so tls: secret routes answer without a certificate until
+// the server sends one, and tls: auto hosts use the self-signed fallback.
+// A missing cache is not an error.
+func (e *Edge) LoadCache() error {
+	if e.cacheDir == "" {
+		return nil
+	}
+	b, err := os.ReadFile(filepath.Join(e.cacheDir, cacheFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read route cache: %w", err)
+	}
+	snap := &v1alpha1.RouteSnapshot{}
+	if err := proto.Unmarshal(b, snap); err != nil {
+		return fmt.Errorf("route cache is not valid: %w", err)
+	}
+	if err := e.Apply(snap); err != nil {
+		return fmt.Errorf("apply route cache: %w", err)
+	}
+	e.log.Info("edge routes restored from cache", "revision", snap.GetRevision(), "routes", len(snap.GetRoutes()))
+	return nil
+}
+
+// writeCache stores the routes and endpoints of an edge snapshot. Keys and
+// certificates are removed from the copy first, and challenges are left out
+// because they expire.
+func (e *Edge) writeCache(snap *v1alpha1.RouteSnapshot) {
+	if e.cacheDir == "" {
+		return
+	}
+	c := proto.Clone(snap).(*v1alpha1.RouteSnapshot)
+	c.Certificates, c.Challenges = nil, nil
+	for _, r := range c.GetRoutes() {
+		r.CertPem, r.KeyPem = nil, nil
+	}
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)
+	if err == nil {
+		err = security.WriteFileAtomic(filepath.Join(e.cacheDir, cacheFile), b, 0o600)
+	}
+	if err != nil {
+		e.log.Warn("cannot write the route cache", "err", err)
+	}
+}
+
+// removeCache deletes the cache when the node stops being an edge.
+func (e *Edge) removeCache() {
+	if e.cacheDir == "" {
+		return
+	}
+	if err := os.Remove(filepath.Join(e.cacheDir, cacheFile)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		e.log.Warn("cannot remove the route cache", "err", err)
+	}
 }
 
 // NewEdge returns an Edge that listens on httpAddr and httpsAddr once a
@@ -61,6 +154,7 @@ func (e *Edge) Apply(snap *v1alpha1.RouteSnapshot) error {
 	}
 	if !snap.GetEdge() {
 		e.stopLocked()
+		e.removeCache()
 		e.applied = snap.GetRevision()
 		return nil
 	}
@@ -82,6 +176,9 @@ func (e *Edge) Apply(snap *v1alpha1.RouteSnapshot) error {
 			host := strings.ToLower(r.GetHost())
 			if _, dup := certs[host]; dup {
 				continue
+			}
+			if len(r.GetCertPem()) == 0 {
+				continue // no certificate yet (for example after a cache restore)
 			}
 			c, err := tls.X509KeyPair(r.GetCertPem(), r.GetKeyPem())
 			if err != nil {
@@ -139,6 +236,7 @@ func (e *Edge) Apply(snap *v1alpha1.RouteSnapshot) error {
 	e.certs.Replace(certs)
 	e.proxy.SetTable(table)
 	e.applied = snap.GetRevision()
+	e.writeCache(snap)
 	return nil
 }
 
@@ -170,7 +268,10 @@ func (e *Edge) startLocked() error {
 		for _, s := range started {
 			_ = s.Close()
 		}
-		e.servers = nil
+		for _, ln := range e.lns {
+			_ = ln.Close()
+		}
+		e.lns, e.servers = nil, nil
 		clear(e.bound)
 		return err
 	}
@@ -181,6 +282,7 @@ func (e *Edge) startLocked() error {
 		}
 		srv := e.proxy.NewServer(e.httpAddr, edge.HTTPHandler(e.proxy, e.challenges))
 		started = append(started, srv)
+		e.lns = append(e.lns, ln)
 		e.bound["http"] = ln.Addr().String()
 		go e.serve(srv, ln, "http")
 	}
@@ -191,6 +293,7 @@ func (e *Edge) startLocked() error {
 		}
 		srv := e.proxy.NewServer(e.httpsAddr, edge.HTTPSHandler(e.proxy))
 		started = append(started, srv)
+		e.lns = append(e.lns, ln)
 		e.bound["https"] = ln.Addr().String()
 		go e.serve(srv, tls.NewListener(ln, e.certs.TLSConfig()), "https")
 	}
@@ -213,6 +316,10 @@ func (e *Edge) stopLocked() {
 	for _, s := range e.servers {
 		_ = s.Close()
 	}
+	for _, ln := range e.lns {
+		_ = ln.Close()
+	}
+	e.lns = nil
 	if len(e.servers) > 0 {
 		e.log.Info("edge stopped: this node is no longer an edge")
 	}
