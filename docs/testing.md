@@ -91,6 +91,8 @@ Verified run [38162883534](https://github.com/kaiserern/shoal/actions/runs/38162
 - h) `shoal db backup blog-db` records a backup, and `shoal db backups blog-db` shows it `ok` (the table had 11 rows when the step started). The backup ID is `blog-db-20261011t181738-f5617ae6f3`.
 - i) `shoal db restore blog-db --from <id> --into blog-db-restored` creates the new Database. Once it is Ready, its `restoreState` is `done`. A `psql` count inside its container (through `ctr task exec`) gives 16 rows, and blog-db still has 16. The step asserts the restored count is at least the count before the backup, and that blog-db is at least that too. It does not assert equality, so an exact match is seen in the log, not checked by the script.
 
+Final run on main at 0af8381 (after the upstream e2e change in cd0fe1d): [38163520082](https://github.com/kaiserern/shoal/actions/runs/38163520082) also passed every step, with the same counts (blog-db-restored 16 rows, blog-db 16).
+
 Not covered by this run:
 
 - The volume backend is recorded as `loop`, inferred from the absence of a fallback message in the agent log. The Volume status was not read to confirm it. The `dir` backend was not run.
