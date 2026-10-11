@@ -48,6 +48,36 @@ sudo ./bin/shoal apply -f app.yaml       # app.yaml: see below
 sudo ./bin/shoal get workloads           # READY 3/3 once the image is pulled
 ```
 
+## Deploy an app
+
+An app is one `shoal.yaml` (ADR 0017). [examples/shoal.yaml](examples/shoal.yaml)
+is a web app with a Postgres database, a volume, a health check and a domain.
+Shoal expands it into the Workload, Service, Route, Database, Volume and Secret
+objects, all labelled `app=blog`. Before deploying, point the domain's DNS record
+at an edge node (see [Ingress and automatic TLS](#ingress-and-automatic-tls)).
+
+```sh
+./bin/shoal deploy --dry-run -f examples/shoal.yaml   # create, update or unchanged per object
+printf '%s' "$SESSION_KEY" | ./bin/shoal app secret set blog SESSION_KEY=-   # value from stdin
+./bin/shoal deploy -f examples/shoal.yaml             # apply, wait for ready, print the URL
+./bin/shoal app status blog                           # every object of the app, with its state
+./bin/shoal app logs blog -f --tail 50                # replica logs, prefixed by replica name
+./bin/shoal deploy -f examples/shoal.yaml --prune     # delete objects you dropped from the file
+./bin/shoal app delete blog                           # keeps the Volume, Database and Secret
+./bin/shoal app delete blog --data --yes              # also deletes them (asks without --yes)
+```
+
+- `deploy` applies everything as one batch, then waits (default `--wait=5m`)
+  until the workload has its replicas ready, the database is Ready and the route
+  is Ready. On timeout it names the object that is not ready and its status
+  message, and exits non-zero. Re-running is safe.
+- `--prune` never deletes a Volume, Database or Secret unless `--prune-data`
+  is also given.
+- A Secret is created empty by deploy and is never overwritten by it. Values
+  are set only with `app secret set`, which never prints them.
+- Deploy refuses to take over an object that has the same name but no
+  `app=<name>` label.
+
 ## Web portal
 
 Open `https://<server>:7444/` and log in as **admin**. The first password is

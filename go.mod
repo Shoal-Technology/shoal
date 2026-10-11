@@ -12,6 +12,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
+	go.yaml.in/yaml/v2 v2.4.2
 	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.48.0
@@ -19,7 +20,6 @@ require (
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.60.1
-	go.yaml.in/yaml/v2 v2.4.2
 	sigs.k8s.io/yaml v1.6.0
 )
 

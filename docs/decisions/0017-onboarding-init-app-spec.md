@@ -507,7 +507,26 @@ of B to D except for the shared token and join code, so it can start after A.
   landed the kinds.
 - **B. Deploy and app commands.** `shoal deploy`, `app status`, `app logs`,
   `app delete`, `app secret set` (2.5); the wait logic; the summary output;
-  the fix to `examples/route.yaml`.
+  the fix to `examples/route.yaml`. **Done (pass B).** Code: `internal/deploy`
+  (plan, batch apply, prune, wait, delete, secret set; tested against an
+  in-memory ControlClient), with `cmd/shoal/deploy.go` and `cmd/shoal/app.go`
+  as thin wrappers. Differences from the text above, as built:
+  - Flags: `--wait` (default 5m, 0 skips) replaces `--timeout`; `--prune` and
+    `--prune-data` replace `--delete-volumes`; `deploy` has no confirmation
+    prompt (the plan is printed, and the apply runs).
+  - A timed-out wait exits 1 with the pending objects and their messages, not
+    exit code 3. Exit 3 needs the E-code work of pass D.
+  - Labels are only `app=<name>`. `shoal.dev/managed-by` is not set yet.
+  - `app delete` keeps the Secret with the data objects. `--data` deletes
+    Volumes, the Database and the Secret, and prompts unless `--yes`.
+  - `app logs` has no `--db` or `--replica`. Lines are always prefixed with the
+    replica name.
+  - The service address is taken as `<app>.shoal:80`; this is not yet checked
+    against the Service's real DNS name.
+  - Deploy does not check the server version for label support (2.4), and it
+    has no E-codes (pass D).
+  - Not verified against real containers, the edge, or the Database controller.
+    Those run in the e2e pass (F).
 - **C. Compose import.** `shoal import compose` (3), with the golden and
   `--strict` tests.
 - **D. Error catalogue.** `internal/errs` with the 15 codes and hints (4); wired

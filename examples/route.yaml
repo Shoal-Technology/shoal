@@ -2,7 +2,7 @@
 # Apply with: shoal apply -f examples/route.yaml
 # The Service is not checked when the Route is applied; the edge reports a
 # missing Service once it exists (ADR 0015, pass B).
-# Edge serving is not implemented yet (pass B), so this only stores the Route.
+# The edge serves the Route on nodes that carry shoal.dev/edge (ADR 0015).
 apiVersion: v1alpha1
 kind: Route
 metadata:
