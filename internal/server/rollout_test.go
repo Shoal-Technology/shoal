@@ -13,8 +13,8 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/runtime"
 )
 
 func applyYAML(t *testing.T, admin v1alpha1.ControlClient, y string) {

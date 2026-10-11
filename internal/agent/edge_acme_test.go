@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/edge"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/edge"
 )
 
 func quietLog() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }

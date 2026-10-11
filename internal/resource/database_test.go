@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 func validDatabase() *v1alpha1.DatabaseSpec {

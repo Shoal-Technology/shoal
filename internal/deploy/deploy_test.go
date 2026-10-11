@@ -16,8 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/appspec"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/appspec"
 )
 
 // fakeControl is an in-memory stand-in for the Control service. Apply stores

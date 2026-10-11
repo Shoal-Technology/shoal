@@ -9,9 +9,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/resource"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/resource"
 )
 
 // routeSnapshot builds the ingress configuration for node (ADR 0015, passes

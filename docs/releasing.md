@@ -83,7 +83,7 @@ token. Snapshot builds never sign.
 
 ## Things that are not automated
 
-- The Go module path is `example.com/shoal` and stays that way until the owner
+- The Go module path is `github.com/kaiserern/shoal` and stays that way until the owner
   decides otherwise. Changing it is a separate change.
 - The repository is private. `install.sh` cannot download from a private
   repository without a token, so it only works for anonymous users after the

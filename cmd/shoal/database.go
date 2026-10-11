@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/database"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/database"
 )
 
 // newDBCmd groups the managed database commands (ADR 0016, pass D).

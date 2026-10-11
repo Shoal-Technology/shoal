@@ -24,9 +24,9 @@ import (
 	"github.com/containerd/containerd/v2/client"
 	"golang.org/x/sys/unix"
 
-	"example.com/shoal/internal/agent"
-	"example.com/shoal/internal/runtime"
-	"example.com/shoal/internal/runtime/containerd"
+	"github.com/kaiserern/shoal/internal/agent"
+	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime/containerd"
 )
 
 var shoalBin = flag.String("shoal-bin", "", "path to the shoal binary (log driver)")

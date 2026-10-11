@@ -11,10 +11,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/database"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/database"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // Logical backups and restores of Databases (ADR 0016, sections 3.4, 3.7 and

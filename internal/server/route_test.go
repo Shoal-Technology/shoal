@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // routeManifest is one Route on the given host and path prefix.

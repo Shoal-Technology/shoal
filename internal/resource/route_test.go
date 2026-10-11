@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // routeSpec is a valid Route spec; each case changes one field.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/hashicorp/raft"
 
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // openReady opens a durable node and waits until it is ready to serve.

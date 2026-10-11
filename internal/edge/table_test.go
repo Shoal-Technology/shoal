@@ -3,7 +3,7 @@ package edge
 import (
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 func mkRoute(name, host, prefix, tlsMode string, eps ...string) Target {

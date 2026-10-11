@@ -8,7 +8,7 @@ package containerd
 import (
 	"io"
 
-	"example.com/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime"
 )
 
 const (

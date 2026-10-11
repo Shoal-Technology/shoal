@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // Logical backups of Postgres Databases (ADR 0016, sections 3.4 and 3.7, pass

@@ -15,10 +15,10 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/security"
-	"example.com/shoal/internal/store"
-	"example.com/shoal/internal/store/raftstore"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/security"
+	"github.com/kaiserern/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store/raftstore"
 )
 
 // The leader record is written by each server when it gains leadership. It

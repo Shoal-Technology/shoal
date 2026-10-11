@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // Readiness reports whether an object is ready, and a message for the

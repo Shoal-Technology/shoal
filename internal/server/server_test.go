@@ -20,10 +20,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/agent"
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/security"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/agent"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/security"
 )
 
 // clock is real time plus an adjustable offset: TLS checks use real time,

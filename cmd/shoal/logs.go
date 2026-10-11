@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // noteStream marks server notes (e.g. an unreachable node) among log lines.

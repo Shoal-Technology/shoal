@@ -10,9 +10,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // cidrAllocator hands out one /24 container subnet per node from the

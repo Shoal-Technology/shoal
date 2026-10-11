@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/edge"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/edge"
 )
 
 func testService(ips ...string) *v1alpha1.Service {

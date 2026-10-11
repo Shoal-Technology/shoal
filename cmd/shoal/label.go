@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // newLabelCmd sets and removes node labels. shoal.dev/edge=true makes a node

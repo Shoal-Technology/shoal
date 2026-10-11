@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	"example.com/shoal/internal/store/raftstore"
+	"github.com/kaiserern/shoal/internal/store/raftstore"
 )
 
 // notLeaderMsg is the message of the FailedPrecondition that a write returns

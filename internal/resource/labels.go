@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // Label limits keep labels small: they are stored with every object and

@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 func newClusterCmd() *cobra.Command {

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"example.com/shoal/internal/runtime"
-	"example.com/shoal/internal/runtime/fake"
+	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime/fake"
 )
 
 func TestParseAssignments(t *testing.T) {

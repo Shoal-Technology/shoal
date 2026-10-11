@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/database"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/database"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // dbApp is the app label of the Databases the tests apply.

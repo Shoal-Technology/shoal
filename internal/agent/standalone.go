@@ -13,8 +13,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/runtime"
 )
 
 // standaloneFile is the on-disk format for `shoal agent --standalone -f`.

@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"time"
 
-	"example.com/shoal/internal/runtime"
-	"example.com/shoal/internal/security"
-	"example.com/shoal/internal/volume"
+	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/security"
+	"github.com/kaiserern/shoal/internal/volume"
 )
 
 // Config tunes the reconciler. Zero values get defaults.

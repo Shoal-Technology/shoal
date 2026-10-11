@@ -8,8 +8,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
 )
 
 // syncServices gives every Service a virtual IP from the service CIDR and

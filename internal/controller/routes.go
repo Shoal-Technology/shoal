@@ -7,9 +7,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/resource"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/resource"
 )
 
 // Route certificate states (RouteStatus.cert_state).

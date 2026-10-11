@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // ownerOf returns the Database that owns the object kind/name, or "" when no

@@ -12,7 +12,7 @@ import (
 
 	gocni "github.com/containerd/go-cni"
 
-	"example.com/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime"
 )
 
 // network attaches containers to a node-local bridge via CNI plugins:

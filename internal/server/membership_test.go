@@ -11,8 +11,8 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/security"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/security"
 )
 
 // membersOf counts the voters and leaders in a cluster status.

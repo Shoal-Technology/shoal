@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 type key struct{ kind, name string }

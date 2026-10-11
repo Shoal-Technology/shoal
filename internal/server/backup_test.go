@@ -11,10 +11,10 @@ import (
 
 	"google.golang.org/grpc"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/backup"
-	"example.com/shoal/internal/store"
-	"example.com/shoal/internal/store/memory"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/backup"
+	"github.com/kaiserern/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store/memory"
 )
 
 // newWith builds a server without serving it. Restore tests need the store

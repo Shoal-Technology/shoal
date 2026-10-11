@@ -3,10 +3,10 @@ package controller
 import (
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 func (e *env) routeRec(name, svc string, port int32, tls, secret string) {

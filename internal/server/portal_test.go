@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 type portalClient struct {

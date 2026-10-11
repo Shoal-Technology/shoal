@@ -7,9 +7,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/resource"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/resource"
 )
 
 // Volume states (ADR 0016, section 1).

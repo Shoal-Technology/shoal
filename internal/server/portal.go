@@ -28,12 +28,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/objects"
-	portalfs "example.com/shoal/internal/portal"
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/security"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/objects"
+	portalfs "github.com/kaiserern/shoal/internal/portal"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/security"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // Web portal settings.

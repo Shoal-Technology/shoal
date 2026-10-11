@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"example.com/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime"
 )
 
 // HealthCheck is a replica's health probe, run by the agent against the

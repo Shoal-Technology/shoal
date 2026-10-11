@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/internal/install"
+	"github.com/kaiserern/shoal/internal/install"
 )
 
 var (

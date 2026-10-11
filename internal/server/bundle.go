@@ -12,8 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/security"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/security"
 )
 
 // bundleFormat names the JSON layout of a join bundle.

@@ -11,7 +11,7 @@ import (
 
 	"github.com/containerd/containerd/v2/core/runtime/v2/logging"
 
-	"example.com/shoal/internal/runtime/logfile"
+	"github.com/kaiserern/shoal/internal/runtime/logfile"
 )
 
 // RunLogDriver runs this process as a containerd binary logging driver that

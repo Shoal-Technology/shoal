@@ -24,12 +24,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/network"
-	"example.com/shoal/internal/resource"
-	"example.com/shoal/internal/runtime"
-	"example.com/shoal/internal/security"
-	"example.com/shoal/internal/volume"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/network"
+	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/security"
+	"github.com/kaiserern/shoal/internal/volume"
 )
 
 // ConnectedConfig configures an agent that is managed by a server.

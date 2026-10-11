@@ -14,8 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/internal/agent"
-	"example.com/shoal/internal/server"
+	"github.com/kaiserern/shoal/internal/agent"
+	"github.com/kaiserern/shoal/internal/server"
 )
 
 func newServerCmd(c *cli) *cobra.Command {

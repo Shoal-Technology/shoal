@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/resource"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/resource"
 )
 
 // A Database emitted from an app spec passes the server's Prepare, the same

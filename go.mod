@@ -1,4 +1,4 @@
-module example.com/shoal
+module github.com/kaiserern/shoal
 
 go 1.27.2
 

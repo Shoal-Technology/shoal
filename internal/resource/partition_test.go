@@ -1,7 +1,7 @@
 package resource
 
 import (
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 	"testing"
 )
 

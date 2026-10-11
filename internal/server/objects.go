@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 var encode = objects.Encode

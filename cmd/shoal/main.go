@@ -12,7 +12,7 @@ import (
 
 	"google.golang.org/grpc/status"
 
-	"example.com/shoal/internal/runtime/containerd"
+	"github.com/kaiserern/shoal/internal/runtime/containerd"
 )
 
 // version, commit and date are set at build time with -ldflags

@@ -15,9 +15,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/edge"
-	"example.com/shoal/internal/security"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/edge"
+	"github.com/kaiserern/shoal/internal/security"
 )
 
 // RouteSink receives the route snapshots the server sends to edge nodes.

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"example.com/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime"
 )
 
 // The runtime mount spec of a read-write volume is a bind mount with rw, and

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"example.com/shoal/internal/store"
-	"example.com/shoal/internal/store/storetest"
+	"github.com/kaiserern/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store/storetest"
 )
 
 func TestConformance(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"example.com/shoal/internal/security"
+	"github.com/kaiserern/shoal/internal/security"
 )
 
 // testBundleSeed returns a well-formed join bundle with a fresh self-signed CA.

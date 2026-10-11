@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // Volume limits and values (ADR 0016, section 1).

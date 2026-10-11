@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"example.com/shoal/api/v1alpha1"
-	"example.com/shoal/internal/agent"
-	"example.com/shoal/internal/network"
-	"example.com/shoal/internal/objects"
-	"example.com/shoal/internal/runtime"
-	"example.com/shoal/internal/runtime/fake"
+	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/internal/agent"
+	"github.com/kaiserern/shoal/internal/network"
+	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime/fake"
 )
 
 // testAgent is an agent with an in-memory runtime, connected to a test

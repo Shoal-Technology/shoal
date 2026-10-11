@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"time"
 
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // Format names the layout written by Encode and accepted by Decode.

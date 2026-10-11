@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"example.com/shoal/internal/appspec"
-	"example.com/shoal/internal/deploy"
+	"github.com/kaiserern/shoal/internal/appspec"
+	"github.com/kaiserern/shoal/internal/deploy"
 )
 
 func newDeployCmd() *cobra.Command {

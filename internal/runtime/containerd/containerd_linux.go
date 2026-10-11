@@ -23,8 +23,8 @@ import (
 	"github.com/distribution/reference"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 
-	"example.com/shoal/internal/runtime"
-	"example.com/shoal/internal/runtime/logfile"
+	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/kaiserern/shoal/internal/runtime/logfile"
 )
 
 // Labels the runtime keeps on each containerd container, so status survives

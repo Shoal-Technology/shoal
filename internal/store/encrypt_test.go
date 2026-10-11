@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	"example.com/shoal/internal/store"
-	"example.com/shoal/internal/store/memory"
-	"example.com/shoal/internal/store/storetest"
+	"github.com/kaiserern/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store/memory"
+	"github.com/kaiserern/shoal/internal/store/storetest"
 )
 
 var key = bytes.Repeat([]byte{7}, 32)

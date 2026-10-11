@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"example.com/shoal/api/v1alpha1"
+	"github.com/kaiserern/shoal/api/v1alpha1"
 )
 
 // Target is one Route with the Ready endpoints (host:port) that serve it.

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 var now = time.Date(2026, 10, 11, 9, 0, 0, 0, time.UTC)

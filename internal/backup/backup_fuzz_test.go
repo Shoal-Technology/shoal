@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"example.com/shoal/internal/store"
+	"github.com/kaiserern/shoal/internal/store"
 )
 
 // FuzzDecode checks that arbitrary backup bytes never panic Decode, and that
