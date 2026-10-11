@@ -11,7 +11,7 @@ draft.
 For each of `linux/amd64` and `linux/arm64`:
 
 - `shoal_<version>_linux_<arch>.tar.gz` with `shoal`, `LICENSE` and `README.md`
-- `shoal_<version>_linux_<arch>.tar.gz.spdx.json` (SBOM, syft)
+- `shoal_<version>_linux_<arch>.tar.gz.sbom.json` (SBOM, Syft JSON)
 
 Plus:
 

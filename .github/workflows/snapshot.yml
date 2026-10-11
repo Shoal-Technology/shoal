@@ -37,5 +37,5 @@ jobs:
           retention-days: 14
           path: |
             dist/*.tar.gz
-            dist/*.spdx.json
+            dist/*.sbom.json
             dist/checksums.txt
