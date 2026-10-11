@@ -32,6 +32,7 @@ PROCESSES = {}
 RESULTS = []
 EVIDENCE = {'phases': {}}
 LIVE_SERVERS = set(NODES)
+RUNNING_AGENTS = set(NODES)
 SSH_KEY = str(BASE / 'key')
 SSH_OPTS = ['-i', SSH_KEY, '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
             '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5']
@@ -324,8 +325,6 @@ def scenario():
         # First start joins through the leader (node1), then the agent is switched to its local server.
         start_unit(n, 'shoal-agent', agent_args(n, *tokens[n - 1], server_node=1))
         wait(f'node{n} agent enrolled', lambda n=n: ssh(n, 'test -s /var/lib/shoal/agent/credentials.conf && echo ok') == 'ok', 120)
-        ssh(n, 'systemctl stop shoal-agent; true')
-        start_unit(n, 'shoal-agent', agent_args(n))
     wait('three nodes Ready', lambda: len(node_phases()) == 3 and all(p == 'Ready' for p in node_phases().values()), 240)
     cli('label', 'node', 'node1', 'shoal.dev/edge=true')
     record(assertion='node1 labelled as edge; three-server raft and three agents up', nodes=node_phases())
@@ -368,6 +367,7 @@ def scenario():
         time.sleep(0.5)
 
     stop_agent(2)
+    RUNNING_AGENTS.discard(2)
     t_stop = time.monotonic()
     node2_ip = ips['node2']
     wait('node2 NotReady', lambda: node_phases().get('node2') == 'NotReady', 150, sample)
@@ -398,11 +398,8 @@ def scenario():
     LIVE_SERVERS.discard(leader_vm)
     survivor = min(LIVE_SERVERS)
     # The agent on the killed VM would otherwise lose its only server; re-point it (identity kept on disk).
-    ssh(leader_vm, 'systemctl stop shoal-agent; true')
-    args = agent_args(leader_vm)
-    args[3] = f'10.0.2.2:{API_PORT[survivor]}'
-    start_unit(leader_vm, 'shoal-agent', args)
     new = wait(f'new raft leader after killing {old}', lambda: (lambda x: x if x not in (None, old) else None)(leader_node()), 120)
+    repoint_agents(int(new.removeprefix('node')))
     EVIDENCE['leader_failover_seconds'] = round(time.monotonic() - t_kill, 1)
     record(assertion='new leader elected on another VM', old=old, new=new, seconds=EVIDENCE['leader_failover_seconds'])
     manifest.write_text(workload('nginx:1.28-alpine'))
@@ -457,6 +454,7 @@ def scenario():
     assert all(r['edge'] == '200' for r in split_rows), 'edge failed during partition'
     record(assertion='partition: one leader seen by reachable servers, edge kept answering', samples=len(split_rows))
 
+    repoint_agents(int(leader_node().removeprefix('node')))
     wait('node3 Ready after heal', lambda: node_phases().get('node3') == 'Ready', 240)
     wait('replicas ready and Service endpoints match after heal', lambda: all_ready(3) and
          endpoints() == {r['status']['ip'] for r in ready_replicas()}, 240)
@@ -464,11 +462,25 @@ def scenario():
     record(assertion='partitioned node rejoined; consistent membership after heal', members=members_after)
 
     # f) bring node2 back: containerd and agent (its server never stopped)
-    start_agent(2)
+    ssh(2, 'systemd-run --unit=shoal-test-containerd /usr/local/bin/containerd >/dev/null 2>&1 || true')
+    start_unit(2, 'shoal-agent', agent_args(2, server_node=int(leader_node().removeprefix('node'))))
+    RUNNING_AGENTS.add(2)
     wait('node2 Ready again after restart', lambda: node_phases().get('node2') == 'Ready', 240)
     wait('endpoints restored to three after node2 returns', lambda: all_ready(3) and len(endpoints()) == 3, 240)
     wait('edge answers after node2 returns', lambda: edge_code() == '200', 60)
     record(assertion='node2 rejoined after agent and containerd restart', phases=node_phases())
+
+
+def repoint_agents(leader_vm):
+    """Restart every running agent so it talks to the current leader.
+
+    Agent Sync streams are not forwarded by followers (ADR 0014, pass 2d), and
+    an agent keeps only one server address. Until the agent can follow a leader
+    hint, the harness restarts agents at the leader. Identity stays on disk.
+    """
+    for n in sorted(RUNNING_AGENTS):
+        ssh(n, 'systemctl stop shoal-agent; true')
+        start_unit(n, 'shoal-agent', agent_args(n, server_node=leader_vm))
 
 
 def leader_node_of(n):
