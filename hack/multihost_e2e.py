@@ -139,6 +139,10 @@ def edge_code():
         return 'error'
 
 
+def ips_now():
+    return next(r['status']['ip'] for r in objects('replicas') if r['status'].get('ip'))
+
+
 def guest_http(node, address):
     return int(ssh(node, f'curl --noproxy "*" --max-time 3 -s -o /dev/null -w "%{{http_code}}" http://{address}/'))
 
@@ -345,7 +349,21 @@ def scenario():
     assert spread == {'node1', 'node2', 'node3'}, f'replicas must spread over all nodes, got {spread}'
     vip = objects('services')[0]['status']['clusterIp']
     wait('service has three endpoints', lambda: len(endpoints()) == 3, 60)
-    wait('edge answers through node1', lambda: edge_code() == '200', 120)
+    codes = []
+
+    def edge_ok():
+        codes.append(edge_code())
+        return codes[-1] == '200'
+
+    try:
+        wait('edge answers through node1', edge_ok, 120)
+    except AssertionError:
+        # Evidence for the failure: host and guest probes of the edge and of one endpoint.
+        record(assertion='edge probe on failure', host_codes=codes[-8:],
+               guest_edge=_safe(lambda: ssh(1, f'curl --noproxy "*" --max-time 3 -s -o /dev/null -w "%{{http_code}}" -H "Host: {HOST}" http://127.0.0.1:80/')),
+               guest_endpoint=_safe(lambda: ssh(1, f'curl --noproxy "*" --max-time 3 -s -o /dev/null -w "%{{http_code}}" http://{ips_now()}:80/')),
+               route=_safe(lambda: cli('get', 'routes', SERVICE, '-o', 'json')[:600]))
+        raise
     ips = {r['spec']['node']: r['status']['ip'] for r in objects('replicas')}
     cross = {}
     for n in NODES:
