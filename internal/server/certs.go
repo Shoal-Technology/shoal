@@ -283,7 +283,7 @@ func (m *certManager) issue(ctx context.Context, host string) error {
 	if err != nil {
 		return err
 	}
-	certURL, err := client.CreateCert(ctx, finalize, csr)
+	certURL, err := client.CreateCert(ctx, order.URL, finalize, csr)
 	if err != nil {
 		return err
 	}

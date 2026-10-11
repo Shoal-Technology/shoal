@@ -42,8 +42,9 @@ type acmeClient interface {
 	// WaitOrder waits until the order is ready and returns its finalize URL.
 	WaitOrder(ctx context.Context, orderURL string) (string, error)
 	// CreateCert finalizes the order with a DER CSR and returns the URL of
-	// the issued certificate.
-	CreateCert(ctx context.Context, finalizeURL string, csr []byte) (string, error)
+	// the issued certificate. orderURL is the order's own URL: the CA may omit
+	// it from the finalize response, and then the order is polled there.
+	CreateCert(ctx context.Context, orderURL, finalizeURL string, csr []byte) (string, error)
 	// FetchCert downloads the certificate chain as DER, leaf first.
 	FetchCert(ctx context.Context, certURL string) ([][]byte, error)
 }
@@ -159,12 +160,31 @@ func (a *acmeHTTP) WaitOrder(ctx context.Context, orderURL string) (string, erro
 	return o.FinalizeURL, nil
 }
 
-func (a *acmeHTTP) CreateCert(ctx context.Context, finalizeURL string, csr []byte) (string, error) {
+// CreateCert finalizes the order and returns the URL of the certificate.
+//
+// x/crypto/acme polls the order at the Location header of the finalize
+// response. RFC 8555 allows a CA to omit that header (pebble does), and then
+// the poll goes to "" and fails although the CA issued the certificate. In
+// that case the order is polled at orderURL, which the caller already has.
+func (a *acmeHTTP) CreateCert(ctx context.Context, orderURL, finalizeURL string, csr []byte) (string, error) {
 	_, certURL, err := a.cl.CreateOrderCert(ctx, finalizeURL, csr, true)
-	if err != nil {
+	if err == nil && certURL != "" {
+		return certURL, nil
+	}
+	if _, ok := acme.RateLimit(err); ok {
 		return "", rateLimit(err)
 	}
-	return certURL, nil
+	o, werr := a.cl.WaitOrder(ctx, orderURL)
+	if werr != nil {
+		if err == nil {
+			err = errors.New("order has no certificate URL")
+		}
+		return "", fmt.Errorf("finalize: %w; wait for order: %w", err, rateLimit(werr))
+	}
+	if o.CertURL == "" {
+		return "", fmt.Errorf("order %s is %s with no certificate", orderURL, o.Status)
+	}
+	return o.CertURL, nil
 }
 
 func (a *acmeHTTP) FetchCert(ctx context.Context, certURL string) ([][]byte, error) {

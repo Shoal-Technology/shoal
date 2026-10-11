@@ -129,7 +129,7 @@ func (c *cmCA) WaitOrder(ctx context.Context, orderURL string) (string, error) {
 	return "finalize-" + orderURL, nil
 }
 
-func (c *cmCA) CreateCert(ctx context.Context, finalizeURL string, csr []byte) (string, error) {
+func (c *cmCA) CreateCert(ctx context.Context, orderURL, finalizeURL string, csr []byte) (string, error) {
 	req, err := x509.ParseCertificateRequest(csr)
 	if err != nil {
 		return "", err
