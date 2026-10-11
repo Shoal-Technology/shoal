@@ -434,7 +434,6 @@ func TestRestoreIsRefusedIntoAnExistingDatabaseOrFromABadBackup(t *testing.T) {
 	}
 	e.bkSetStatus("blog-db-restored", &v1alpha1.DatabaseStatus{Phase: "Ready", Version: "16.15"})
 	e.bkAddBackup("blog-db", "b-1", e.now.Add(-time.Hour), database.BackupOK, database.ReasonScheduled, "16.15")
-	d := e.bkDB("blog-db-restored")
 	s, err := objects.Encode(&v1alpha1.DatabaseSpec{Engine: "postgres", Version: "16.15", Size: "5Gi", RestoreFrom: "b-1"})
 	if err != nil {
 		t.Fatal(err)
@@ -442,7 +441,7 @@ func TestRestoreIsRefusedIntoAnExistingDatabaseOrFromABadBackup(t *testing.T) {
 	if _, err := e.st.Update(ctx, v1alpha1.KindDatabase, "blog-db-restored", s, e.record(v1alpha1.KindDatabase, "blog-db-restored").Generation); err != nil {
 		t.Fatal(err)
 	}
-	d = e.bkDB("blog-db-restored")
+	d := e.bkDB("blog-db-restored")
 	if exp, err := e.c.expandDatabase(ctx, d, dbApp); err != nil || !strings.Contains(exp.refusal, "already exists") {
 		t.Fatalf("existing database: expansion %+v, err %v", exp, err)
 	}

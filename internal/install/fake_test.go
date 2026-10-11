@@ -313,5 +313,3 @@ func pinAssets(t *testing.T, f *fakeHost) {
 	f.fetch[runcAssets["amd64"].URL] = rdata
 	f.fetch[cniAssets["amd64"].URL] = ndata
 }
-
-func errorsIsNotExist(err error) bool { return errors.Is(err, fs.ErrNotExist) }

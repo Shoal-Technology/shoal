@@ -60,10 +60,7 @@ func Uninstall(ctx context.Context, h Host, o UninstallOptions) error {
 	}
 
 	// Stop and disable the units first.
-	var units []string
-	for _, u := range []string{unitAgent, unitServer} {
-		units = append(units, u)
-	}
+	units := []string{unitAgent, unitServer}
 	if removeRuntime {
 		units = append(units, unitContainerd)
 	}
