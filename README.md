@@ -420,11 +420,7 @@ networking and bind ports, so they must not run on a shared machine.
 
 ## License
 
-Copyright (C) 2026 the Shoal authors.
+Copyright 2026 the Shoal authors.
 
-Shoal is free software: you can redistribute it and/or modify it under the
-terms of the GNU Affero General Public License, version 3, as published by the
-Free Software Foundation. See [LICENSE](LICENSE) for the full text.
-
-If you run a modified version of Shoal as a network service, the AGPL requires
-you to offer the source of your modified version to its users.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
+full text.
