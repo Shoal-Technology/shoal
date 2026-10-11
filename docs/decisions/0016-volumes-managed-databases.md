@@ -634,3 +634,24 @@ pass E.
   for a source replica that never comes, and its state stays `pending` or
   `running`. It is not refused or failed. Redis (pass E). The `dir` volume
   backend (the e2e runs `loop`, as before).
+
+## Implementation notes from the S3 client slice (pass D export, part 1)
+- **Done: the client.** `internal/objstore` uploads a backup dump to
+  `<prefix>/<db>/<backup-id>.dump`, downloads it with a SHA-256 check (a
+  mismatch removes the file), checks whether a key exists, and deletes a key
+  (a missing key is not an error). It uses minio-go v7.3.0 (decision 3) with
+  path-style addressing and the Secret's keys as static credentials. The local
+  file is never removed by the client; the caller decides.
+- **Credentials.** `objstore.Credentials` prints as a redacted value under any
+  verb, and the client's log and errors carry no secret. Tests capture the log
+  and check it (`TestCredentialsNeverInLogsOrErrors`).
+- **Tests.** An in-process fake bucket (PUT with aws-chunked bodies, GET, HEAD,
+  DELETE) covers the key layout, the upload path and content, a failed upload
+  keeping the local copy, the SHA check on download, exists and delete, and
+  credential leaks.
+- **Not done.** The job wiring: the `backups.s3` spec fields, sending the
+  Secret to the agent in the backup job, recording the remote key and upload
+  status on `DatabaseBackup`, marking `uploadFailed`, deleting remote objects in
+  retention, the restore `--from` path for a remote-only backup, and the e2e
+  steps (MinIO on the runner, `hack/deploy-e2e.sh`). Pass D export stays
+  deferred until these land.

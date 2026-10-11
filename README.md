@@ -447,7 +447,7 @@ spec:
 - Backups run on the database's node: `pg_dump -Fc` writes a dump into
   `/var/lib/postgresql/data/backups` on the data volume, with its size and
   SHA-256 recorded. Backups are local to the volume in this release; S3 export
-  is a later release. Retention deletes the oldest backups beyond `retain`.
+  is a later release. The S3 client in `internal/objstore` is tested but not yet used by backups. Retention deletes the oldest backups beyond `retain`.
 
 ```sh
 sudo ./bin/shoal db backup app-db                   # a backup now (Ready database)

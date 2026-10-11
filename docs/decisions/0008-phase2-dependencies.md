@@ -24,3 +24,10 @@ gRPC and protobuf.
 ## Consequences
 Measured on a 2-vCPU VM: server idle RSS about 25 MB, agent (server mode)
 about 21 MB, well within the 100 MB / 50 MB targets.
+
+## Addition: minio-go (ADR 0016, decision 3)
+- **`github.com/minio/minio-go/v7` v7.3.0**, released 2026-08-15, for the
+  S3-compatible backup export (`internal/objstore`). It is pinned by version,
+  not by a range. Its transitive modules (`klauspost/compress`, `minio/crc64nvme`,
+  `minio/md5-simd`, `tinylib/msgp` and others) are listed in `go.sum`. Bumps are
+  made deliberately, after release notes are read.
