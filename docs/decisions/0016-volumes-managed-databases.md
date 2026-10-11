@@ -446,8 +446,9 @@ Resolved and accepted with this ADR's status change:
   running containers) after an upgrade.
 - Volume claims are atomic: one internal `VolumeClaim` record per Volume,
   created with the store's `Create`, which fails with `ErrExists` if another
-  Workload holds it. This is the same reservation idea as Route conflicts,
-  but atomic; the Route check in `control.go` is not atomic (ADR 0015 pass A).
+  Workload holds it. It uses the same reservation pattern as Route keys
+  (`KindRouteClaim`, ADR 0015 pass E): a Create that fails with ErrExists when
+  another owner holds the key.
 - A Volume's binding and the first replica's binding are two writes, in a
   fixed order: the Volume's `status.node` first, then the replica's
   `spec.node`. A crash between them leaves a Volume bound to a node with no
