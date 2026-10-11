@@ -134,7 +134,10 @@ resources:
   memory: 128Mi
 EOF
 t1=$(now_ms)
-sudo "$SHOAL" deploy "$WORK/app.yaml" --config "$ADMIN" --server "$SERVER" --wait 5m | tee "$RESULTS/deploy.txt"
+# --wait 0: CI accepts no ACME terms, so the route's certificate stays in
+# CertError and deploy's wait would stop there. The poll below waits for the
+# app over HTTP instead, which is the path this test covers.
+sudo "$SHOAL" deploy "$WORK/app.yaml" --config "$ADMIN" --server "$SERVER" --wait 0 | tee "$RESULTS/deploy.txt"
 body="$RESULTS/app-response.txt"
 ok=0
 for _ in $(seq 1 90); do
@@ -145,6 +148,7 @@ done
 [ "$ok" = 1 ] || fail "no HTTP 200 for $HOST_NAME through the edge (last code: ${code:-none})"
 deploy_to_200_ms=$(( $(now_ms) - t1 ))
 grep -qi 'nginx\|welcome' "$body" || fail "the response is not the app"
+sudo "$SHOAL" app status hello --config "$ADMIN" --server "$SERVER" >"$RESULTS/app-status.txt" 2>&1 || true
 first_response_ms=$(( init_ms + deploy_to_200_ms ))
 pass "app answers 200 through the edge; init to first response ${first_response_ms} ms (init ${init_ms} ms + deploy to 200 ${deploy_to_200_ms} ms)"
 
