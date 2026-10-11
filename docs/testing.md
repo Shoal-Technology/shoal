@@ -58,6 +58,14 @@ Two earlier runs on this branch failed at step a) and were fixed:
 
 Limits: pebble is a test CA, not Let's Encrypt, so rate limits, real DNS and production behaviour are not covered. `app.shoal.test` resolves to 127.0.0.1 on the runner. The run has one server and one edge, and does not test renewal, failover or revocation. This is one run.
 
+## Ingress hardening (ADR 0015, pass E)
+
+Verified run [38126778237](https://github.com/kaiserern/shoal/actions/runs/38126778237) on commit e519bf9 (2026-10-11), first attempt, passed. It runs the same checks a) to f) as above against pebble, now with `--acme-accept-tos` on the server. Check a) would fail if that flag were missing, because the Route would report CertError.
+
+What the e2e run does not cover: the route cache restart, the Route claim race, the 502/503/504 retry and the applied-revision wait. Those are covered by in-process tests only: `internal/edge/proxy_gateway_test.go`, `internal/server/route_claim_test.go`, `internal/agent/edge_cache_test.go` and the ack tests in `internal/server/certs_test.go`.
+
+The `integration`, `integration-report` and `ingress-e2e` make targets refuse to run unless `CI=true` or `SHOAL_DISPOSABLE=1`.
+
 ## Partition policy
 
 Workload manifests accept `spec.partitionPolicy: Hold` or `Replace`. Omitted policy preserves existing Replace behavior. Invalid values are rejected. Hold retains assignments on silent or deleted nodes instead of evicting and replacing them. An unavailable worker can therefore leave the workload unavailable indefinitely. Node record deletion is not proof that containers stopped.
