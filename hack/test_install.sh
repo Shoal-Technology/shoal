@@ -73,10 +73,10 @@ mkdir -p "$work/srv/dl/$tag"
 cp "$release_dir/$archive" "$release_dir/checksums.txt" "$work/srv/dl/$tag/"
 
 # A second base with a tampered archive but the original checksums.
-mkdir -p "$work/bad/dl/$tag"
-cp "$release_dir/checksums.txt" "$work/bad/dl/$tag/"
-cp "$release_dir/$archive" "$work/bad/dl/$tag/"
-printf 'tampered' >>"$work/bad/dl/$tag/$archive"
+mkdir -p "$work/srv/bad/dl/$tag"
+cp "$release_dir/checksums.txt" "$work/srv/bad/dl/$tag/"
+cp "$release_dir/$archive" "$work/srv/bad/dl/$tag/"
+printf 'tampered' >>"$work/srv/bad/dl/$tag/$archive"
 
 port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
 python3 -m http.server "$port" --bind 127.0.0.1 --directory "$work/srv" >"$work/http.log" 2>&1 &
@@ -119,7 +119,7 @@ grep -q "$tag" "$work/latest.out" || fail "latest-release install did not report
 pass "resolves the latest release through the API"
 
 # 5. A checksum mismatch must stop the install.
-if SHOAL_VERSION="$tag" SHOAL_DOWNLOAD_BASE="$work/bad/dl" SHOAL_INSTALL_DIR="$work/bin-bad" \
+if SHOAL_VERSION="$tag" SHOAL_DOWNLOAD_BASE="http://127.0.0.1:$port/bad/dl" SHOAL_INSTALL_DIR="$work/bin-bad" \
 	sh "$script" >"$work/bad.out" 2>&1; then
 	fail "tampered archive was accepted"
 fi
