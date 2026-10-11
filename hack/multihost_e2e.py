@@ -194,8 +194,10 @@ def server_args(node, join):
     return args
 
 
-def agent_args(node, token=None, ca_hash=None):
-    args = ['shoal', 'agent', '--server', f'10.0.2.2:{API_PORT[node]}', '--node-name', f'node{node}',
+def agent_args(node, token=None, ca_hash=None, server_node=None):
+    # Joins must reach the leader ("join: not the leader" otherwise); afterwards the
+    # agent talks to its own server, which forwards to the leader.
+    args = ['shoal', 'agent', '--server', f'10.0.2.2:{API_PORT[server_node or node]}', '--node-name', f'node{node}',
             '--state-dir', '/var/lib/shoal', '--wireguard-endpoint', f'10.0.2.2:{WG_PORT[node]}']
     if token:
         args += ['--token', token, '--ca-hash', ca_hash]
@@ -319,7 +321,11 @@ def scenario():
         assert m, 'missing join credential'
         tokens.append(m.groups())
     for n in NODES:
-        start_agent(n, *tokens[n - 1])
+        # First start joins through the leader (node1), then the agent is switched to its local server.
+        start_unit(n, 'shoal-agent', agent_args(n, *tokens[n - 1], server_node=1))
+        wait(f'node{n} agent enrolled', lambda n=n: ssh(n, 'test -s /var/lib/shoal/agent/credentials.conf && echo ok') == 'ok', 120)
+        ssh(n, 'systemctl stop shoal-agent; true')
+        start_unit(n, 'shoal-agent', agent_args(n))
     wait('three nodes Ready', lambda: len(node_phases()) == 3 and all(p == 'Ready' for p in node_phases().values()), 240)
     cli('label', 'node', 'node1', 'shoal.dev/edge=true')
     record(assertion='node1 labelled as edge; three-server raft and three agents up', nodes=node_phases())
