@@ -341,7 +341,7 @@ def scenario():
     service.write_text(f'kind: Service\nmetadata: {{name: {SERVICE}}}\nspec: {{selector: {SERVICE}, ports: [{{port: 80, targetPort: 80}}]}}\n')
     cli('apply', '-f', str(service))
     route = BASE / 'route.yaml'
-    route.write_text(f'kind: Route\nmetadata: {{name: {SERVICE}}}\nspec: {{host: {HOST}, service: {SERVICE}, port: 80}}\n')
+    route.write_text(f'kind: Route\nmetadata: {{name: {SERVICE}}}\nspec: {{host: {HOST}, service: {SERVICE}, port: 80, tls: none}}\n')
     cli('apply', '-f', str(route))
     wait('three ready replicas', lambda: all_ready(3), 300)
     spread = {r['spec']['node'] for r in objects('replicas')}

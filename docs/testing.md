@@ -233,3 +233,16 @@ The current runtime integration suite is single-host. The following are required
 * Network partition with explicit duplicate-replica observations.
 
 Record topology, versions, commands, timestamps, request counts and recovery times. Do not treat two agents on one host as proof of cross-host networking. Partition testing currently must use disposable stateless workloads; singleton and stateful safety is not established.
+
+## Multi-host e2e (three VMs): not yet green
+
+`multihost-e2e.yml` (manually dispatched, runs `hack/multihost_e2e.py`) boots three QEMU guests on one disposable runner, each with containerd, a shoal server (raft store, three voters joined by join bundle) and an agent. Guests reach each other through SLIRP host forwards at 10.0.2.2. The scenario is: Service and 3 replicas spread over the nodes; edge through node1; cross-node HTTP over WireGuard; agent failover on node2 (agent and containerd stopped, server kept for raft quorum); leader server kill; a 60 s iptables partition of node3; and node2 restart.
+
+This is not verified. Five dispatches were made within the attempt budget and none reached the failover steps:
+
+- [38176700418] failed at raft bootstrap. Real Go bug: `raftstore.Open` passed a nil advertise address to the hashicorp/raft TCP transport, so a wildcard `--raft-bind 0.0.0.0:7445` was refused (`errNotAdvertisable`). `--raft-advertise` is now carried through (`DiskConfig.Advertise`) in commit 40c38cf, with regression tests `TestWildcardBind*` in `internal/store/raftstore/disk_test.go`.
+- [38177227641] three raft voters and one leader came up. Agents joining a follower were refused (`not the leader`). Harness fix: first joins go to the leader.
+- [38177780481] replicas were placed one per node, then node2 and node3 agents lost their Sync streams with `not the leader` and were marked NotReady after 60 s, so their replicas were replaced on node1. Open product gap: agent Sync streams are not forwarded by followers (ADR 0014, pass 2d), and an agent keeps only one server address, so an agent bound to a follower cannot stay Ready. The harness now points every agent at the leader and repoints them when the leader changes. This is a workaround, not a fix.
+- [38178189345] and [38178659502] reached the edge check and failed there. Cause: a Route without `tls` defaults to `tls: auto` and answers plain HTTP with 308 to HTTPS. The harness now sets `tls: none`. This last change was pushed after the attempt budget was used and has not been run.
+
+Not measured: failover times, failed requests in the failover window, leader re-election, the partition split-brain check, and node2 rejoin. Service DNS is not tested; the ClusterIP is used. Run `gh workflow run multihost-e2e.yml -R Shoal-Technology/shoal` to continue, and read the `multihost-e2e-evidence` artifact on failure.
