@@ -244,9 +244,13 @@ func AssignmentFromAPI(a *v1alpha1.Assignment) (Assignment, error) {
 			FailureThreshold: int(hc.GetFailureThreshold()),
 			InitialDelay:     time.Duration(hc.GetInitialDelaySeconds()) * time.Second,
 		}
-		if hc.GetHttp() != nil {
+		switch {
+		case hc.GetExec() != nil:
+			argv, _ := json.Marshal(hc.GetExec().GetCommand()) // plain strings: cannot fail
+			h.Exec = string(argv)
+		case hc.GetHttp() != nil:
 			h.HTTPPath, h.Port = hc.GetHttp().GetPath(), int(hc.GetHttp().GetPort())
-		} else {
+		default:
 			h.Port = int(hc.GetTcp().GetPort())
 		}
 		// Defaults are applied by the server; guard against zero values

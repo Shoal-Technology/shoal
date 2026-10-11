@@ -16,8 +16,9 @@ const (
 	KindRoute       = "Route"
 	KindVolume      = "Volume"
 	KindVolumeClaim = "VolumeClaim" // internal: one per Volume in use, see ADR 0016
-	KindJoinToken   = "JoinToken"   // internal
-	KindUIAuth      = "UIAuth"      // internal
+	KindDatabase    = "Database"
+	KindJoinToken   = "JoinToken" // internal
+	KindUIAuth      = "UIAuth"    // internal
 
 	// Internal kinds for automatic TLS (ADR 0015, pass C). Not user-appliable.
 	KindCertificate   = "Certificate"
@@ -26,6 +27,11 @@ const (
 	// KindRouteClaim reserves a Route's host and path prefix (ADR 0015, pass
 	// E). Its name is the reserved key; its spec is the owning Route's name.
 	KindRouteClaim = "RouteClaim"
+
+	// KindOwnerClaim records that a Database owns an object (ADR 0016, pass C).
+	// Its name is "<Kind>/<name>" of the owned object; its spec is the owning
+	// Database's name. The server refuses user edits of owned objects.
+	KindOwnerClaim = "OwnerClaim"
 
 	// DNSDomain is the domain of Service names: <service>.shoal.
 	DNSDomain = "shoal"

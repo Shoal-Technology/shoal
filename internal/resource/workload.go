@@ -150,8 +150,10 @@ func ValidateWorkload(w *v1alpha1.Workload) error {
 
 	if hc := s.GetHealthCheck(); hc != nil {
 		switch {
-		case (hc.Http == nil) == (hc.Tcp == nil):
-			bad("spec.healthCheck", "set exactly one of http or tcp")
+		case countSet(hc.Http != nil, hc.Tcp != nil, hc.Exec != nil) != 1:
+			bad("spec.healthCheck", "set exactly one of http, tcp or exec")
+		case hc.Exec != nil:
+			validateExecCommand(hc.Exec.GetCommand(), "spec.healthCheck.exec.command", bad)
 		case hc.Http != nil:
 			if len(hc.Http.GetPath()) == 0 || hc.Http.GetPath()[0] != '/' {
 				bad("spec.healthCheck.http.path", "must start with /")
@@ -233,3 +235,33 @@ func validateVolumeMounts(s *v1alpha1.WorkloadSpec, bad func(field, format strin
 }
 
 func validPort(p int32) bool { return p >= 1 && p <= 65535 }
+
+// countSet counts the true values.
+func countSet(flags ...bool) int {
+	n := 0
+	for _, f := range flags {
+		if f {
+			n++
+		}
+	}
+	return n
+}
+
+// maxExecArgs bounds an exec probe's command line.
+const maxExecArgs = 32
+
+// validateExecCommand checks the argv of an exec health check: it runs without
+// a shell, so each element is one argument.
+func validateExecCommand(argv []string, field string, bad func(field, format string, args ...any)) {
+	switch {
+	case len(argv) == 0:
+		bad(field, "required: the command to run, as a list such as [\"pg_isready\"]")
+	case len(argv) > maxExecArgs:
+		bad(field, "at most %d arguments", maxExecArgs)
+	}
+	for i, a := range argv {
+		if a == "" || strings.ContainsRune(a, 0) {
+			bad(field, "argument %d must be non-empty and contain no NUL", i)
+		}
+	}
+}

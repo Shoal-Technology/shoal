@@ -19,6 +19,7 @@ message Object {
     Service service = 6;
     Route route = 7;
     Volume volume = 8;
+    Database database = 9;
   }
 }
 

@@ -107,10 +107,10 @@ message Resources {
   string memory = 2;
 }
 
-// HealthCheck has exactly one of http or tcp. It is probed by the node's
-// agent on the replica's IP. A replica is ready after its first passing
-// probe; after failure_threshold consecutive failures it is not ready and is
-// restarted.
+// HealthCheck has exactly one of http, tcp or exec. HTTP and TCP are probed by
+// the node's agent on the replica's IP; exec runs a command inside the
+// container. A replica is ready after its first passing probe; after
+// failure_threshold consecutive failures it is not ready and is restarted.
 message HealthCheck {
   HTTPHealthCheck http = 1;
   TCPHealthCheck tcp = 2;
@@ -120,6 +120,8 @@ message HealthCheck {
   int32 failure_threshold = 5;
   // Wait this long after the container starts before the first probe.
   int32 initial_delay_seconds = 6;
+  // Passes when the command exits with status 0 (ADR 0016, pass C).
+  ExecHealthCheck exec = 7;
 }
 
 message HTTPHealthCheck {
@@ -129,6 +131,11 @@ message HTTPHealthCheck {
 
 message TCPHealthCheck {
   int32 port = 1;
+}
+
+message ExecHealthCheck {
+  // argv of the command. It runs without a shell, inside the container.
+  repeated string command = 1;
 }
 
 message UpdateStrategy {
@@ -293,6 +300,54 @@ message VolumeStatus {
   string quota = 5;
   // Bytes used. Reported by the agent in a later pass; zero in pass A.
   int64 used_bytes = 6;
+}
+
+// Database is a managed database (ADR 0016, section 3). The controller expands
+// it into a Volume, a Workload, a Service and a credentials Secret, all owned
+// by the Database: users manage only the Database.
+message Database {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  DatabaseSpec spec = 4;
+  DatabaseStatus status = 5;
+}
+
+message DatabaseSpec {
+  // Only "postgres" in this pass. Redis is pass E.
+  string engine = 1;
+  // major.minor from the pinned image table, e.g. "16.15".
+  string version = 2;
+  // Storage of the data Volume, e.g. "5Gi". Fixed after creation in v1.
+  string size = 3;
+  // Defaults: cpu 500m, memory 384Mi (ADR 0017).
+  Resources resources = 4;
+  // Fixed at 1 in v1. Unset means 1.
+  optional int32 replicas = 5;
+  // Optional. Validated and stored in this pass; backups run in pass D.
+  DatabaseBackup backup = 6;
+}
+
+message DatabaseBackup {
+  // Interval between backups, e.g. "24h". At least 1h.
+  string schedule = 1;
+  // Backups kept per target, from 1 to 365.
+  int32 retain = 2;
+  // volume (a backup Volume) and/or s3 (a BackupTarget).
+  repeated string targets = 3;
+  // BackupTarget name. Required when targets includes s3.
+  string s3 = 4;
+}
+
+message DatabaseStatus {
+  // Provisioning, Ready, Degraded or Failed.
+  string phase = 1;
+  // Why the phase is not Ready, or what was refused.
+  string message = 2;
+  // Name and port clients connect to, e.g. app-db.shoal:5432.
+  string endpoint = 3;
+  // Version of the image the database runs.
+  string version = 4;
 }
 
 // Secret holds sensitive key-value data. It is encrypted at rest and its

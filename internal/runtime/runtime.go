@@ -7,6 +7,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -89,6 +90,59 @@ type LogEntry struct {
 	Line   string
 }
 
+// ExecOutputLimit caps each of stdout and stderr of an Exec call, in bytes.
+// Output beyond it is dropped and ExecResult.Truncated is set, so a chatty
+// probe cannot grow the agent's memory.
+const ExecOutputLimit = 16 << 10
+
+// ExecResult is the outcome of Exec.
+type ExecResult struct {
+	ExitCode  int // -1 when the command was killed at its timeout
+	Stdout    string
+	Stderr    string
+	Truncated bool // one of the streams hit ExecOutputLimit
+}
+
+// CappedBuffer is an io.Writer that keeps at most Limit bytes and drops the
+// rest. It never returns an error, so a full buffer does not stop the command
+// writing to it. It is safe for concurrent use: a stream copier may still be
+// writing when the caller reads it.
+type CappedBuffer struct {
+	Limit int
+
+	mu        sync.Mutex
+	buf       []byte
+	truncated bool
+}
+
+// Write keeps up to Limit bytes of p.
+func (c *CappedBuffer) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	room := c.Limit - len(c.buf)
+	if room > 0 {
+		c.buf = append(c.buf, p[:min(room, len(p))]...)
+	}
+	if len(p) > room {
+		c.truncated = true
+	}
+	return len(p), nil
+}
+
+// String returns the kept bytes.
+func (c *CappedBuffer) String() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return string(c.buf)
+}
+
+// Truncated reports whether bytes were dropped.
+func (c *CappedBuffer) Truncated() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.truncated
+}
+
 // Runtime manages containers on a single node.
 type Runtime interface {
 	// EnsureImage makes the image available locally, pulling it if missing.
@@ -112,4 +166,10 @@ type Runtime interface {
 	// Logs calls fn for each log line. With Follow it keeps streaming until
 	// the container's process exits, ctx is cancelled or fn returns an error.
 	Logs(ctx context.Context, id string, opts LogOptions, fn func(LogEntry) error) error
+	// Exec runs argv inside the running container id, without a shell, and
+	// waits for it to exit. The command is killed when timeout passes (its
+	// ExitCode is then -1 and the error says so). Output is capped at
+	// ExecOutputLimit per stream. It returns ErrNotFound for an unknown
+	// container and an error if the container is not running.
+	Exec(ctx context.Context, id string, argv []string, timeout time.Duration) (ExecResult, error)
 }

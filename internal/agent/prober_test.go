@@ -50,7 +50,7 @@ func TestRunCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
-			if err := runCheck(ctx, host, tt.hc); (err == nil) != tt.ok {
+			if err := runCheck(ctx, nil, probeTarget{ip: host, check: tt.hc}); (err == nil) != tt.ok {
 				t.Fatalf("runCheck = %v, want ok=%v", err, tt.ok)
 			}
 		})
@@ -68,7 +68,7 @@ type healthEnv struct {
 func newHealthEnv(t *testing.T) *healthEnv {
 	e := &healthEnv{t: t, rt: fake.New(nil)}
 	e.r = NewReconciler(e.rt, discardLogger(), Config{PullWait: 50 * time.Millisecond})
-	e.r.prober.check = func(context.Context, string, HealthCheck) error {
+	e.r.prober.check = func(context.Context, probeTarget) error {
 		if e.passing.Load() {
 			return nil
 		}

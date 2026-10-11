@@ -150,7 +150,7 @@ func NewReconciler(rt runtime.Runtime, log *slog.Logger, cfg Config) *Reconciler
 		cfg:     cfg,
 		backoff: map[string]*backoff{},
 		puller:  newImagePuller(rt, cfg.PullTimeout, cfg.PullWait),
-		prober:  newProber(),
+		prober:  newProber(rt),
 	}
 }
 
@@ -347,7 +347,7 @@ func (r *Reconciler) setReadiness(a Assignment, st *ReplicaStatus) {
 		st.Message = "no IP to run the health check against"
 		return
 	}
-	t := probeTarget{ip: st.IP, startedAt: st.StartedAt, check: *a.Health}
+	t := probeTarget{id: a.ReplicaID, ip: st.IP, startedAt: st.StartedAt, check: *a.Health}
 	r.probes[a.ReplicaID] = t
 	h := r.prober.result(a.ReplicaID, t)
 	st.Ready = h.ready
@@ -363,7 +363,7 @@ func (r *Reconciler) checkHealth(ctx context.Context, a Assignment, c runtime.Co
 		return st, nil
 	}
 	id := a.ReplicaID
-	h := r.prober.result(id, probeTarget{ip: c.IP, startedAt: c.StartedAt, check: *a.Health})
+	h := r.prober.result(id, probeTarget{id: id, ip: c.IP, startedAt: c.StartedAt, check: *a.Health})
 	if !h.unhealthy {
 		return st, nil
 	}

@@ -23,6 +23,7 @@ type Runtime struct {
 	held       map[string]chan struct{}
 	crashing   map[string]bool               // images whose containers exit right after starting
 	logs       map[string][]runtime.LogEntry // by container ID
+	execs      map[string]func([]string) runtime.ExecResult
 	calls      []string
 }
 
@@ -46,7 +47,53 @@ func New(now func() time.Time) *Runtime {
 		held:       map[string]chan struct{}{},
 		crashing:   map[string]bool{},
 		logs:       map[string][]runtime.LogEntry{},
+		execs:      map[string]func([]string) runtime.ExecResult{},
 	}
+}
+
+// SetExec sets what Exec returns for container id: fn receives the argv. With
+// no handler, Exec succeeds with exit code 0 and no output.
+func (r *Runtime) SetExec(id string, fn func(argv []string) runtime.ExecResult) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.execs[id] = fn
+}
+
+// Exec implements runtime.Runtime. Like containerd, it needs a running
+// container, and output is capped at runtime.ExecOutputLimit. The timeout is
+// not enforced: a handler returns at once.
+func (r *Runtime) Exec(_ context.Context, id string, argv []string, _ time.Duration) (runtime.ExecResult, error) {
+	r.mu.Lock()
+	c, ok := r.containers[id]
+	switch {
+	case !ok:
+		r.mu.Unlock()
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: %w", id, runtime.ErrNotFound)
+	case c.status.State != runtime.StateRunning:
+		r.mu.Unlock()
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: container is not running", id)
+	case len(argv) == 0:
+		r.mu.Unlock()
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: empty command", id)
+	}
+	if err := r.record("exec", id); err != nil {
+		r.mu.Unlock()
+		return runtime.ExecResult{}, err
+	}
+	fn := r.execs[id]
+	r.mu.Unlock()
+
+	var res runtime.ExecResult
+	if fn != nil {
+		res = fn(slices.Clone(argv))
+	}
+	if len(res.Stdout) > runtime.ExecOutputLimit {
+		res.Stdout, res.Truncated = res.Stdout[:runtime.ExecOutputLimit], true
+	}
+	if len(res.Stderr) > runtime.ExecOutputLimit {
+		res.Stderr, res.Truncated = res.Stderr[:runtime.ExecOutputLimit], true
+	}
+	return res, nil
 }
 
 // CrashImage makes containers of ref exit with code 1 right after every

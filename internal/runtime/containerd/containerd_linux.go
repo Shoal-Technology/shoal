@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -613,6 +614,99 @@ func (r *containerdRuntime) Logs(ctx context.Context, id string, opts runtime.Lo
 		return fmt.Errorf("logs %s: %w", id, err)
 	}
 	return nil
+}
+
+var execSeq atomic.Uint64
+
+// Exec runs argv in the running container as a separate process. The process
+// takes the container's process spec (user, environment, working directory)
+// and is deleted afterwards. Not exercised until the e2e pass (ADR 0016, F).
+func (r *containerdRuntime) Exec(ctx context.Context, id string, argv []string, timeout time.Duration) (res runtime.ExecResult, retErr error) {
+	if len(argv) == 0 {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: empty command", id)
+	}
+	c, err := r.load(ctx, id)
+	if err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: %w", id, err)
+	}
+	t, err := c.Task(ctx, nil)
+	if err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: no task: %w", id, err)
+	}
+	ts, err := t.Status(ctx)
+	if err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: task status: %w", id, err)
+	}
+	if ts.Status != client.Running {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: container is not running", id)
+	}
+	spec, err := c.Spec(ctx)
+	if err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: load spec: %w", id, err)
+	}
+	if spec.Process == nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: container has no process spec", id)
+	}
+	proc := *spec.Process
+	proc.Args = argv
+	proc.Terminal = false
+
+	stdout := &runtime.CappedBuffer{Limit: runtime.ExecOutputLimit}
+	stderr := &runtime.CappedBuffer{Limit: runtime.ExecOutputLimit}
+	execID := fmt.Sprintf("shoal-exec-%d-%d", time.Now().UnixNano(), execSeq.Add(1))
+	p, err := t.Exec(ctx, execID, &proc, cio.NewCreator(cio.WithStreams(nil, stdout, stderr)))
+	if err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: %w", id, err)
+	}
+	// Remove the exec process on every path, including a failed start.
+	defer func() {
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTime)
+		defer cancel()
+		if _, err := p.Delete(cctx, client.WithProcessKill); err != nil && !errdefs.IsNotFound(err) {
+			retErr = errors.Join(retErr, fmt.Errorf("exec %s: delete process: %w", id, err))
+		}
+	}()
+
+	exitCh, err := p.Wait(ctx)
+	if err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: wait: %w", id, err)
+	}
+	if err := p.Start(ctx); err != nil {
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: start: %w", id, err)
+	}
+	var expired <-chan time.Time
+	if timeout > 0 {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		expired = timer.C
+	}
+	res.ExitCode = -1
+	select {
+	case st := <-exitCh:
+		code, _, err := st.Result()
+		if err != nil {
+			return res, fmt.Errorf("exec %s: exit status: %w", id, err)
+		}
+		res.ExitCode = int(code)
+	case <-expired:
+		_ = p.Kill(ctx, syscall.SIGKILL)
+		select {
+		case <-exitCh:
+		case <-ctx.Done():
+		}
+		return finishExec(res, stdout, stderr), fmt.Errorf("exec %s: timed out after %s", id, timeout)
+	case <-ctx.Done():
+		_ = p.Kill(context.WithoutCancel(ctx), syscall.SIGKILL)
+		return runtime.ExecResult{}, fmt.Errorf("exec %s: %w", id, ctx.Err())
+	}
+	return finishExec(res, stdout, stderr), nil
+}
+
+// finishExec copies the captured output into res.
+func finishExec(res runtime.ExecResult, stdout, stderr *runtime.CappedBuffer) runtime.ExecResult {
+	res.Stdout, res.Stderr = stdout.String(), stderr.String()
+	res.Truncated = stdout.Truncated() || stderr.Truncated()
+	return res
 }
 
 func (r *containerdRuntime) load(ctx context.Context, id string) (client.Container, error) {
