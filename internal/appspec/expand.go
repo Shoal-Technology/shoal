@@ -28,6 +28,24 @@ const (
 	healthFailureThreshold = 3
 )
 
+// Defaults for database: postgres (ADR 0017, 2.2). The memory default fits a
+// 1 GiB host next to the server and the agent; ADR 0016 section 3.1 is
+// updated to match in pass C.
+const (
+	DefaultDatabaseVersion = "16"
+	DefaultDatabaseSize    = "5Gi"
+	DefaultDatabaseCPU     = "500m"
+	DefaultDatabaseMemory  = "384Mi"
+)
+
+// valueOr returns v, or def when v is empty.
+func valueOr(v, def string) string {
+	if v == "" {
+		return def
+	}
+	return v
+}
+
 // DatabaseName is the name of the Database object of app (ADR 0017, 2.3).
 func DatabaseName(app string) string { return app + "-db" }
 
@@ -42,20 +60,25 @@ func SecretsName(app string) string { return app + "-secrets" }
 func VolumeName(app, volume string) string { return app + "-" + volume }
 
 // Expand checks app and returns the objects it stands for, in this order:
-// Workload; Service (when port is set); Route (when domain is set); then one
-// Volume per entry of volumes. The same app always gives the same objects.
+// Workload; Service (when port is set); Route (when domain is set); Database
+// (when database is set); then one Volume per entry of volumes. The same app
+// always gives the same objects.
 //
-// The Database object is not emitted yet. The Database kind does not exist on
-// origin/main (ADR 0016 has not landed), so the env reference to the
-// credential Secret is the only database output. The Secret <name>-secrets is
-// not emitted either: deploy creates it empty, and its values are set with
-// `shoal app secret set`.
+// The Secret <name>-secrets is not emitted: deploy creates it empty, and its
+// values are set with `shoal app secret set`. The credential Secret
+// <name>-db-credentials is created by the Database controller, so only the
+// env reference to it is emitted here.
 func Expand(app *App) ([]*Object, error) {
 	if err := checkFields(app); err != nil {
 		return nil, err
 	}
 	objs := build(app)
 	for _, o := range objs {
+		if o.GetDatabase() != nil {
+			// resource.Prepare has no Database case yet. checkFields
+			// validates the engine, version and size instead.
+			continue
+		}
 		kind, name, _, err := resource.Prepare(o)
 		if err != nil {
 			return nil, fmt.Errorf("%s %s: %w", kind, name, err)
@@ -117,12 +140,19 @@ func build(app *App) []*Object {
 		}}})
 	}
 
-	// TODO(ADR 0016): the Database kind is not on origin/main yet. When it
-	// lands, emit a Database named DatabaseName(app.Name) before the Workload,
-	// with engine postgres, the version and size from app.Database, and the
-	// ADR 0017 defaults of cpu 500m and memory 384Mi. The DATABASE_URL reference
-	// in envVars does not change. Tests that cover database: postgres check
-	// the reference and the absence of the Database object until then.
+	if app.Database != (Database{}) {
+		out = append(out, &Object{Kind: &v1alpha1.Object_Database{Database: &v1alpha1.Database{
+			ApiVersion: v1alpha1.APIVersion,
+			Kind:       v1alpha1.KindDatabase,
+			Metadata:   meta(app.Name, DatabaseName(app.Name)),
+			Spec: &v1alpha1.DatabaseSpec{
+				Engine:    DatabaseEngine,
+				Version:   valueOr(app.Database.Version, DefaultDatabaseVersion),
+				Size:      valueOr(app.Database.Size, DefaultDatabaseSize),
+				Resources: &v1alpha1.Resources{Cpu: DefaultDatabaseCPU, Memory: DefaultDatabaseMemory},
+			},
+		}}})
+	}
 
 	for _, v := range app.Volumes {
 		out = append(out, &Object{Kind: &v1alpha1.Object_Volume{Volume: &v1alpha1.Volume{
@@ -213,6 +243,8 @@ func inner(o *Object) proto.Message {
 		return k.Route
 	case *v1alpha1.Object_Volume:
 		return k.Volume
+	case *v1alpha1.Object_Database:
+		return k.Database
 	}
 	return nil
 }

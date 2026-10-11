@@ -25,8 +25,9 @@ const MaxAppNameLen = 40
 const DatabaseEngine = "postgres"
 
 var (
-	envName   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-	digitsRun = regexp.MustCompile(`^[0-9]+$`)
+	envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	// versionRun is a major or major.minor version, such as "16" or "16.15".
+	versionRun = regexp.MustCompile(`^[0-9]+(\.[0-9]+)?$`)
 )
 
 // App is a parsed shoal.yaml.
@@ -163,8 +164,8 @@ func checkFields(app *App) error {
 		} else if app.Database.Engine != DatabaseEngine {
 			bad("database.engine", "must be %s, the only engine in v1", DatabaseEngine)
 		}
-		if v := app.Database.Version; v != "" && !digitsRun.MatchString(v) {
-			bad("database.version", "must be a major version such as \"16\"")
+		if v := app.Database.Version; v != "" && !versionRun.MatchString(v) {
+			bad("database.version", "must be a major or major.minor version such as \"16\"")
 		}
 		if s := app.Database.Size; s != "" {
 			if _, err := resource.ParseMemory(s); err != nil {

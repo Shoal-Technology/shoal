@@ -159,6 +159,7 @@ func TestValidationTable(t *testing.T) {
 		{"database bad version", "name: web\nimage: nginx\ndatabase:\n  engine: postgres\n  version: 16.2-rc\n", "database.version"},
 		{"database bad size", "name: web\nimage: nginx\ndatabase:\n  engine: postgres\n  size: lots\n", "database.size"},
 		{"database short form ok", "name: web\nimage: nginx\ndatabase: postgres\n", ""},
+		{"database major.minor version ok", "name: web\nimage: nginx\ndatabase:\n  engine: postgres\n  version: \"16.15\"\n", ""},
 		{"DATABASE_URL conflicts with database", "name: web\nimage: nginx\ndatabase: postgres\nenv:\n  DATABASE_URL: x\n", "env.DATABASE_URL: DATABASE_URL is set by database"},
 		{"CPU zero", "name: web\nimage: nginx\nresources:\n  cpu: 0\n", "spec.resources.cpu"},
 		{"memory too small", "name: web\nimage: nginx\nresources:\n  memory: 1Ki\n", "spec.resources.memory"},
@@ -220,13 +221,14 @@ func labelsOf(o *Object) map[string]string {
 		return k.Route.GetMetadata().GetLabels()
 	case *v1alpha1.Object_Volume:
 		return k.Volume.GetMetadata().GetLabels()
+	case *v1alpha1.Object_Database:
+		return k.Database.GetMetadata().GetLabels()
 	}
 	return nil
 }
 
-// TestDatabaseReference checks the database case. The Database object is a
-// TODO until the kind lands (ADR 0016), so only the env reference and the
-// absence of a Database object are asserted.
+// TestDatabaseReference checks the database case: the Database object and
+// the DATABASE_URL reference to its credential Secret.
 func TestDatabaseReference(t *testing.T) {
 	data, err := os.ReadFile("testdata/web_db_domain.yaml")
 	if err != nil {
@@ -263,8 +265,27 @@ func TestDatabaseReference(t *testing.T) {
 	if !found {
 		t.Fatal("no DATABASE_URL env on the Workload")
 	}
-	if n := len(objs); n != 3 {
-		t.Errorf("got %d objects, want 3 (Workload, Service, Route); the Database is a TODO", n)
+	var db *v1alpha1.Database
+	for _, o := range objs {
+		if d := o.GetDatabase(); d != nil {
+			db = d
+		}
+	}
+	if db == nil {
+		t.Fatal("no Database object for database: postgres")
+	}
+	if db.GetMetadata().GetName() != "blog-db" {
+		t.Errorf("Database name = %q, want blog-db", db.GetMetadata().GetName())
+	}
+	s := db.GetSpec()
+	if s.GetEngine() != "postgres" || s.GetVersion() != "16" || s.GetSize() != "5Gi" {
+		t.Errorf("Database spec = %v, want postgres 16 5Gi", s)
+	}
+	if r := s.GetResources(); r.GetCpu() != "500m" || r.GetMemory() != "384Mi" {
+		t.Errorf("Database resources = %v, want cpu 500m memory 384Mi", r)
+	}
+	if n := len(objs); n != 4 {
+		t.Errorf("got %d objects, want 4 (Workload, Service, Route, Database)", n)
 	}
 }
 

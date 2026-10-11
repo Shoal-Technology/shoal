@@ -53,3 +53,17 @@ spec:
   port: 80
   service: blog
   tls: auto
+---
+apiVersion: v1alpha1
+kind: Database
+metadata:
+  labels:
+    app: blog
+  name: blog-db
+spec:
+  engine: postgres
+  resources:
+    cpu: 500m
+    memory: 384Mi
+  size: 5Gi
+  version: "16"
