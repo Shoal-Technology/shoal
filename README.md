@@ -38,6 +38,31 @@ failover are not verified yet. See [docs/testing.md](docs/testing.md),
 make build        # -> bin/shoal (static, CGO_ENABLED=0)
 ```
 
+## Quickstart: one node with shoal init
+
+On a fresh Ubuntu 24.04 host (root, systemd, cgroup v2, about 1 GiB of memory
+and 8 GiB free disk), one command sets up containerd 2.x (reused if it is
+already there, otherwise the pinned release with its SHA-256 checked), runc,
+the CNI plugins, the server, the agent and the ingress edge:
+
+```
+sudo shoal init --dry-run    # preflight, then every step; changes nothing
+sudo shoal init              # node Ready, edge on :80 and :443
+shoal deploy app.yaml        # an app with a domain (see the examples)
+```
+
+Then point the domain's A record at the host's IP. Route certificates come
+from Let's Encrypt, which needs the terms of service accepted. Pass
+`sudo shoal init --email you@example.com --accept-tos` for that. Without them,
+routes report a certificate error and the edge redirects to HTTPS.
+
+Add a node: on this node run `shoal token create --bundle --out join.json`,
+copy the file to the new host, and run `sudo shoal init --join join.json`
+there. `sudo shoal uninstall` removes what init installed and keeps
+`/var/lib/shoal`; `--purge --yes` deletes that data too. Init never installs
+or changes Docker, and it changes nothing unless you pass `--swap` or
+`--open-firewall`. See ADR 0017.
+
 ## Try it: single node
 
 The quickest way to start is a server and an agent in one process:

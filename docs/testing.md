@@ -58,6 +58,31 @@ Two earlier runs on this branch failed at step a) and were fixed:
 
 Limits: pebble is a test CA, not Let's Encrypt, so rate limits, real DNS and production behaviour are not covered. `app.shoal.test` resolves to 127.0.0.1 on the runner. The run has one server and one edge, and does not test renewal, failover or revocation. This is one run.
 
+## Init end to end (ADR 0017 pass E)
+
+`hack/init-e2e.sh` and `.github/workflows/init-e2e.yml` (manual trigger) run
+on a fresh GitHub-hosted Ubuntu 24.04 runner. The script refuses to run
+anywhere else (it needs `GITHUB_ACTIONS=true`), so the shared VPS is never a
+target. It removes the runner's containerd, then runs `init --dry-run`, `init`,
+checks the node is Ready and the edge answers on :80, checks CRI is off, samples
+idle RSS after 120 s, deploys an nginx app, checks the edge's HTTP redirect and
+the app's 200 on its replica, runs a second `init` (must be all no-ops), and
+runs `uninstall` (must keep `/var/lib/shoal`).
+
+Run: `gh workflow run init-e2e.yml`, then `gh run watch`. The results are in
+the `init-e2e` artifact, including `benchmark.json`.
+
+Green run 38164124780 (commit 2a0ad52, Ubuntu 24.04.5, x86_64):
+init 6294 ms; idle RSS server 42892 kB, agent 42848 kB, containerd 45468 kB;
+init start to the edge routing the host 8358 ms. The app answers 200 on its
+replica. The edge answers the host with 308 to HTTPS, because the route is
+`tls: auto` and CI accepts no ACME terms, so no certificate is issued. The
+HTTPS target in ADR 0017 section 5 is therefore not measured here.
+
+Unit tests: `go test -race -count=3 ./internal/install/`. Golden dry-run
+outputs live in `internal/install/testdata/golden`; regenerate them with
+`go test ./internal/install -run TestDryRunGolden -update`.
+
 ## Deploy end to end (ADR 0017 pass F, ADR 0016 pass F)
 
 `deploy-e2e.yml` (manually dispatched, runs `hack/deploy-e2e.sh`) starts pebble, a server and one edge agent (`--volume-backend loop`) on a disposable runner. It imports the test app `hack/blog` (a `postgres:16-alpine` base with a shell loop: it connects with `DATABASE_URL`, inserts one row every two seconds and serves the row count on port 3000), then runs `shoal deploy` on this `shoal.yaml`: `name: blog`, `domain: blog.shoal.test`, `database: postgres`, one volume `uploads`, `replicas: 1`. The shared cluster setup is in `hack/e2e-lib.sh`, which `ingress-e2e.sh` also uses.

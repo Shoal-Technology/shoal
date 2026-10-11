@@ -48,6 +48,25 @@ does not fit on that host. The sections below set a smaller default for
 
 ### 1. `shoal init`, `shoal init --join`, `shoal uninstall`
 
+**Status (pass E): done.** Built as described, with these differences, as
+built:
+- `--email` is optional. The ACME flags are passed to the server only when both
+  `--email` and `--accept-tos` are given (the brief for pass E; the ADR text
+  above asks for `--email` always).
+- `--containerd-version` and `--upgrade-containerd` are not implemented. The pins
+  are constants in `internal/install/versions.go`: containerd 2.4.1, runc 1.5.2,
+  CNI plugins 1.9.1, with the SHA-256 of each release asset.
+- CNI plugins are installed when one of the five plugins is missing. A plugin
+  set that is present with another version is not replaced, because the plugins
+  do not report a version.
+- The agent gained `--token-file` (read once, then deleted). `shoal token create
+  --bundle --out FILE` writes the `shoal-join/v1` bundle.
+- `init --join` does not label the joined node. The label is applied from the
+  cluster (the next steps say so).
+- The containerd CRI disable key (`io.containerd.cri.v1.runtime` and
+  `io.containerd.cri.v1.images`) is checked in CI: the containerd log shows the
+  CRI runtime plugin is not registered.
+
 #### 1.1 Synopsis
 ```
 sudo shoal init --email ops@example.com [--accept-tos] [--node-name NAME]
@@ -438,6 +457,14 @@ agent, and the sqlite store:
 | Idle RSS of `shoal-agent`, edge on | at most 40 MiB | same |
 | Idle RSS of containerd | at most 80 MiB (measured, not owned) | same |
 | Init to first HTTPS 200 for the `blog` example | p50 at most 5 min, p95 at most 8 min | from `shoal init` start to the first 200 from `https://blog.example.com` with a valid certificate |
+
+**Measured (pass E, run 38164124780, commit 2a0ad52, Ubuntu 24.04.5 x86_64
+hosted runner, not the 1 GiB VM):** init 6294 ms; idle RSS of `shoal-server`
+42892 kB, of `shoal-agent` (edge on) 42848 kB, of containerd 45468 kB; init start
+to the edge routing the app's host 8358 ms (the edge answers HTTP 308 to HTTPS,
+and the app answers 200 on its replica). Without ACME terms no certificate is
+issued, so the HTTPS first-response time is not measured yet. This is one
+recorded run; the regression gate needs three.
 
 The init-to-HTTPS target includes image pulls (Postgres is about 150 MB
 compressed) and the certificate. It is reported for the first three runs and
