@@ -1,0 +1,12 @@
+# gitleaks configuration for shoal. Extends the gitleaks default ruleset.
+title = "shoal gitleaks config"
+
+[extend]
+useDefault = true
+
+# Allowlist for confirmed TEST FIXTURES only. Nothing here is a real secret.
+# Each entry was reviewed in the pre-publication history audit.
+[[allowlists]]
+description = "Dummy join token literal in internal/server/server_test.go (added in commit 8339005). The test sends it to check that Join is rejected without a client certificate. It is not a valid token."
+regexTarget = "line"
+regexes = ['''Token: "abcd[^"]*"''']
