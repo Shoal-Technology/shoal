@@ -31,6 +31,7 @@ func newServerCmd(c *cli) *cobra.Command {
 		uiListen, uiCert, uiKey    string
 		uiNames                    []string
 		withAgent                  bool
+		metricsListen              string
 		rf                         runtimeFlags
 		nf                         networkFlags
 		nodeName                   string
@@ -80,6 +81,15 @@ joins without a token: a complete single-node cluster in one process.`,
 
 			var wg sync.WaitGroup
 			defer wg.Wait()
+			if metricsListen != "" {
+				// Stop the listener before wg.Wait (deferred above), so a failed Serve cannot hang here.
+				mctx, stopMetrics := context.WithCancel(ctx)
+				defer stopMetrics()
+				if err := startMetrics(mctx, metricsListen, srv.Metrics(), srv.Ready, log, &wg); err != nil {
+					lis.Close()
+					return err
+				}
+			}
 			if uiListen != "" {
 				stop, err := servePortal(ctx, srv, log, uiListen, uiCert, uiKey, uiNames, &wg)
 				if err != nil {
@@ -126,6 +136,7 @@ joins without a token: a complete single-node cluster in one process.`,
 	cmd.Flags().StringVar(&raftJoinBundle, "raft-join-bundle", "", "join bundle from `shoal cluster join-bundle`: installs the cluster CA and secret key into --data-dir before first start (a cluster secret; refused if --data-dir holds other PKI)")
 	cmd.Flags().StringVar(&restoreFrom, "restore-from", "", "backup file (shoal-backup/v1) to load into an EMPTY --data-dir before first start; creates a new cluster. Needs the secret.key the backup was taken with")
 	cmd.Flags().BoolVar(&withAgent, "with-agent", false, "also run an agent for this machine (single-node cluster)")
+	cmd.Flags().StringVar(&metricsListen, "metrics-listen", "127.0.0.1:9464", "address for /metrics, /healthz and /readyz (loopback by default; empty disables)")
 	cmd.Flags().StringVar(&uiListen, "ui-listen", ":7444", "address of the web portal (HTTPS; empty disables it)")
 	cmd.Flags().StringVar(&uiCert, "ui-cert", "", "certificate file for the portal (default: issued by the cluster CA)")
 	cmd.Flags().StringVar(&uiKey, "ui-key", "", "private key file for --ui-cert")

@@ -549,6 +549,29 @@ restarted while the server is down then keeps serving its HTTP routes.
 Certificates still come only from the server, so `tls: secret` and `tls: auto`
 hosts need a connection before they answer HTTPS. The cache is off by default.
 
+## Observability
+
+The server and the agent each serve a small HTTP listener on loopback by
+default. It has three endpoints:
+
+- `/metrics`: Prometheus text format (version 0.0.4).
+- `/healthz`: the process is up.
+- `/readyz`: the server's store answers and a Raft leader is known (with
+  `--store=raft`); the agent is connected to the server.
+
+Flags: `shoal server --metrics-listen 127.0.0.1:9464` and
+`shoal agent --metrics-listen 127.0.0.1:9465`. Set either to an empty string
+to disable it. To scrape from another host, bind a routable address and
+restrict access with your firewall, since the endpoints are unauthenticated.
+
+Main series: `shoal_api_requests_total{method,code}`,
+`shoal_api_request_duration_seconds`, `shoal_objects{kind}`,
+`shoal_raft_is_leader`, `shoal_agent_connected`, `shoal_replicas{state}`,
+`shoal_node_memory_bytes`, `shoal_node_disk_bytes`. Label values are bounded:
+each family is capped at 200 series, and dropped samples are counted in
+`shoal_metrics_dropped_series_total`. Built-in alerts and a webhook are not
+available yet (see ADR 0018).
+
 ## Limitations
 
 Shoal is alpha. These are known gaps, stated plainly:

@@ -176,6 +176,8 @@ type Server struct {
 
 	// raft is the raft store (StoreRaft only), nil otherwise.
 	raft *raftstore.Store
+	// obs holds the /metrics registry (see metrics.go).
+	obs *serverMetrics
 	// exporter reads the inner store for Backup (sealed Secrets).
 	exporter store.Exporter
 
@@ -329,6 +331,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		shutdown:   make(chan struct{}),
 	}
 	s.acks = newEdgeAcks()
+	s.initMetrics()
 	if cfg.AcmeDirectory != "" {
 		s.certs, err = newCertManager(s, cfg)
 		if err != nil {
@@ -379,7 +382,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	s.grpc = grpc.NewServer(
 		grpc.Creds(credentials.NewTLS(security.ServerTLS(ca.Cert, leaf, key))),
-		grpc.ChainUnaryInterceptor(s.unaryAuth, s.unaryLeader),
+		grpc.ChainUnaryInterceptor(s.unaryMetrics, s.unaryAuth, s.unaryLeader),
 		grpc.ChainStreamInterceptor(s.streamAuth),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true}),
 		grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}),

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -27,6 +28,7 @@ func newAgentCmd(c *cli) *cobra.Command {
 		serverAddr, token, caHash, nodeName, tokenFile string
 		edgeHTTP, edgeHTTPS                            string
 		edgeCacheDir                                   string
+		metricsListen                                  string
 	)
 	cmd := &cobra.Command{
 		Use:   "agent",
@@ -75,6 +77,16 @@ keep running when the agent stops.`,
 					return err
 				}
 				defer closeRT()
+				if metricsListen != "" {
+					// Stop the listener before waiting for it, so a failed Run cannot hang here.
+					var mwg sync.WaitGroup
+					defer mwg.Wait()
+					mctx, stopMetrics := context.WithCancel(ctx)
+					defer stopMetrics()
+					if err := startMetrics(mctx, metricsListen, agentMetrics(a, rf.opts.StateDir), agentReady(a), log, &mwg); err != nil {
+						return err
+					}
+				}
 				log.Info("agent starting", "mode", "server", "node", a.Name(), "version", version)
 				err = a.Run(ctx)
 				log.Info("agent stopped; containers keep running")
@@ -116,6 +128,7 @@ keep running when the agent stops.`,
 	cmd.Flags().StringVar(&edgeHTTP, "edge-http", ":80", "HTTP listener used while this node is an ingress edge (empty disables)")
 	cmd.Flags().StringVar(&edgeCacheDir, "edge-cache-dir", "", "keep a copy of edge routes and endpoints here, 0600, so an edge restarted while the server is down still serves HTTP routes (no certificates or keys are written; default off)")
 	cmd.Flags().StringVar(&edgeHTTPS, "edge-https", ":443", "HTTPS listener used while this node is an ingress edge (empty disables)")
+	cmd.Flags().StringVar(&metricsListen, "metrics-listen", "127.0.0.1:9465", "address for /metrics, /healthz and /readyz (server mode; loopback by default, empty disables)")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "server")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "token")
 	cmd.MarkFlagsMutuallyExclusive("token", "token-file")

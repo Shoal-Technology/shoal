@@ -88,12 +88,14 @@ type Connected struct {
 	cfg ConnectedConfig
 	log *slog.Logger
 
-	mu       sync.Mutex
-	creds    *security.ClientConfig
-	ca       *x509.Certificate
-	cert     *tls.Certificate // current client certificate (replaced on renewal)
-	name     string
-	statuses []*v1alpha1.ReplicaReport // latest reconcile result
+	mu        sync.Mutex
+	creds     *security.ClientConfig
+	ca        *x509.Certificate
+	cert      *tls.Certificate // current client certificate (replaced on renewal)
+	name      string
+	statuses  []*v1alpha1.ReplicaReport // latest reconcile result
+	connected bool                      // true while a Sync session is up (see Stats)
+	replicas  Stats                     // counts over the latest reconcile result (see Stats)
 
 	reconnect     chan struct{}                     // asks the sync loop to reconnect (after renewal)
 	desired       chan *v1alpha1.AssignmentSnapshot // latest snapshot for the reconciler (latest wins)
@@ -376,6 +378,8 @@ func (c *Connected) session(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c.setConnected(true)
+	defer c.setConnected(false)
 	interval := first.GetConfig().GetHeartbeatInterval().AsDuration()
 	if interval < time.Second {
 		interval = 5 * time.Second
@@ -672,6 +676,7 @@ func (c *Connected) setStatuses(statuses []ReplicaStatus) {
 		changed = !proto.Equal(reports[i], c.statuses[i])
 	}
 	c.statuses = reports
+	c.replicas = countReplicas(statuses)
 	c.mu.Unlock()
 	if changed {
 		select {
