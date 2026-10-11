@@ -1,0 +1,28 @@
+name: Init end to end
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  init:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build shoal
+        run: go build -o "$RUNNER_TEMP/shoal" ./cmd/shoal
+      - name: Run shoal init, the app path and uninstall
+        env:
+          RESULTS: ${{ github.workspace }}/test-results/init-e2e
+        run: bash hack/init-e2e.sh "$RUNNER_TEMP/shoal"
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: init-e2e
+          path: test-results/init-e2e
+          if-no-files-found: ignore

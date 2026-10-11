@@ -1,0 +1,35 @@
+ok     preflight root: running as root
+ok     preflight os: linux
+ok     preflight arch: amd64
+ok     preflight systemd: systemd is running
+ok     preflight cgroup: cgroup v2
+ok     preflight overlayfs: overlayfs available
+ok     preflight br_netfilter: br_netfilter can be loaded
+ok     preflight tools: iptables and ip found
+ok     preflight kernel: 6.8.0-45-generic
+ok     preflight loop-control: /dev/loop-control present
+ok     preflight port-80: free or held by shoal
+ok     preflight port-443: free or held by shoal
+ok     preflight port-7443: free or held by shoal
+ok     preflight port-7444: free or held by shoal
+ok     preflight disk: 40960 MiB free under /var/lib
+ok     preflight disk-min: 40960 MiB free under /var/lib
+ok     preflight memory: 966 MiB of memory
+WARN   preflight swap: under 2 GiB of memory and no swap; --swap 1G may help
+ok     preflight containerd: containerd 2.3.6 will be reused
+ok     preflight runc: runc found
+WOULD  kernel: write /etc/modules-load.d/shoal.conf and /etc/sysctl.d/99-shoal.conf; load br_netfilter; set net.ipv4.ip_forward=1 and net.bridge.bridge-nf-call-iptables=1
+skip   swap: not requested (--swap)
+WOULD  binary: install the shoal binary (15 bytes) to /usr/local/bin/shoal
+ok     containerd: reusing containerd 2.3.6 as it is (not changed)
+WOULD  cni: install CNI plugins v1.9.1 (amd64) to /opt/cni/bin from the pinned release; sha256 is checked
+skip   containerd-service: containerd was not installed by shoal init; left as it is
+WOULD  server-unit: write /etc/systemd/system/shoal-server.service and start shoal-server.service (ACME off: no --email)
+WOULD  server-ready: wait up to 60s for /var/lib/shoal/server/admin.conf and a successful get nodes
+WOULD  agent: create a single-use join token for edge-1 (ttl 10m), write /run/shoal/join.token (0600), write /etc/systemd/system/shoal-agent.service, start shoal-agent.service
+WOULD  node-ready: wait up to 60s for node edge-1 to be Ready
+WOULD  edge: label node edge-1 shoal.dev/edge=true (serves ports 80 and 443)
+skip   join: not a join
+WOULD  admin-config: copy /var/lib/shoal/server/admin.conf to /home/alice/.shoal/config (mode 0600, owner alice)
+skip   firewall: not requested (--open-firewall)
+dry run: nothing was changed

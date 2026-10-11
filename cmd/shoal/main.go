@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -34,6 +35,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error:", st.Message())
 		} else {
 			fmt.Fprintln(os.Stderr, "error:", err)
+		}
+		// Commands such as init return an error that carries its exit code.
+		var coded interface{ ExitCode() int }
+		if errors.As(err, &coded) {
+			os.Exit(coded.ExitCode())
 		}
 		os.Exit(1)
 	}

@@ -24,9 +24,9 @@ func newAgentCmd(c *cli) *cobra.Command {
 		interval    time.Duration
 		stopTimeout time.Duration
 
-		serverAddr, token, caHash, nodeName string
-		edgeHTTP, edgeHTTPS                 string
-		edgeCacheDir                        string
+		serverAddr, token, caHash, nodeName, tokenFile string
+		edgeHTTP, edgeHTTPS                            string
+		edgeCacheDir                                   string
 	)
 	cmd := &cobra.Command{
 		Use:   "agent",
@@ -50,6 +50,12 @@ keep running when the agent stops.`,
 				return err
 			}
 			ctx := cmd.Context()
+
+			if tokenFile != "" {
+				if token, err = readTokenFile(tokenFile); err != nil {
+					return err
+				}
+			}
 
 			if !standalone {
 				// The edge listens only while the server says this node is an
@@ -100,6 +106,7 @@ keep running when the agent stops.`,
 	nf.register(cmd.Flags())
 	cmd.Flags().StringVar(&serverAddr, "server", "", "server host:port (required to join; afterwards defaults to the saved address)")
 	cmd.Flags().StringVar(&token, "token", "", "join token (first start only)")
+	cmd.Flags().StringVar(&tokenFile, "token-file", "", "file holding the join token (first start only); the agent reads it once and deletes it. Used by shoal init")
 	cmd.Flags().StringVar(&caHash, "ca-hash", "", "expected sha256 hash of the server's CA key (first start only)")
 	cmd.Flags().StringVar(&nodeName, "node-name", "", "name of this node (default: host name)")
 	cmd.Flags().BoolVar(&standalone, "standalone", false, "run without a server, from a local replicas file")
@@ -111,6 +118,7 @@ keep running when the agent stops.`,
 	cmd.Flags().StringVar(&edgeHTTPS, "edge-https", ":443", "HTTPS listener used while this node is an ingress edge (empty disables)")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "server")
 	cmd.MarkFlagsMutuallyExclusive("standalone", "token")
+	cmd.MarkFlagsMutuallyExclusive("token", "token-file")
 	return cmd
 }
 
