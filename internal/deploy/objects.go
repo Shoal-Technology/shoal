@@ -16,6 +16,7 @@ import (
 
 	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/appspec"
+	"example.com/shoal/internal/resource"
 )
 
 // applyOrder is the order in which an app's kinds are listed and applied:
@@ -117,7 +118,7 @@ func AppObjects(ctx context.Context, ctl v1alpha1.ControlClient, app string) ([]
 	}
 	var objs []*v1alpha1.Object
 	for _, obj := range live {
-		if labelsOf(obj)[appspec.LabelApp] == app {
+		if labelsOf(obj)[appspec.LabelApp] == app && labelsOf(obj)[resource.OwnedByLabel] == "" {
 			objs = append(objs, obj)
 		}
 	}

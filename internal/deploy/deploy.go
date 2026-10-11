@@ -147,7 +147,7 @@ func orphanRefs(app string, desired []*v1alpha1.Object, live Live) []Ref {
 	}
 	var out []Ref
 	for ref, obj := range live {
-		if !want[ref] && labelsOf(obj)[appspec.LabelApp] == app {
+		if !want[ref] && labelsOf(obj)[appspec.LabelApp] == app && labelsOf(obj)[resource.OwnedByLabel] == "" {
 			out = append(out, ref)
 		}
 	}

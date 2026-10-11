@@ -147,3 +147,9 @@ func Matches(reqs []Requirement, labels map[string]string) bool {
 	}
 	return true
 }
+
+// OwnedByLabel marks an object that a Database controller owns (ADR 0016,
+// section 3.2). Owned objects carry the app label so that they show up with
+// the app, and this label tells deploy and app delete that the manifest does
+// not name them and that the Database controller decides their lifecycle.
+const OwnedByLabel = "shoal.dev/owned-by"

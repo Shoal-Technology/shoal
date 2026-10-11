@@ -219,7 +219,7 @@ func ownedLabels(app string) map[string]string {
 	if app == "" {
 		return nil
 	}
-	return map[string]string{appLabel: app}
+	return map[string]string{appLabel: app, resource.OwnedByLabel: "database"}
 }
 
 // putOwned makes kind/name exist and be claimed by the Database db. It creates
