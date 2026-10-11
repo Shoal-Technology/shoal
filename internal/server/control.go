@@ -61,6 +61,21 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		}
 		objs = append(objs, prepared{kind, name, b, spec, resource.ObjectLabels(obj)})
 	}
+	// Objects a Database owns are changed through the Database (ADR 0016, pass C).
+	for _, o := range objs {
+		switch o.kind {
+		case v1alpha1.KindWorkload, v1alpha1.KindVolume, v1alpha1.KindService, v1alpha1.KindSecret:
+		default:
+			continue
+		}
+		owner, err := c.s.ownerOf(ctx, o.kind, o.name)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		if owner != "" {
+			errs = append(errs, errors.New(ownedMessage(o.kind, o.name, owner)))
+		}
+	}
 	// Routes must not share a host and path prefix with another Route, either
 	// stored or earlier in this batch. This read-only check gives the clear
 	// message and covers Routes stored before claims existed. It is not
@@ -454,6 +469,11 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
+	if owner, err := c.s.ownerOf(ctx, req.GetKind(), req.GetName()); err != nil {
+		return nil, apiError(err)
+	} else if owner != "" {
+		return nil, status.Error(codes.FailedPrecondition, ownedMessage(req.GetKind(), req.GetName(), owner))
+	}
 	if req.GetKind() == v1alpha1.KindVolume {
 		if err := c.deleteVolume(ctx, req.GetName()); err != nil {
 			return nil, err
@@ -594,6 +614,12 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 			return nil, err
 		}
 		return &v1alpha1.Object{Kind: &v1alpha1.Object_Volume{Volume: v}}, nil
+	case v1alpha1.KindDatabase:
+		d, err := objects.Database(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Database{Database: d}}, nil
 	}
 	return nil, fmt.Errorf("unexpected kind %q", r.Kind)
 }
@@ -603,15 +629,20 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 func checkKind(kind string) error {
 	switch kind {
 	case v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica,
-		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume:
+		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume, v1alpha1.KindDatabase:
 		return nil
 	}
-	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Secret or Config)", kind)
+	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, Secret or Config)", kind)
 }
 
 // RestartWorkload sets spec.restartedAt, which changes the template and so
 // replaces the replicas with a rolling update.
 func (c *controlService) RestartWorkload(ctx context.Context, req *v1alpha1.RestartWorkloadRequest) (*v1alpha1.ApplyResult, error) {
+	if owner, err := c.s.ownerOf(ctx, v1alpha1.KindWorkload, req.GetName()); err != nil {
+		return nil, apiError(err)
+	} else if owner != "" {
+		return nil, status.Error(codes.FailedPrecondition, ownedMessage(v1alpha1.KindWorkload, req.GetName(), owner))
+	}
 	err := c.s.updateWorkloadSpec(ctx, req.GetName(), func(s *v1alpha1.WorkloadSpec) error {
 		s.RestartedAt = ts(c.s.now())
 		return nil

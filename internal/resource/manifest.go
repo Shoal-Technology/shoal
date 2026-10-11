@@ -77,10 +77,13 @@ func decodeDoc(doc []byte) (*v1alpha1.Object, error) {
 	case v1alpha1.KindVolume:
 		v := &v1alpha1.Volume{}
 		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Volume{Volume: v}}, v
+	case v1alpha1.KindDatabase:
+		d := &v1alpha1.Database{}
+		obj, msg, stringy = &v1alpha1.Object{Kind: &v1alpha1.Object_Database{Database: d}}, d, "resources"
 	case "":
 		return nil, fmt.Errorf("kind is required")
 	default:
-		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Secret, Config)", head.Kind)
+		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Database, Secret, Config)", head.Kind)
 	}
 	if stringy != "" {
 		if j, err = valuesAsStrings(j, stringy); err != nil {
@@ -148,6 +151,10 @@ func Inner(obj *v1alpha1.Object) proto.Message {
 		return k.Config
 	case *v1alpha1.Object_Service:
 		return k.Service
+	case *v1alpha1.Object_Volume:
+		return k.Volume
+	case *v1alpha1.Object_Database:
+		return k.Database
 	case *v1alpha1.Object_Route:
 		return k.Route
 	}

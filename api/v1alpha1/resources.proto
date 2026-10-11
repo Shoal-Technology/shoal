@@ -316,7 +316,8 @@ message Database {
 message DatabaseSpec {
   // Only "postgres" in this pass. Redis is pass E.
   string engine = 1;
-  // major.minor from the pinned image table, e.g. "16.15".
+  // A major or major.minor from the pinned image table: "16" runs the newest
+  // 16.x (16.15 today), "16.14" runs exactly 16.14.
   string version = 2;
   // Storage of the data Volume, e.g. "5Gi". Fixed after creation in v1.
   string size = 3;

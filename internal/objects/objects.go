@@ -116,6 +116,15 @@ func Volume(r store.Record) (*v1alpha1.Volume, error) {
 	return v, decode(r, v.Spec, v.Status)
 }
 
+// Database decodes a Database record.
+func Database(r store.Record) (*v1alpha1.Database, error) {
+	d := &v1alpha1.Database{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindDatabase, Metadata: Meta(r),
+		Spec: &v1alpha1.DatabaseSpec{}, Status: &v1alpha1.DatabaseStatus{},
+	}
+	return d, decode(r, d.Spec, d.Status)
+}
+
 // Certificate decodes a Certificate record (the store must decrypt it first).
 func Certificate(r store.Record) (*v1alpha1.Certificate, error) {
 	c := &v1alpha1.Certificate{

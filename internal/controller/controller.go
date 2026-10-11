@@ -69,7 +69,7 @@ func New(cfg Config) *Controller {
 // Run reconciles on every relevant change (debounced) and every Interval,
 // until ctx is done.
 func (c *Controller) Run(ctx context.Context) {
-	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate, v1alpha1.KindVolume)
+	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate, v1alpha1.KindVolume, v1alpha1.KindDatabase)
 	tick := time.NewTicker(c.cfg.Interval)
 	defer tick.Stop()
 	for {
@@ -136,6 +136,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return errors.Join(errs...)
 	}
 	now := c.cfg.Now()
+	errs = append(errs, c.syncDatabases(ctx, s)...)
 	errs = append(errs, c.removeOrphansAndEvict(ctx, s, now)...)
 	for _, name := range sortedKeys(s.workloads) {
 		errs = append(errs, c.syncWorkload(ctx, s, s.workloads[name], now)...)

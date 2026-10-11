@@ -28,6 +28,7 @@ var kindAliases = map[string]string{
 	"service": v1alpha1.KindService, "services": v1alpha1.KindService, "svc": v1alpha1.KindService,
 	"route": v1alpha1.KindRoute, "routes": v1alpha1.KindRoute,
 	"volume": v1alpha1.KindVolume, "volumes": v1alpha1.KindVolume, "vol": v1alpha1.KindVolume,
+	"database": v1alpha1.KindDatabase, "databases": v1alpha1.KindDatabase, "db": v1alpha1.KindDatabase,
 }
 
 func parseKind(s string) (string, error) {
@@ -100,7 +101,7 @@ func newGetCmd() *cobra.Command {
 		selector string
 	)
 	cmd := &cobra.Command{
-		Use:   "get workloads|replicas|nodes|services|routes|secrets|configs|volumes [NAME]",
+		Use:   "get workloads|replicas|nodes|services|routes|volumes|databases|secrets|configs [NAME]",
 		Short: "List objects or show one",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -168,6 +169,8 @@ func newGetCmd() *cobra.Command {
 				return printRoutes(out, items, time.Now())
 			case v1alpha1.KindVolume:
 				return printVolumes(out, items, time.Now())
+			case v1alpha1.KindDatabase:
+				return printDatabases(out, items, time.Now())
 			case v1alpha1.KindSecret, v1alpha1.KindConfig:
 				return printData(out, items, time.Now())
 			}
@@ -430,6 +433,23 @@ func printVolumes(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
 			dash(v.GetStatus().GetNode()), state, dash(v.GetStatus().GetAttachedWorkload()),
 			v.GetSpec().GetRetention(), dash(v.GetStatus().GetQuota()),
 			age(now, v.GetMetadata().GetCreatedAt().AsTime()))
+	}
+	return tw.Flush()
+}
+
+// printDatabases lists Databases: engine, version, storage, phase and endpoint.
+func printDatabases(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tENGINE\tVERSION\tSIZE\tPHASE\tENDPOINT\tAGE\tMESSAGE")
+	for _, o := range items {
+		d := o.GetDatabase()
+		phase := d.GetStatus().GetPhase()
+		if phase == "" {
+			phase = "Pending" // the controller has not reconciled it yet
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", d.GetMetadata().GetName(), dash(d.GetSpec().GetEngine()),
+			dash(d.GetSpec().GetVersion()), dash(d.GetSpec().GetSize()), phase, dash(d.GetStatus().GetEndpoint()),
+			age(now, d.GetMetadata().GetCreatedAt().AsTime()), oneLine(d.GetStatus().GetMessage()))
 	}
 	return tw.Flush()
 }

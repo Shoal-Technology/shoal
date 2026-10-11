@@ -2179,7 +2179,8 @@ type DatabaseSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Only "postgres" in this pass. Redis is pass E.
 	Engine string `protobuf:"bytes,1,opt,name=engine,proto3" json:"engine,omitempty"`
-	// major.minor from the pinned image table, e.g. "16.15".
+	// A major or major.minor from the pinned image table: "16" runs the newest
+	// 16.x (16.15 today), "16.14" runs exactly 16.14.
 	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	// Storage of the data Volume, e.g. "5Gi". Fixed after creation in v1.
 	Size string `protobuf:"bytes,3,opt,name=size,proto3" json:"size,omitempty"`

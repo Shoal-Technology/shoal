@@ -358,6 +358,44 @@ spec:
 sudo ./bin/shoal get volumes      # NAME, SIZE, NODE, STATE, WORKLOAD, RETENTION, QUOTA
 ```
 
+**Managed databases (ADR 0016, pass C):** a Database is Postgres with its
+storage, credentials and a stable endpoint. Shoal expands it into a Volume, a
+Workload, a Service and a credentials Secret, and it owns them. Edit the
+Database, not those objects: the server refuses changes to them.
+
+```yaml
+kind: Database
+metadata:
+  name: app-db
+spec:
+  engine: postgres
+  version: "16.15"     # pinned image; minor upgrades in place
+  size: 5Gi            # data storage, fixed after creation
+  resources: { cpu: 500m, memory: 384Mi }
+  backup:              # validated and stored; backups run in a later release
+    schedule: 24h
+    retain: 7
+    targets: [volume]
+```
+
+- `version` takes a major (`"16"` runs the newest pinned 16.x, as the app spec
+  emits) or an exact minor. The supported versions are 15.19, 16.14, 16.15 and
+  17.11, each pinned by image digest.
+- Credentials are generated once, from `crypto/rand`, and stored encrypted in
+  the Secret `app-db-credentials`. Its `url` key is
+  `postgres://app:<password>@app-db.shoal:5432/app_db?sslmode=disable`.
+  Reference it with `valueFrom: { secret: { name: app-db-credentials, key: url } }`.
+- A minor version change updates the image. A major version change is refused
+  with a `Failed` status: restore a backup into a new Database of the new major.
+  Backups before upgrades and restore are not in this release.
+- Deleting the Database deletes its objects. The data Volume follows its
+  retention (`Retain` by default, kept on the node).
+- A database has one replica and no high availability.
+
+```sh
+sudo ./bin/shoal get databases    # NAME, ENGINE, VERSION, SIZE, PHASE, ENDPOINT, AGE, MESSAGE
+```
+
 **Logs:**
 
 ```sh

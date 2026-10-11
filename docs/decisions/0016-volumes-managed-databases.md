@@ -1,6 +1,6 @@
 # 0016: Volumes and managed databases
 
-Status: Accepted (open questions resolved below; pass A implemented, see Implementation passes)
+Status: Accepted (open questions resolved below; passes A and C implemented, see Implementation passes)
 
 ## Context
 Shoal runs stateless workloads well (ADR 0009, 0010) and has Secrets, Configs
@@ -177,10 +177,10 @@ metadata:
   name: app-db
 spec:
   engine: postgres        # postgres | redis
-  version: "16"           # major.minor selects a pinned image; see 3.6
+  version: "16"           # major or major.minor selects a pinned image; see 3.6
   size: 20Gi              # data Volume size
   replicas: 1             # fixed at 1 in v1; validation rejects others
-  resources: { cpu: 1, memory: 2Gi }
+  resources: { cpu: 500m, memory: 384Mi }  # defaults, per ADR 0017
   backup:
     schedule: 24h         # interval in v1
     retain: 7             # number of backups kept per target
@@ -216,7 +216,7 @@ which today only does HTTP. The prober gets a TCP mode. A TCP probe confirms
 the port is listening, not that the database answers queries. The stronger
 check (`pg_isready`, `redis-cli ping`) needs exec in the container; that
 arrives in pass C and is switched on for databases once it is reliable (pass
-C). Until then, `Ready` means the port answers.
+C). Pass C switched databases to `pg_isready` (section 3.3 of the implementation notes below), so `Ready` means the server answers.
 
 #### 3.4 Logical backups
 Both engines back up over the network from a one-shot container of the same
@@ -389,7 +389,7 @@ Each pass is sized for one agent session and ends with its own tests green.
   with in-memory credentials; the `from-snapshot` restore into a new Volume.
   Tests: unit (signing vectors), fakes, and e2e against a test S3 server on
   the runner.
-- **C. Exec and Database controller for Postgres.** Exec in the containerd
+- **C. Done (see Implementation notes from pass C). Exec and Database controller for Postgres.** Exec in the containerd
   runtime (decision 4) with its logs kept out of the agent log, and the
   pre-snapshot hook that uses it. `Database` kind; the controller expansion
   (3.2); generated credentials (3.5); the image table (3.6); TCP health, and
@@ -476,3 +476,57 @@ Resolved and accepted with this ADR's status change:
 - Not in pass A: exec and the pre-snapshot hook (decision 4), the containerd
   integration test with real loop devices and containers (pass F). The
   portal's kind map accepts `volumes`; its UI was not changed or checked.
+
+## Implementation notes from pass C
+- **Exec.** `Runtime.Exec(ctx, id, argv, timeout)` returns `ExecResult{ExitCode,
+  Stdout, Stderr, Truncated}`. Output is capped at 16 KiB per stream
+  (`runtime.ExecOutputLimit`). The containerd runtime starts the command as a
+  task exec with a unique ID, reads the spec's user and environment, and deletes
+  the process afterwards. It is compiled here but not run until pass F, so its
+  behaviour is unverified. The fake runtime records `exec <id>` and takes
+  per-container handlers. Exec output never reaches the agent log.
+- **Exec health checks.** `HealthCheck.exec` (proto field 7) takes an argv with
+  no shell and passes on exit status 0. The prober runs it through the runtime.
+  Tests cover pass, fail, a stopped container, and the output cap, all against
+  the fake.
+- **Database spec.** `engine` (postgres only), `version` (a major such as `16`,
+  which runs the newest pinned minor, or an exact `16.14`; from the image table.
+  The app spec emits `16`, so `status.version` shows the resolved `16.15`), `size` (data Volume, at least 1Gi, fixed after creation: online
+  resize is not in v1), `resources` (defaults cpu 500m and memory 384Mi per
+  ADR 0017), `replicas` (must be 1), `backup` (schedule of at least 1h, retain
+  1 to 365, targets `volume` and/or `s3` with a BackupTarget name). Backups are
+  validated and stored only. `restoreFrom` is not in pass C.
+- **Image table** (`internal/database/images.go`): official `postgres` images
+  pinned by manifest-list digest, read from the registry: 15.19, 16.14, 16.15
+  and 17.11. These are real digests, not TODO.
+- **Ownership.** Each owned object has an `OwnerClaim` record named
+  `<Kind>/<name>` whose spec is the Database name, the same pattern as
+  `VolumeClaim` and `RouteClaim`. The server refuses Apply, Delete and
+  RestartWorkload of an owned Workload, Volume, Service or Secret, with the
+  reason. The controller creates the claim before the object, so a crash leaves
+  a claim and never an unowned object. It never adopts an object that lacks its
+  own claim: the Database is marked Failed instead. Owned objects copy the
+  Database's `app` label when it has one (the app spec sets it to the app name,
+  so `app delete` and `--prune-data` find them); a Database without one gives
+  its objects no labels.
+- **Status.** `Ready` once the Workload has a ready replica; `Provisioning`
+  before that; `Degraded` if it stops being ready; `Failed` on a refusal.
+- **Cascade.** When a Database is gone, the controller deletes each owned object,
+  then its claim. A Volume waits while a Workload still mounts it. Retention is
+  the agent's: a Retain Volume keeps its data on disk (section 1.6).
+- **Credentials.** A 32-byte password from `crypto/rand`, base64url encoded. The
+  Secret `<db>-credentials` has the keys `username` (app), `password`,
+  `database` (the name with `-` as `_`), `host` (`<db>.shoal`), `port` (5432)
+  and `url` (`postgres://app:<pw>@<db>.shoal:5432/<database>?sslmode=disable`).
+  It is created once and never regenerated. It goes through the encrypting
+  store, so it is encrypted at rest.
+- **Health.** `pg_isready -U app -d <database>` through exec, first probe after
+  60 s, 10 s interval, 3 failures.
+- **Upgrades.** A minor version change updates the image of the one-replica
+  Workload, which is replaced in place. A major version change is refused: the
+  Database goes to `Failed` and the message names both versions, while
+  `status.version` keeps the running version. Backup before upgrade is deferred
+  to pass D, so a minor upgrade does not yet take a backup first.
+- **Endpoint.** `status.endpoint` is `<db>.shoal:5432`.
+- **Not in pass C:** backups and restore (pass D), Redis (pass E), the containerd
+  e2e (pass F). Changing `size` is accepted but does not resize the Volume.
