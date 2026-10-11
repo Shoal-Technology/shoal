@@ -417,3 +417,14 @@ make proto         # regenerate api/v1alpha1 after editing a .proto (needs proto
 `make integration`, `integration-report` and `ingress-e2e` refuse to run unless
 `CI=true` (GitHub Actions) or `SHOAL_DISPOSABLE=1` is set. They change host
 networking and bind ports, so they must not run on a shared machine.
+
+## License
+
+Copyright (C) 2026 the Shoal authors.
+
+Shoal is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License, version 3, as published by the
+Free Software Foundation. See [LICENSE](LICENSE) for the full text.
+
+If you run a modified version of Shoal as a network service, the AGPL requires
+you to offer the source of your modified version to its users.
