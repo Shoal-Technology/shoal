@@ -155,7 +155,7 @@ func (e *Edge) selfSignedLocked(host string) (*tls.Certificate, error) {
 	e.self[host] = c
 	if !e.warned[host] {
 		e.warned[host] = true
-		e.log.Warn("tls auto: serving a self-signed certificate, not a trusted one; automatic certificates are not in this build yet (ADR 0015 pass C)", "host", host)
+		e.log.Warn("tls auto: no issued certificate yet; serving a self-signed certificate until one is issued", "host", host)
 	}
 	return c, nil
 }

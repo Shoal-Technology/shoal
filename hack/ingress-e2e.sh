@@ -229,13 +229,13 @@ workload_ready() { cc get workload web -o yaml 2>/dev/null | grep -Eq 'readyRepl
 wait_for 240 "workload web has 1 ready replica" workload_ready
 
 # ---------------------------------------------------------------- a) route status
-say "a) route becomes Accepted with a certificate issued by pebble"
+say "a) route becomes Ready with a certificate issued by pebble"
 route_ready() {
   local y
   y=$(cc get route app -o yaml 2>/dev/null) || return 1
-  grep -Eq 'state"?: *"?Accepted' <<<"$y" && grep -Eq 'certState"?: *"?CertIssued' <<<"$y"
+  grep -Eq 'state"?: *"?Ready' <<<"$y" && grep -Eq 'certState"?: *"?CertIssued' <<<"$y"
 }
-wait_for 300 "a) route app is Accepted and CertIssued" route_ready
+wait_for 300 "a) route app is Ready and CertIssued" route_ready
 cc get route app -o yaml >"$RESULTS/route-status.yaml" || true
 cc get route app >"$RESULTS/route-table.txt" || true
 

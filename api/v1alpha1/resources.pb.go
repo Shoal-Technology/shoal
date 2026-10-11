@@ -2293,7 +2293,7 @@ func (x *RouteSpec) GetRedirectHttp() bool {
 
 type RouteStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Accepted or Rejected. Set by the controller in later passes.
+	// Ready, or the first reason the route is not ready. Set by the controller.
 	State   string `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	// For tls auto: CertPending, CertIssued or CertError. Empty otherwise.

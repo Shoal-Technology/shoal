@@ -317,7 +317,7 @@ message RouteSpec {
 }
 
 message RouteStatus {
-  // Accepted or Rejected. Set by the controller in later passes.
+  // Ready, or the first reason the route is not ready. Set by the controller.
   string state = 1;
   string message = 2;
   // For tls auto: CertPending, CertIssued or CertError. Empty otherwise.
