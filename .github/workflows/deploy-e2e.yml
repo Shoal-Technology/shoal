@@ -1,0 +1,68 @@
+name: Deploy end to end
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build the blog image (hack/blog) and save it
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t localhost/shoal-e2e/blog:ci hack/blog
+          docker save localhost/shoal-e2e/blog:ci -o "$RUNNER_TEMP/blog-image.tar"
+      - name: Install containerd and CNI on disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl stop docker.service docker.socket containerd.service || true
+          sudo apt-get update -qq
+          sudo apt-get install -y runc iptables iproute2
+          mkdir -p /tmp/shoal-runtime
+          cd /tmp/shoal-runtime
+          base=https://github.com/containerd/containerd/releases/download/v2.4.1
+          curl -fLsS "$base/containerd-2.4.1-linux-amd64.tar.gz" -o containerd-2.4.1-linux-amd64.tar.gz
+          curl -fLsS "$base/containerd-2.4.1-linux-amd64.tar.gz.sha256sum" -o containerd.sha256
+          sha256sum -c containerd.sha256
+          sudo tar -xzf containerd-2.4.1-linux-amd64.tar.gz -C /usr/local
+          base=https://github.com/containernetworking/plugins/releases/download/v1.9.1
+          curl -fLsS "$base/cni-plugins-linux-amd64-v1.9.1.tgz" -o cni-plugins-linux-amd64-v1.9.1.tgz
+          curl -fLsS "$base/cni-plugins-linux-amd64-v1.9.1.tgz.sha256" -o cni.sha256
+          sha256sum -c cni.sha256
+          sudo mkdir -p /opt/cni/bin
+          sudo tar -xzf cni-plugins-linux-amd64-v1.9.1.tgz -C /opt/cni/bin
+          sudo systemd-run --unit=shoal-test-containerd /usr/local/bin/containerd
+          for i in $(seq 1 30); do
+            if sudo /usr/local/bin/ctr version; then break; fi
+            if [ "$i" = 30 ]; then exit 1; fi
+            sleep 1
+          done
+          sudo sysctl -w net.ipv4.ip_forward=1
+      - name: Run deploy checks against pebble
+        shell: bash
+        env:
+          BLOG_TAR: ${{ runner.temp }}/blog-image.tar
+        run: bash hack/deploy-e2e.sh
+      - name: Capture containerd journal
+        if: always()
+        run: |
+          mkdir -p test-results/deploy-e2e
+          sudo journalctl -u shoal-test-containerd --no-pager > test-results/deploy-e2e/containerd.log || true
+      - name: Upload deploy evidence and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-e2e-evidence
+          path: test-results/deploy-e2e/
+          retention-days: 14
+      - name: Stop disposable runtime
+        if: always()
+        run: sudo systemctl stop shoal-test-containerd || true
