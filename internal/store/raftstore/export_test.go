@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // TestExportLeaderOnly checks that only the leader exports a dump, and that

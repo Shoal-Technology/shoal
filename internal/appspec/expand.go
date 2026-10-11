@@ -6,8 +6,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/resource"
 )
 
 // Object is one stored object, as the server and the CLI see it.

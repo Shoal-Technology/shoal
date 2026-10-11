@@ -4,7 +4,7 @@ package shoal.v1alpha1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/kaiserern/shoal/api/v1alpha1;v1alpha1";
+option go_package = "github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1";
 
 // ObjectMeta is common to all objects. Users set only the name; everything
 // else is managed by the server.

@@ -10,9 +10,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/objects"
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/objects"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // Node phases.

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 // maxBackupBytes bounds the backup a client accepts. The default gRPC limit

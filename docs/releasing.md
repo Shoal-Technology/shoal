@@ -58,7 +58,7 @@ Run these on a Linux host, after downloading the assets into an empty directory:
 sha256sum -c --ignore-missing checksums.txt
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity-regexp '^https://github.com/kaiserern/shoal/\.github/workflows/release\.yml@refs/tags/v.+$' \
+  --certificate-identity-regexp '^https://github.com/Shoal-Technology/shoal/\.github/workflows/release\.yml@refs/tags/v.+$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
 tar -tzf shoal_1.2.3_linux_amd64.tar.gz     # shoal, LICENSE, README.md
@@ -83,7 +83,7 @@ token. Snapshot builds never sign.
 
 ## Things that are not automated
 
-- The Go module path is `github.com/kaiserern/shoal` and stays that way until the owner
+- The Go module path is `github.com/Shoal-Technology/shoal` and stays that way until the owner
   decides otherwise. Changing it is a separate change.
 - The repository is private. `install.sh` cannot download from a private
   repository without a token, so it only works for anonymous users after the

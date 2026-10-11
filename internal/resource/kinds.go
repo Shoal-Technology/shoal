@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 // MaxDataBytes bounds the data of one Secret or Config: they travel to

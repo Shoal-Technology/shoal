@@ -6,7 +6,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 // Route status states (ADR 0015, pass B2). A Route is Ready when it can serve

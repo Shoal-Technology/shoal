@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/kaiserern/shoal/internal/runtime/containerd"
+	"github.com/Shoal-Technology/shoal/internal/runtime/containerd"
 )
 
 // cli holds options shared by all commands.

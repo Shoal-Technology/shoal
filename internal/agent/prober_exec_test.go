@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/runtime"
-	"github.com/kaiserern/shoal/internal/runtime/fake"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime/fake"
 )
 
 // An exec probe passes when the command exits 0 in the running container, and

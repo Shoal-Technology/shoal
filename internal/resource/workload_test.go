@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 // The example from the project brief.

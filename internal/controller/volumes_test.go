@@ -7,10 +7,10 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/objects"
-	"github.com/kaiserern/shoal/internal/resource"
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/objects"
+	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 const gi = int64(1) << 30

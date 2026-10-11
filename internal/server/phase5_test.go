@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
 )
 
 const appYAML = `

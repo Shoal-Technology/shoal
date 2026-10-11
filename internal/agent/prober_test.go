@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/runtime/fake"
+	"github.com/Shoal-Technology/shoal/internal/runtime/fake"
 )
 
 func TestRunCheck(t *testing.T) {

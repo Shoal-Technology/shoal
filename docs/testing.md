@@ -29,7 +29,7 @@ This writes JSON events to test-results/integration.jsonl and fails on test fail
 The manually dispatched `Runtime integration` GitHub Actions workflow provisions containerd 2.4.1 and CNI plugins 1.9.1 on an ephemeral Ubuntu 24.04 runner. Release archives are checked against upstream SHA256 manifests. It runs `make integration-report`, uploads JSON test events and the containerd journal, then stops the runtime. It does not connect to production machines.
 
 ```sh
-gh workflow run integration.yml --repo kaiserern/shoal
+gh workflow run integration.yml --repo Shoal-Technology/shoal
 ```
 
 The first verified run passed nine tests with no failures or skips, including real container lifecycle, log completion, SIGKILL escalation, resource limits, published ports, networking across restarts, lost network namespace recovery and agent recovery after a container crash. This is single-host runtime evidence, not control-plane failover or multi-host evidence.
@@ -39,7 +39,7 @@ The first verified run passed nine tests with no failures or skips, including re
 `ingress-e2e.yml` (manually dispatched, runs `hack/ingress-e2e.sh`) starts a server and an edge agent on a disposable runner, with pebble v2.10.1 as the ACME CA. It deploys workload `web`, Service `web` and Route `app` for `app.shoal.test` with `tls: auto`, then checks the result through the edge.
 
 ```sh
-gh workflow run ingress-e2e.yml --repo kaiserern/shoal
+gh workflow run ingress-e2e.yml --repo Shoal-Technology/shoal
 ```
 
 Verified run [38124009985](https://github.com/kaiserern/shoal/actions/runs/38124009985) on commit aff0831, 2026-10-11, passed:
@@ -88,7 +88,7 @@ outputs live in `internal/install/testdata/golden`; regenerate them with
 `deploy-e2e.yml` (manually dispatched, runs `hack/deploy-e2e.sh`) starts pebble, a server and one edge agent (`--volume-backend loop`) on a disposable runner. It imports the test app `hack/blog` (a `postgres:16-alpine` base with a shell loop: it connects with `DATABASE_URL`, inserts one row every two seconds and serves the row count on port 3000), then runs `shoal deploy` on this `shoal.yaml`: `name: blog`, `domain: blog.shoal.test`, `database: postgres`, one volume `uploads`, `replicas: 1`. The shared cluster setup is in `hack/e2e-lib.sh`, which `ingress-e2e.sh` also uses.
 
 ```sh
-gh workflow run deploy-e2e.yml --repo kaiserern/shoal
+gh workflow run deploy-e2e.yml --repo Shoal-Technology/shoal
 ```
 
 Verified run [38141941992](https://github.com/kaiserern/shoal/actions/runs/38141941992) on commit 2b223f9, 2026-10-11, passed every step:

@@ -20,8 +20,8 @@ import (
 
 	"github.com/hashicorp/raft"
 
-	"github.com/kaiserern/shoal/internal/store"
-	"github.com/kaiserern/shoal/internal/store/memory"
+	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store/memory"
 )
 
 // ErrNotLeader means this node cannot accept writes. Writes are not

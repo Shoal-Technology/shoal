@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // Run runs the suite. newStore must return an empty store; it is closed by

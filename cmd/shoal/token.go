@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/install"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/install"
 )
 
 func newTokenCmd() *cobra.Command {

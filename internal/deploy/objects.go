@@ -14,9 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/appspec"
-	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/appspec"
+	"github.com/Shoal-Technology/shoal/internal/resource"
 )
 
 // applyOrder is the order in which an app's kinds are listed and applied:

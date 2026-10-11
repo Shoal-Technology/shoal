@@ -13,7 +13,7 @@ import (
 
 	yaml "go.yaml.in/yaml/v2"
 
-	"github.com/kaiserern/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/resource"
 )
 
 // MaxAppNameLen bounds App.Name. Expansion adds suffixes such as

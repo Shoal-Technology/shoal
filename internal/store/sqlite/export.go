@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // Export implements store.Exporter. The revision and every row are read in

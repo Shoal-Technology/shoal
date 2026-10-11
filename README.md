@@ -64,7 +64,7 @@ Or install the CLI straight from the module. This build has no release
 version stamp; use the release archive for a tagged version:
 
 ```sh
-go install github.com/kaiserern/shoal/cmd/shoal@latest
+go install github.com/Shoal-Technology/shoal/cmd/shoal@latest
 ```
 
 ## Quickstart: one node with shoal init

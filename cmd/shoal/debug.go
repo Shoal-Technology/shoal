@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kaiserern/shoal/internal/resource"
-	"github.com/kaiserern/shoal/internal/runtime"
-	"github.com/kaiserern/shoal/internal/runtime/containerd"
+	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime/containerd"
 )
 
 func newDebugCmd(c *cli) *cobra.Command {

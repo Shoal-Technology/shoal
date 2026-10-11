@@ -89,6 +89,6 @@ Small fixes, refactors and documentation changes do not need an ADR.
 ## Code style
 
 - Run `gofmt` on every Go file. CI fails on unformatted code.
-- Keep the module path `github.com/kaiserern/shoal` in imports.
+- Keep the module path `github.com/Shoal-Technology/shoal` in imports.
 - Shell scripts that run under `sh` must be POSIX; `hack/install.sh` is
   checked with `dash` and `shellcheck`.

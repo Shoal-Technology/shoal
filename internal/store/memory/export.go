@@ -6,7 +6,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // Export implements store.Exporter. Records are sorted by kind and name so

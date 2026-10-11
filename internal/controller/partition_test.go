@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"testing"
 	"time"
 )

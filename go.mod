@@ -1,4 +1,4 @@
-module github.com/kaiserern/shoal
+module github.com/Shoal-Technology/shoal
 
 go 1.27.2
 

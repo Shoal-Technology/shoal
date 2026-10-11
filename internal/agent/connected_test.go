@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/runtime"
-	"github.com/kaiserern/shoal/internal/runtime/fake"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime/fake"
 )
 
 // newOffline returns a Connected that has never reached a server, for

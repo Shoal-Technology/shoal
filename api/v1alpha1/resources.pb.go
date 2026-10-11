@@ -4582,7 +4582,7 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x19\n" +
 	"\bmax_uses\x18\x03 \x01(\x05R\amaxUses\x12\x12\n" +
 	"\x04uses\x18\x04 \x01(\x05R\x04uses\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescriptionB2Z0github.com/kaiserern/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"\vdescription\x18\x05 \x01(\tR\vdescriptionB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_resources_proto_rawDescOnce sync.Once

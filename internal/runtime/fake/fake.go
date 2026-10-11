@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
 )
 
 // Runtime is an in-memory, concurrency-safe runtime.Runtime.

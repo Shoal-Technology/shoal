@@ -6,7 +6,7 @@ import "api/v1alpha1/resources.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/kaiserern/shoal/api/v1alpha1;v1alpha1";
+option go_package = "github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1";
 
 // Object holds one object of any user-visible kind.
 message Object {

@@ -12,12 +12,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/agent"
-	"github.com/kaiserern/shoal/internal/edge"
-	"github.com/kaiserern/shoal/internal/objects"
-	"github.com/kaiserern/shoal/internal/store"
-	"github.com/kaiserern/shoal/internal/store/memory"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/agent"
+	"github.com/Shoal-Technology/shoal/internal/edge"
+	"github.com/Shoal-Technology/shoal/internal/objects"
+	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store/memory"
 )
 
 // routeFixture is a store with two nodes (one labelled as an edge), a

@@ -23,7 +23,7 @@ issue, pull request or discussion for a security problem.
 
 - **Email:** developer@shoal-technology.solutions
 - **GitHub:** private vulnerability reporting on
-  `kaiserern/shoal` (Security tab, "Report a vulnerability"). This option is
+  `Shoal-Technology/shoal` (Security tab, "Report a vulnerability"). This option is
   enabled when the repository becomes public; until then, use email.
 
 Include, where you can:

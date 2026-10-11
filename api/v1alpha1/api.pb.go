@@ -3660,7 +3660,7 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\n" +
 	"UploadLogs\x12\x18.shoal.v1alpha1.LogChunk\x1a\".shoal.v1alpha1.UploadLogsResponse(\x01\x12S\n" +
 	"\n" +
-	"NodeConfig\x12!.shoal.v1alpha1.NodeConfigRequest\x1a\".shoal.v1alpha1.NodeConfigResponseB2Z0github.com/kaiserern/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"NodeConfig\x12!.shoal.v1alpha1.NodeConfigRequest\x1a\".shoal.v1alpha1.NodeConfigResponseB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_api_proto_rawDescOnce sync.Once

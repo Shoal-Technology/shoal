@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/database"
-	"github.com/kaiserern/shoal/internal/runtime"
-	"github.com/kaiserern/shoal/internal/runtime/fake"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/database"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime/fake"
 )
 
 // dumpPW is a password that must never reach an argv.

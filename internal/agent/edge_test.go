@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/edge"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/edge"
 )
 
 // upstream answers every request with its own name and the Host it saw.

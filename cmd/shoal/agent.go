@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/kaiserern/shoal/internal/agent"
-	"github.com/kaiserern/shoal/internal/network"
-	"github.com/kaiserern/shoal/internal/volume"
+	"github.com/Shoal-Technology/shoal/internal/agent"
+	"github.com/Shoal-Technology/shoal/internal/network"
+	"github.com/Shoal-Technology/shoal/internal/volume"
 )
 
 func newAgentCmd(c *cli) *cobra.Command {

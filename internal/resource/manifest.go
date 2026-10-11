@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 // docSeparator matches a YAML document separator line.

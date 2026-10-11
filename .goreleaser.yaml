@@ -62,7 +62,7 @@ sboms:
 
 release:
   github:
-    owner: kaiserern
+    owner: Shoal-Technology
     name: shoal
   # Drafts are not published by the pipeline. The owner publishes them, so a
   # tag push never makes a public release on its own.

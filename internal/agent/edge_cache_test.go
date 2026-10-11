@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 // backendAddr starts an upstream that answers with body, and returns its host:port.

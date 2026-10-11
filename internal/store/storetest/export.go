@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // runExport checks Export and Import on backends that implement them: a dump

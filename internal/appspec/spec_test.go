@@ -12,7 +12,7 @@ import (
 
 	k8syaml "sigs.k8s.io/yaml"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files in testdata")

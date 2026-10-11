@@ -21,7 +21,7 @@ ingress-e2e: guard-disposable build
 integration-report: guard-disposable build
 	go test -c -tags integration -o bin/containerd.test ./internal/runtime/containerd
 	mkdir -p test-results
-	bash -o pipefail -c 'sudo ./bin/containerd.test -test.v -test.count=1 -test.timeout=10m -shoal-bin=$(abspath bin/shoal) 2>&1 | go tool test2json -t -p github.com/kaiserern/shoal/internal/runtime/containerd | tee test-results/integration.jsonl; run_status=$$?; python3 hack/test_report.py --require-no-skips test-results/integration.jsonl; report_status=$$?; test $$run_status -eq 0 && test $$report_status -eq 0'
+	bash -o pipefail -c 'sudo ./bin/containerd.test -test.v -test.count=1 -test.timeout=10m -shoal-bin=$(abspath bin/shoal) 2>&1 | go tool test2json -t -p github.com/Shoal-Technology/shoal/internal/runtime/containerd | tee test-results/integration.jsonl; run_status=$$?; python3 hack/test_report.py --require-no-skips test-results/integration.jsonl; report_status=$$?; test $$run_status -eq 0 && test $$report_status -eq 0'
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/shoal ./cmd/shoal

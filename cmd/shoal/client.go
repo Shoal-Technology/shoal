@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/security"
-	"github.com/kaiserern/shoal/internal/server"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/security"
+	"github.com/Shoal-Technology/shoal/internal/server"
 )
 
 // clientFlags configure how CLI commands reach the server.

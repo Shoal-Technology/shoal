@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/edge"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/edge"
 )
 
 func testService(ips ...string) *v1alpha1.Service {

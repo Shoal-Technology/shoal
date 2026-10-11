@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kaiserern/shoal/internal/volume"
+	"github.com/Shoal-Technology/shoal/internal/volume"
 )
 
 // newVolumeCmd groups the node-local volume commands (ADR 0016).

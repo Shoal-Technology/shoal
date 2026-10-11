@@ -8,9 +8,9 @@
 #   SHOAL_VERSION        release tag to install, e.g. v1.2.3 (default: latest release)
 #   SHOAL_INSTALL_DIR    install directory (default: /usr/local/bin)
 #   SHOAL_DOWNLOAD_BASE  base URL that serves <tag>/<file> for release assets
-#                        (default: https://github.com/kaiserern/shoal/releases/download)
+#                        (default: https://github.com/Shoal-Technology/shoal/releases/download)
 #   SHOAL_API_BASE       GitHub API base used to find the latest release
-#                        (default: https://api.github.com/repos/kaiserern/shoal)
+#                        (default: https://api.github.com/repos/Shoal-Technology/shoal)
 #
 # Flags:
 #   --dry-run            print what would be done and change nothing
@@ -20,10 +20,10 @@
 # when cosign is installed, verifies the keyless signature on checksums.txt.
 set -eu
 
-REPO_API="${SHOAL_API_BASE:-https://api.github.com/repos/kaiserern/shoal}"
-DOWNLOAD_BASE="${SHOAL_DOWNLOAD_BASE:-https://github.com/kaiserern/shoal/releases/download}"
+REPO_API="${SHOAL_API_BASE:-https://api.github.com/repos/Shoal-Technology/shoal}"
+DOWNLOAD_BASE="${SHOAL_DOWNLOAD_BASE:-https://github.com/Shoal-Technology/shoal/releases/download}"
 INSTALL_DIR="${SHOAL_INSTALL_DIR:-/usr/local/bin}"
-COSIGN_IDENTITY_RE='^https://github\.com/kaiserern/shoal/\.github/workflows/release\.yml@refs/tags/v.+$'
+COSIGN_IDENTITY_RE='^https://github\.com/Shoal-Technology/shoal/\.github/workflows/release\.yml@refs/tags/v.+$'
 COSIGN_ISSUER='https://token.actions.githubusercontent.com'
 
 DRY_RUN=0

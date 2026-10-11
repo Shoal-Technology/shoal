@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/raft"
 
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // Export implements store.Exporter. It runs on the leader only and returns

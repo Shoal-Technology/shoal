@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
 )
 
 const (

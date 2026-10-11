@@ -11,8 +11,8 @@ import (
 
 	"github.com/hashicorp/raft"
 
-	"github.com/kaiserern/shoal/internal/store"
-	"github.com/kaiserern/shoal/internal/store/storetest"
+	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store/storetest"
 )
 
 func TestConformance(t *testing.T) {

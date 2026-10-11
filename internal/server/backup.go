@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/backup"
-	"github.com/kaiserern/shoal/internal/store/raftstore"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/backup"
+	"github.com/Shoal-Technology/shoal/internal/store/raftstore"
 )
 
 // Backup returns a point-in-time copy of every record in the shoal-backup/v1

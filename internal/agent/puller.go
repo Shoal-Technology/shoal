@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
 )
 
 // imagePuller pulls images in the background, so a slow pull doesn't hold up

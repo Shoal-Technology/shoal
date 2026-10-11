@@ -19,12 +19,12 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/controller"
-	"github.com/kaiserern/shoal/internal/security"
-	"github.com/kaiserern/shoal/internal/store"
-	"github.com/kaiserern/shoal/internal/store/raftstore"
-	"github.com/kaiserern/shoal/internal/store/sqlite"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/controller"
+	"github.com/Shoal-Technology/shoal/internal/security"
+	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/store/raftstore"
+	"github.com/Shoal-Technology/shoal/internal/store/sqlite"
 )
 
 // Config configures the server. Zero durations get defaults.

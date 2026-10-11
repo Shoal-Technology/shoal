@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
 )
 
 func writeLines(t *testing.T, w *Writer, from, to int) {

@@ -7,8 +7,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/kaiserern/shoal/api/v1alpha1"
-	"github.com/kaiserern/shoal/internal/objects"
+	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/objects"
 )
 
 // dataSources holds the Secrets and Configs a snapshot resolves from.

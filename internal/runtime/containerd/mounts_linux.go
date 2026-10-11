@@ -5,7 +5,7 @@ package containerd
 import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 
-	"github.com/kaiserern/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
 )
 
 // bindMounts returns the OCI bind mounts of a container's host directories.

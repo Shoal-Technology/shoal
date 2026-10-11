@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kaiserern/shoal/internal/backup"
-	"github.com/kaiserern/shoal/internal/security"
-	"github.com/kaiserern/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/backup"
+	"github.com/Shoal-Technology/shoal/internal/security"
+	"github.com/Shoal-Technology/shoal/internal/store"
 )
 
 // restorePlan is a backup that passed every check that needs no writes. The

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaiserern/shoal/internal/runtime"
-	"github.com/kaiserern/shoal/internal/runtime/fake"
+	"github.com/Shoal-Technology/shoal/internal/runtime"
+	"github.com/Shoal-Technology/shoal/internal/runtime/fake"
 )
 
 type clock struct{ t time.Time }

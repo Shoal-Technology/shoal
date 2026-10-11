@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"github.com/kaiserern/shoal/internal/security"
+	"github.com/Shoal-Technology/shoal/internal/security"
 )
 
 // requiredRole maps each gRPC service to the client role allowed to call

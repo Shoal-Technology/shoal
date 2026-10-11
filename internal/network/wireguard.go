@@ -15,7 +15,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/kaiserern/shoal/internal/security"
+	"github.com/Shoal-Technology/shoal/internal/security"
 )
 
 // Peer is another node of the mesh.
