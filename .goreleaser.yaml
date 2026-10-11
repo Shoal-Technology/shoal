@@ -42,10 +42,10 @@ checksum:
 signs:
   # Keyless signing of checksums.txt with the GitHub Actions OIDC identity.
   # Produces checksums.txt.sigstore.json (a cosign bundle). Needs the job to
-  # have id-token: write and cosign on PATH. Not run for snapshots.
+  # have id-token: write and cosign on PATH. Snapshot builds skip signing
+  # (--skip=sign in snapshot.yml).
   - id: cosign
     artifacts: checksum
-    if: '{{ not .IsSnapshot }}'
     cmd: cosign
     args:
       - sign-blob

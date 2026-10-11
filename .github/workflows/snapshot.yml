@@ -26,7 +26,7 @@ jobs:
         with:
           distribution: goreleaser
           version: v2.18.3
-          args: release --snapshot --clean
+          args: release --snapshot --clean --skip=sign
       - name: install.sh against the snapshot archives
         run: bash hack/test_install.sh dist
       - name: Upload snapshot artifacts
