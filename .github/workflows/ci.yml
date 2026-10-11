@@ -8,7 +8,7 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -17,6 +17,15 @@ jobs:
           cache: true
       - name: Test report parser
         run: python3 -m unittest discover -s hack -p 'test_test_report.py'
+      - name: gofmt
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
       - name: Vet all test variants
         run: make vet
       - name: Tests with race detector
@@ -28,8 +37,25 @@ jobs:
           python3 hack/test_report.py test-results/unit.jsonl
       - name: Build CLI
         run: make build && ./bin/shoal --help
+      - name: Cross-build CLI for linux/arm64
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o bin/shoal-linux-arm64 ./cmd/shoal
       - name: Compile real-runtime integration suite
         run: go test -c -tags integration -o bin/containerd.test ./internal/runtime/containerd
+      - name: staticcheck v0.8.1 (x/tools v0.52.0, needed for Go 1.27 export data)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sc" "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP/sc"
+          go mod init staticcheck-pin >/dev/null 2>&1
+          go get honnef.co/go/tools/cmd/staticcheck@v0.8.1 golang.org/x/tools@v0.52.0
+          go build -o "$RUNNER_TEMP/bin/staticcheck" honnef.co/go/tools/cmd/staticcheck
+          cd "$GITHUB_WORKSPACE"
+          "$RUNNER_TEMP/bin/staticcheck" ./...
+      - name: govulncheck v1.2.0
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.2.0
+          "$(go env GOPATH)/bin/govulncheck" ./...
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
