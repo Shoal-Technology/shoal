@@ -547,3 +547,90 @@ Resolved and accepted with this ADR's status change:
 - **Endpoint.** `status.endpoint` is `<db>.shoal:5432`.
 - **Not in pass C:** backups and restore (pass D), Redis (pass E), the containerd
   e2e (pass F). Changing `size` is accepted but does not resize the Volume.
+
+## Implementation notes from pass D
+**Status: done for Postgres, local volume only.** S3 export (`targets: [s3]`)
+is deferred to a later pass; the `s3` target is still validated and stored only.
+The pass C note "backup before upgrade is deferred" is resolved below. Redis is
+pass E.
+
+- **Mechanism: exec in the database container (option a of the pass D brief).**
+  `pg_dump -Fc -U app -d <db> -f /var/lib/postgresql/data/backups/<id>.dump`
+  runs with `Runtime.Exec` in the replica. Reasons: Exec exists from pass C and
+  is already exercised by the health check; there is no Job or one-shot kind
+  (no `restartPolicy: Never` mode exists), so a one-shot needs new scheduling
+  surface; and the dump lands on the data volume, so no network path to the
+  server is needed. Costs: a backup shares the data volume with the database
+  (losing the volume loses the backups too), and the dump competes with the
+  database for its CPU and memory limits. Exec caps its output at 16 KiB, so the
+  dump is written to a file, never streamed through stdout.
+- **Where the dump goes.** `/var/lib/postgresql/data/backups`, next to `pgdata`
+  on the data volume (the volume is mounted at `/var/lib/postgresql/data`).
+  The agent refuses any path outside that directory.
+- **Delivery.** The controller records a `DatabaseBackup` (internal kind, not
+  user-visible; `DatabaseBackupRecord` in the proto) with status `pending`. It
+  hands the job to the database's one replica in `ReplicaSpec.job`. The
+  assignment carries the job to the agent, which runs it in the background and
+  reports `ReplicaStatus.job` (ok, size, SHA-256, error). The controller then
+  sets the record to `ok` or `failed`. A job runs once per replica: its ID is
+  the backup or restore ID, and the agent keeps the result until a different
+  job arrives. A job is set again if the replica's spec was rewritten, and it
+  waits while the replica is not ready.
+- **Schedule and retention.** A scheduled backup is due when `schedule` has
+  passed since the last scheduled backup was recorded. One backup is in flight
+  per database. After an ok backup, the oldest ok backups beyond `retain` are
+  removed: the agent deletes their files in the same job that writes the new
+  dump, and the controller removes their records once the job succeeds. A job
+  that fails to delete a file reports it in the record's error, and the record
+  is still removed (the file is left behind). `retain` applies to every reason.
+- **Manual backup.** `shoal db backup <db>` (RPC `BackupDatabase`) records a
+  pending `manual` backup; the database must be Ready.
+- **Restore (section 3.7).** `restoreFrom` (new field `DatabaseSpec.restore_from`)
+  creates a new Database. It is refused for a Database that already exists, and
+  for a backup that is missing or not ok. The new Database is created with the
+  **source's password**, so the restore can connect with the source's
+  credentials. Once the new Database is Ready, the controller sets a restore job
+  on the **source** replica. The agent checks the dump against the SHA-256 the
+  backup recorded, then runs `pg_restore --clean --if-exists -h <new>.shoal -U
+  app -d <new db>` with `PGPASSWORD` in the exec environment (`runtime.WithEnv`).
+  The password is not in argv. The source is never written: `--clean` acts only
+  on the new server. Restore state is in `status.restoreState`: `pending`,
+  `running`, `done` or `failed` (with the error in `status.message`).
+  `shoal db restore <db> --from <id> --into <new>` does this through `Apply`.
+- **Minor upgrades (section 3.8).** Before a minor upgrade changes the image,
+  the controller takes a `upgrade` backup of the running version and holds: the
+  workload keeps the old image and `status.message` says so. When the backup is
+  ok, the upgrade goes ahead. A failed backup refuses the upgrade, with the
+  backup ID and its error in the message. The refusal is retried with a new
+  pre-upgrade backup after 10 minutes. A major change is still refused.
+- **Limits, stated plainly.**
+  - A restore needs the source database running (the job runs in its container).
+  - The restored database shares the source's password. Rotation is not in v1
+    (section 3.5), so the two credentials stay the same until rotation exists.
+  - Backups are local to the data volume. S3 export and off-volume copies are
+    the later pass.
+  - A restore into an existing name is refused by the controller, and the CLI
+    checks that the new name is not the source. The controller refuses a restore
+    into a Database that already has a status.
+  - Retention can leave a file behind when the agent cannot delete it.
+- **Tests.** In-process with fakes, under `go test -race -count=3`:
+  `internal/controller` (`TestScheduledBackupWaitsForItsInterval`,
+  `TestRetentionDeletesTheOldestBackups`, `TestFailedBackupIsRecordedAndPrunesNothing`,
+  `TestMinorUpgradeWaitsForAVerifiedBackup`,
+  `TestRestoreCreatesTheNewDatabaseThenRunsPgRestore`,
+  `TestRestoreIsRefusedIntoAnExistingDatabaseOrFromABadBackup`, and the
+  updated `TestMinorUpgradeUpdatesImage`) and `internal/agent`
+  (`TestJobArgvCarriesNoPassword`, `TestBackupRecordsChecksumAndPrunes`,
+  `TestFailedDumpIsReportedAndPartialFileRemoved`,
+  `TestJobsRefuseFilesOutsideTheBackupDir`,
+  `TestRestoreChecksDumpAndPassesPasswordInEnv`, `TestJobRunnerRunsAJobOnce`).
+- **e2e.** `hack/deploy-e2e.sh` steps h and i (backup, then restore into
+  `blog-db-restored`, then row counts through `psql` in each container). Verified
+  in run [38162883534](https://github.com/kaiserern/shoal/actions/runs/38162883534)
+  on e37c5f3, first attempt. The steps compare counts with a lower bound, not
+  equality (see `docs/testing.md`).
+- **Not verified.** The minor-upgrade path in a real cluster (unit tests only).
+  A restore whose source Database is deleted before the restore runs: it waits
+  for a source replica that never comes, and its state stays `pending` or
+  `running`. It is not refused or failed. Redis (pass E). The `dir` volume
+  backend (the e2e runs `loop`, as before).

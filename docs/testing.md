@@ -86,11 +86,16 @@ Earlier runs on this branch, each fixed on the branch:
 
 The Ingress run [38141944451] on 2b223f9 also passed, which confirms the shared setup in `hack/e2e-lib.sh` still works for `ingress-e2e.sh`.
 
+Verified run [38162883534](https://github.com/kaiserern/shoal/actions/runs/38162883534) on commit e37c5f3 (ADR 0016 pass D) passed every step on the first attempt, including the two new steps:
+
+- h) `shoal db backup blog-db` records a backup, and `shoal db backups blog-db` shows it `ok` (the table had 11 rows when the step started). The backup ID is `blog-db-20261011t181738-f5617ae6f3`.
+- i) `shoal db restore blog-db --from <id> --into blog-db-restored` creates the new Database. Once it is Ready, its `restoreState` is `done`. A `psql` count inside its container (through `ctr task exec`) gives 16 rows, and blog-db still has 16. The step asserts the restored count is at least the count before the backup, and that blog-db is at least that too. It does not assert equality, so an exact match is seen in the log, not checked by the script.
+
 Not covered by this run:
 
 - The volume backend is recorded as `loop`, inferred from the absence of a fallback message in the agent log. The Volume status was not read to confirm it. The `dir` backend was not run.
 - One unexplained event: in run 38141479523 the blog container was restarted once with exit code 137 and no health-check failure logged. Steps d) and e) still passed. The cause is not known.
-- Redis, backups, S3 export, restore and minor upgrades (ADR 0016 pass F, steps 5 to 7 and the Redis repeat) are not covered.
+- Redis, S3 export and the Redis repeat (ADR 0016 pass F steps 5 to 7) are not covered. A minor upgrade is covered by unit tests only (`TestMinorUpgradeUpdatesImage`, `TestMinorUpgradeWaitsForAVerifiedBackup`); the e2e does not upgrade. Backups and restore are covered by the e2e and by unit tests.
 - `shoal init`, `shoal uninstall` and the onboarding benchmark (ADR 0017 section 6) are not covered. The e2e uses the server and agent started directly, as the ingress e2e does.
 - The test app image is built on `postgres:16-alpine` without a digest pin, and the domain is `blog.shoal.test` on pebble, not a real DNS record.
 
