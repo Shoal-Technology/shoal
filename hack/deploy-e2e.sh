@@ -40,6 +40,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# diagnose: cluster state for a failed run (printed to the log and saved).
+diagnose() {
+  {
+    echo "== diagnose: app status"
+    cc app status blog || true
+    echo "== diagnose: replicas"
+    cc get replicas -o yaml || true
+    echo "== diagnose: secrets"
+    cc get secrets || true
+    echo "== diagnose: databases"
+    cc get databases -o yaml || true
+    echo "== diagnose: app logs (last 200 lines per replica)"
+    cc app logs blog --tail 200 || true
+    echo "== diagnose: containerd containers"
+    sudo -n ctr -n shoal containers ls || true
+    sudo -n ctr -n shoal task ls || true
+  } 2>&1 | tee "$RESULTS/diagnose.txt"
+}
+
 # current_hits: prints the hits=N count from the blog page, or fails when the
 # page does not show a count (no connection to Postgres).
 current_hits() {

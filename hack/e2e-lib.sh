@@ -41,6 +41,10 @@ skip() {
 fail() {
   echo "FAIL: $*" >&2
   echo "FAIL: $*" >>"$RESULTS/steps.txt"
+  # A caller may define diagnose to print cluster state before the run exits.
+  if declare -F diagnose >/dev/null; then
+    diagnose || true
+  fi
   exit 1
 }
 

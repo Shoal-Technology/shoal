@@ -6,18 +6,16 @@
 # inserts one row and writes a status page. busybox httpd serves the page on
 # port 3000. The page shows select=1 when the query works, and hits=N with the
 # row count, so the e2e can check that rows survive a Postgres restart.
-set -u
-
 PORT=${PORT:-3000}
 WWW=/tmp/www
 mkdir -p "$WWW" /app/uploads
-httpd -p "$PORT" -h "$WWW" || {
-  echo "httpd failed" >&2
-  exit 1
-}
+state=unset
+[ -n "${DATABASE_URL:-}" ] && state=set
+echo "serve: starting on port $PORT, DATABASE_URL $state"
+httpd -p "$PORT" -h "$WWW" || echo "serve: httpd failed" >&2
 
 while :; do
-  if out=$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 \
+  if out=$(psql "${DATABASE_URL:-}" -X -q -t -A -v ON_ERROR_STOP=1 \
     -c 'CREATE TABLE IF NOT EXISTS hits (id bigserial PRIMARY KEY, at timestamptz NOT NULL DEFAULT now())' \
     -c 'INSERT INTO hits DEFAULT VALUES' \
     -c "SELECT 'select=' || 1 || ' hits=' || count(*) FROM hits" 2>&1); then
@@ -25,6 +23,7 @@ while :; do
   else
     page="postgres error: $out"
   fi
+  echo "serve: $page"
   printf '%s\n' "$page" >"$WWW/index.html.tmp"
   mv "$WWW/index.html.tmp" "$WWW/index.html"
   sleep 2
