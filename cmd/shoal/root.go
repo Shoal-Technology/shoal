@@ -32,7 +32,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newServerCmd(c), newAgentCmd(c),
 		newApplyCmd(), newGetCmd(), newDescribeCmd(), newLogsCmd(), newRestartCmd(), newDeleteCmd(), newTokenCmd(), newUICmd(),
-		newClusterCmd(), newBackupCmd(), newLabelCmd(),
+		newClusterCmd(), newBackupCmd(), newLabelCmd(), newVolumeCmd(),
 		newDebugCmd(c),
 	)
 	return root
@@ -57,6 +57,8 @@ func (c *cli) logger() (*slog.Logger, error) {
 // runtimeFlags configure the local containerd runtime.
 type runtimeFlags struct {
 	opts containerd.Options
+	// volumeBackend is loop (default) or dir; see ADR 0016, section 1.2.
+	volumeBackend string
 }
 
 func (f *runtimeFlags) register(fs *pflag.FlagSet) {
@@ -66,6 +68,7 @@ func (f *runtimeFlags) register(fs *pflag.FlagSet) {
 	fs.StringVar(&f.opts.PodCIDR, "pod-cidr", "", "IPv4 subnet for containers on this node (standalone mode, default 10.250.0.0/24; with a server, the server assigns it)")
 	fs.StringVar(&f.opts.CNIBinDir, "cni-bin-dir", "/opt/cni/bin", "directory containing CNI plugins")
 	fs.StringVar(&f.opts.BridgeName, "bridge-name", "shoal0", "Linux bridge for containers on this node")
+	fs.StringVar(&f.volumeBackend, "volume-backend", "loop", "volume backend: loop (ext4 image, size enforced; falls back to dir with a warning if loop devices are missing) or dir (plain directory, no size limit)")
 }
 
 func (f *runtimeFlags) open(ctx context.Context) (containerd.Client, error) {

@@ -29,6 +29,7 @@ import (
 	"example.com/shoal/internal/resource"
 	"example.com/shoal/internal/runtime"
 	"example.com/shoal/internal/security"
+	"example.com/shoal/internal/volume"
 )
 
 // ConnectedConfig configures an agent that is managed by a server.
@@ -51,6 +52,9 @@ type ConnectedConfig struct {
 	// and sends heartbeats.
 	Runtime    runtime.Runtime
 	Reconciler Config
+	// VolumeRoot is <state-dir>/volumes and VolumeBackend the backend in use
+	// (loop or dir). The heartbeat reports both (ADR 0016, section 1.2).
+	VolumeRoot, VolumeBackend string
 	// SyncInterval is how often the reconciler runs without a new snapshot.
 	// Default 2s.
 	SyncInterval time.Duration
@@ -556,8 +560,15 @@ func (c *Connected) setAssignments(snap *v1alpha1.AssignmentSnapshot) {
 
 func (c *Connected) convert(snap *v1alpha1.AssignmentSnapshot) []Assignment {
 	out := make([]Assignment, 0, len(snap.GetAssignments()))
+	vols := map[string]*v1alpha1.Volume{}
+	for _, v := range snap.GetVolumes() {
+		vols[v.GetMetadata().GetName()] = v
+	}
 	for _, a := range snap.GetAssignments() {
 		as, err := AssignmentFromAPI(a)
+		if err == nil {
+			err = bindVolumes(&as, a.GetTemplate(), vols)
+		}
 		if err != nil {
 			c.log.Error("ignoring invalid assignment", "err", err)
 			continue
@@ -603,6 +614,7 @@ func (c *Connected) reconcileLoop(ctx context.Context) {
 	for {
 		if have {
 			c.syncNetwork(ctx, snap)
+			r.SetVolumes(snapshotVolumeNames(snap))
 			statuses, err := r.Reconcile(ctx, desired)
 			if err != nil && ctx.Err() == nil {
 				c.log.Warn("reconcile incomplete", "err", err)
@@ -672,11 +684,14 @@ func (c *Connected) heartbeat() *v1alpha1.Heartbeat {
 	reports := c.statuses
 	c.mu.Unlock()
 	hb := &v1alpha1.Heartbeat{
-		Capacity:     &v1alpha1.NodeCapacity{CpuMillis: int64(goruntime.NumCPU()) * 1000, MemoryBytes: memTotal()},
-		AgentVersion: c.cfg.Version,
-		Os:           goruntime.GOOS,
-		Arch:         goruntime.GOARCH,
-		Replicas:     reports,
+		Capacity: &v1alpha1.NodeCapacity{
+			CpuMillis: int64(goruntime.NumCPU()) * 1000, MemoryBytes: memTotal(), DiskBytes: volume.DiskBytes(c.cfg.VolumeRoot),
+		},
+		AgentVersion:  c.cfg.Version,
+		Os:            goruntime.GOOS,
+		Arch:          goruntime.GOARCH,
+		Replicas:      reports,
+		VolumeBackend: c.cfg.VolumeBackend,
 	}
 	if c.cfg.Network != nil {
 		key, port := c.cfg.Network.WireGuard()

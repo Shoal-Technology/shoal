@@ -114,7 +114,7 @@ func (a *agentService) Sync(stream v1alpha1.Agent_SyncServer) error {
 // forwards log requests: it is the stream's only sender.
 func (a *agentService) pushAssignments(ctx context.Context, node string, stream v1alpha1.Agent_SyncServer, logReqs <-chan *v1alpha1.LogRequest) error {
 	// Snapshots depend on replicas, the data they reference, Services and the mesh.
-	events := a.s.store.Watch(ctx, v1alpha1.KindReplica, v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindNode, v1alpha1.KindRoute, v1alpha1.KindCertificate, v1alpha1.KindAcmeChallenge)
+	events := a.s.store.Watch(ctx, v1alpha1.KindReplica, v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindNode, v1alpha1.KindRoute, v1alpha1.KindCertificate, v1alpha1.KindAcmeChallenge, v1alpha1.KindVolume)
 	resync := time.NewTicker(a.s.cfg.AssignmentResync)
 	defer resync.Stop()
 	last, force := "", true
@@ -193,6 +193,19 @@ func (a *agentService) snapshot(ctx context.Context, node string) (*v1alpha1.Ass
 		}
 		data.resolve(as)
 		snap.Assignments = append(snap.Assignments, as)
+	}
+	vrecs, err := a.s.store.List(ctx, v1alpha1.KindVolume)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range vrecs {
+		v, err := objects.Volume(r)
+		if err != nil {
+			return nil, err
+		}
+		if v.Status.GetNode() == node {
+			snap.Volumes = append(snap.Volumes, v)
+		}
 	}
 	if snap.Services, err = a.s.serviceRoutes(ctx); err != nil {
 		return nil, err

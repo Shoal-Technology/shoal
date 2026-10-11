@@ -12,6 +12,7 @@ import (
 
 	"example.com/shoal/internal/agent"
 	"example.com/shoal/internal/network"
+	"example.com/shoal/internal/volume"
 )
 
 func newAgentCmd(c *cli) *cobra.Command {
@@ -137,6 +138,13 @@ func startConnected(ctx context.Context, rf *runtimeFlags, nf *networkFlags, log
 	cfg.AssignmentsPath = filepath.Join(dir, "assignments.pb")
 	cfg.NodeConfigPath = filepath.Join(dir, "node.conf")
 	cfg.Reconciler.FilesDir = filepath.Join(dir, "files")
+	// Volumes live under the state dir, so `shoal volume purge` finds them.
+	volRoot := filepath.Join(rf.opts.StateDir, "volumes")
+	vm, err := volume.NewManager(volRoot, rf.volumeBackend, log)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg.Reconciler.Volumes, cfg.VolumeRoot, cfg.VolumeBackend = vm, volRoot, vm.Backend()
 	cfg.WireguardEndpoint = nf.wgEndpoint
 	cfg.Version, cfg.Log = version, log
 	if creds != nil {

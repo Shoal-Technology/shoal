@@ -3,7 +3,9 @@ package resource
 import (
 	"errors"
 	"fmt"
+	"path"
 	"regexp"
+	"strings"
 
 	"github.com/distribution/reference"
 	"google.golang.org/protobuf/proto"
@@ -97,6 +99,7 @@ func ValidateWorkload(w *v1alpha1.Workload) error {
 	}
 
 	validateEnvAndFiles(s, bad)
+	validateVolumeMounts(s, bad)
 	seenEnv := map[string]bool{}
 	for i, e := range s.GetEnv() {
 		f := fmt.Sprintf("spec.env[%d].name", i)
@@ -192,6 +195,41 @@ func ValidateWorkload(w *v1alpha1.Workload) error {
 		bad("spec.update.progressDeadlineSeconds", "must be between 10 and 3600")
 	}
 	return errors.Join(errs...)
+}
+
+// validateVolumeMounts checks spec.volumes. A read-write volume holds data
+// that only one writer may touch, so it needs replicas of at most 1. Whether
+// a Volume is referenced by another Workload is checked at apply time, when
+// the claim is taken (ADR 0016, section 1.1).
+func validateVolumeMounts(s *v1alpha1.WorkloadSpec, bad func(field, format string, args ...any)) {
+	fileMountPath := map[string]bool{}
+	for _, m := range s.GetFiles() {
+		fileMountPath[m.GetPath()] = true
+	}
+	names := map[string]bool{}
+	paths := map[string]bool{}
+	for i, m := range s.GetVolumes() {
+		f := fmt.Sprintf("spec.volumes[%d]", i)
+		n := m.GetName()
+		switch {
+		case !ValidName(n, 63):
+			bad(f+".name", "must be a Volume name (lowercase DNS label of at most 63 characters)")
+		case names[n]:
+			bad(f+".name", "duplicate volume %q", n)
+		}
+		names[n] = true
+		p := m.GetMountPath()
+		switch {
+		case !strings.HasPrefix(p, "/") || path.Clean(p) != p || p == "/":
+			bad(f+".mountPath", "must be a clean absolute directory, not /")
+		case paths[p] || fileMountPath[p]:
+			bad(f+".mountPath", "%s is already used by another mount", p)
+		}
+		paths[p] = true
+		if !m.GetReadOnly() && s.GetReplicas() > 1 {
+			bad(f, "a read-write volume needs replicas of at most 1, not %d", s.GetReplicas())
+		}
+	}
 }
 
 func validPort(p int32) bool { return p >= 1 && p <= 65535 }

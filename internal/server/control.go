@@ -82,6 +82,16 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// Volume claims taken by this apply, per workload, until it is applied.
+	claimed := map[string][]string{}
+	releaseVolClaims := func() {
+		for w, vols := range claimed {
+			if err := c.s.releaseVolumes(ctx, w, vols); err != nil {
+				c.s.log.Warn("could not release volume claims", "workload", w, "err", err)
+			}
+		}
+	}
+
 	// Reserve each Route's host and path prefix. Create is atomic, so when
 	// two applies race for one key exactly one reservation succeeds; the other
 	// gets a conflict and nothing is written for it. claims maps each key this
@@ -106,6 +116,75 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// Any failure before the writes are done releases what this call
+	// reserved: Route keys and Volume claims. Releasing is idempotent (each
+	// release checks the owner), so the write-phase releases may run again.
+	ok := false
+	defer func() {
+		if !ok {
+			c.s.releaseClaims(ctx, claims)
+			releaseVolClaims()
+		}
+	}()
+
+	// Volumes (ADR 0016, section 1.1). Every Volume a Workload names must
+	// exist, stored or in this batch, and a bound Volume cannot be resized.
+	// Then each Workload takes its claims before anything is written. A claim
+	// that fails releases the claims this apply already took.
+	batchVolumes := map[string]bool{}
+	for _, o := range objs {
+		if o.kind == v1alpha1.KindVolume {
+			batchVolumes[o.name] = true
+		}
+	}
+	var volErrs []error
+	prevVolumes := map[string][]string{} // workload -> volumes in its stored spec
+	for _, o := range objs {
+		switch o.kind {
+		case v1alpha1.KindWorkload:
+			names := volumeNames(o.msg.(*v1alpha1.WorkloadSpec))
+			missing, err := c.s.missingVolumes(ctx, names, batchVolumes)
+			if err != nil {
+				return nil, apiError(err)
+			}
+			if len(missing) > 0 {
+				volErrs = append(volErrs, fmt.Errorf("workload %q: volumes %v not found (apply the Volume first)", o.name, missing))
+			}
+			if prevVolumes[o.name], err = c.s.storedVolumeNames(ctx, o.name); err != nil {
+				return nil, apiError(err)
+			}
+		case v1alpha1.KindVolume:
+			rec, err := c.s.store.Get(ctx, v1alpha1.KindVolume, o.name)
+			switch {
+			case errors.Is(err, store.ErrNotFound):
+			case err != nil:
+				return nil, apiError(err)
+			default:
+				cur, err := objects.Volume(rec)
+				if err != nil {
+					return nil, apiError(err)
+				}
+				if err := checkVolumeResize(cur, o.msg.(*v1alpha1.VolumeSpec)); err != nil {
+					volErrs = append(volErrs, err)
+				}
+			}
+		}
+	}
+	if err := errors.Join(volErrs...); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	for _, o := range objs {
+		if o.kind != v1alpha1.KindWorkload {
+			continue
+		}
+		vols, err := c.s.claimVolumes(ctx, o.name, volumeNames(o.msg.(*v1alpha1.WorkloadSpec)))
+		claimed[o.name] = vols
+		if err != nil {
+			return nil, apiError(err)
+		}
+	}
+
 	resp := &v1alpha1.ApplyResponse{}
 	for _, o := range objs {
 		var oldKey, newKey string
@@ -119,6 +198,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		action, err := c.s.applySpec(ctx, o.kind, o.name, o.spec)
 		if err != nil {
 			c.s.releaseClaims(ctx, claims)
+			releaseVolClaims()
 			return resp, apiError(fmt.Errorf("apply %s %q: %w", o.kind, o.name, err))
 		}
 		if o.kind == v1alpha1.KindRoute {
@@ -128,9 +208,24 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 				c.s.releaseRoute(ctx, oldKey, o.name)
 			}
 		}
+		if o.kind == v1alpha1.KindWorkload {
+			delete(claimed, o.name)
+			// Volumes the workload no longer names are released.
+			newNames := volumeNames(o.msg.(*v1alpha1.WorkloadSpec))
+			var dropped []string
+			for _, v := range prevVolumes[o.name] {
+				if !slices.Contains(newNames, v) {
+					dropped = append(dropped, v)
+				}
+			}
+			if err := c.s.releaseVolumes(ctx, o.name, dropped); err != nil {
+				c.s.log.Warn("could not release dropped volume claims", "workload", o.name, "err", err)
+			}
+		}
 		c.s.log.Info("object applied", "kind", o.kind, "name", o.name, "action", action)
 		resp.Results = append(resp.Results, &v1alpha1.ApplyResult{Kind: o.kind, Name: o.name, Action: action})
 	}
+	ok = true
 	return resp, nil
 }
 
@@ -339,6 +434,13 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
+	if req.GetKind() == v1alpha1.KindVolume {
+		if err := c.deleteVolume(ctx, req.GetName()); err != nil {
+			return nil, err
+		}
+		c.s.log.Info("object deleted", "kind", req.GetKind(), "name", req.GetName())
+		return &v1alpha1.DeleteResponse{}, nil
+	}
 	var routeKey string
 	if req.GetKind() == v1alpha1.KindRoute {
 		key, err := c.s.storedRouteKey(ctx, req.GetName())
@@ -347,11 +449,23 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 		}
 		routeKey = key
 	}
+	var volumes []string
+	if req.GetKind() == v1alpha1.KindWorkload {
+		var err error
+		if volumes, err = c.s.storedVolumeNames(ctx, req.GetName()); err != nil {
+			return nil, apiError(err)
+		}
+	}
 	if err := c.s.store.Delete(ctx, req.GetKind(), req.GetName(), 0); err != nil {
 		return nil, apiError(err)
 	}
 	if routeKey != "" {
 		c.s.releaseRoute(ctx, routeKey, req.GetName())
+	}
+	if len(volumes) > 0 {
+		if err := c.s.releaseVolumes(ctx, req.GetName(), volumes); err != nil {
+			c.s.log.Warn("could not release volume claims", "workload", req.GetName(), "err", err)
+		}
 	}
 	if req.GetKind() == v1alpha1.KindNode {
 		// The node's certificate stays valid, but Sync and certificate
@@ -454,6 +568,12 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 			return nil, err
 		}
 		return &v1alpha1.Object{Kind: &v1alpha1.Object_Route{Route: rt}}, nil
+	case v1alpha1.KindVolume:
+		v, err := objects.Volume(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Volume{Volume: v}}, nil
 	}
 	return nil, fmt.Errorf("unexpected kind %q", r.Kind)
 }
@@ -463,10 +583,10 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 func checkKind(kind string) error {
 	switch kind {
 	case v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica,
-		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute:
+		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume:
 		return nil
 	}
-	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Secret or Config)", kind)
+	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Secret or Config)", kind)
 }
 
 // RestartWorkload sets spec.restartedAt, which changes the template and so

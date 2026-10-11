@@ -105,6 +105,15 @@ func Route(r store.Record) (*v1alpha1.Route, error) {
 	return rt, decode(r, rt.Spec, rt.Status)
 }
 
+// Volume decodes a Volume record.
+func Volume(r store.Record) (*v1alpha1.Volume, error) {
+	v := &v1alpha1.Volume{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindVolume, Metadata: Meta(r),
+		Spec: &v1alpha1.VolumeSpec{}, Status: &v1alpha1.VolumeStatus{},
+	}
+	return v, decode(r, v.Spec, v.Status)
+}
+
 // Certificate decodes a Certificate record (the store must decrypt it first).
 func Certificate(r store.Record) (*v1alpha1.Certificate, error) {
 	c := &v1alpha1.Certificate{

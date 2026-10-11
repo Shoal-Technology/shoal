@@ -288,6 +288,46 @@ Environment variables keep their values until
 `sudo shoal restart workload web`, which replaces the replicas with a rolling
 update. The same command retries a rolled-back release.
 
+**Volumes (node-local, ADR 0016):** a Volume is storage that survives container
+restarts. It lives on one node.
+
+```yaml
+kind: Volume
+metadata:
+  name: pg-data
+spec:
+  size: 20Gi          # enforced by the loop backend
+  retention: Retain   # or Delete: what happens to the data when the Volume is deleted
+---
+kind: Workload
+metadata:
+  name: db
+spec:
+  image: postgres:16
+  volumes:
+    - name: pg-data
+      mountPath: /var/lib/postgresql/data
+```
+
+- A Volume is used by one Workload. A read-write volume needs `replicas` of 0 or 1.
+- The first replica that mounts a Volume picks its node, and every later
+  replica goes to that node. Data does not move between nodes.
+- If that node is lost, its replica stays Pending and the Volume is `NodeLost`
+  until the node returns. Nothing is replaced on another node, because the data
+  is still on the old one. Restoring from a snapshot is not in this release.
+- Volume sizes count against the node's disk when the scheduler places replicas.
+- `--volume-backend` is `loop` by default and needs root and loop devices. If
+  the node has none, the agent logs a warning and uses `dir`, which has no size
+  limit. `shoal get volumes` shows the quota (`size` or `none`).
+- Deleting a Volume with `retention: Retain` moves its data to
+  `<state-dir>/volumes/.retained`. Remove it with `sudo shoal volume purge NAME`
+  on that node. Standalone agents do not support volumes yet.
+- Changing a bound Volume's size is refused: online resize is not supported.
+
+```sh
+sudo ./bin/shoal get volumes      # NAME, SIZE, NODE, STATE, WORKLOAD, RETENTION, QUOTA
+```
+
 **Logs:**
 
 ```sh

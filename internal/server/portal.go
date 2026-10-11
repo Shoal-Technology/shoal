@@ -325,7 +325,7 @@ func (p *portal) auth(h http.HandlerFunc) http.Handler {
 
 var urlKinds = map[string]string{
 	"workloads": v1alpha1.KindWorkload, "replicas": v1alpha1.KindReplica, "nodes": v1alpha1.KindNode,
-	"services": v1alpha1.KindService, "routes": v1alpha1.KindRoute, "secrets": v1alpha1.KindSecret, "configs": v1alpha1.KindConfig,
+	"services": v1alpha1.KindService, "routes": v1alpha1.KindRoute, "volumes": v1alpha1.KindVolume, "secrets": v1alpha1.KindSecret, "configs": v1alpha1.KindConfig,
 }
 
 func kindOf(w http.ResponseWriter, r *http.Request) (string, bool) {

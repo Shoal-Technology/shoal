@@ -40,10 +40,14 @@ type ContainerSpec struct {
 	Mounts []Mount `json:",omitempty"`
 }
 
-// Mount bind-mounts a host directory read-only into the container.
+// Mount bind-mounts a host directory into the container. It is read-only
+// unless ReadWrite is set. The zero value is read-only on purpose: spec
+// hashes cover mounts, and Secret and Config mounts must keep their hashes
+// (and so must not restart containers) after an upgrade (ADR 0016, 1.3).
 type Mount struct {
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
+	ReadWrite   bool   `json:"readWrite,omitempty"`
 }
 
 // State is the coarse lifecycle state of a container.

@@ -58,8 +58,16 @@ func Prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err e
 		}
 		DefaultRoute(s)
 		return v1alpha1.KindRoute, name, s, ValidateRoute(name, s)
+	case *v1alpha1.Object_Volume:
+		name := k.Volume.GetMetadata().GetName()
+		s := proto.CloneOf(k.Volume.GetSpec())
+		if s == nil {
+			s = &v1alpha1.VolumeSpec{}
+		}
+		DefaultVolume(s)
+		return v1alpha1.KindVolume, name, s, ValidateVolume(name, s)
 	}
-	return "", "", nil, errors.New("only Workload, Service, Route, Secret and Config objects can be applied")
+	return "", "", nil, errors.New("only Workload, Service, Route, Volume, Secret and Config objects can be applied")
 }
 
 func validateData(name string, data map[string]string) error {

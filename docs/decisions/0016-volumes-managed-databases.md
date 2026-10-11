@@ -1,6 +1,6 @@
 # 0016: Volumes and managed databases
 
-Status: Proposed
+Status: Accepted (open questions resolved below; pass A implemented, see Implementation passes)
 
 ## Context
 Shoal runs stateless workloads well (ADR 0009, 0010) and has Secrets, Configs
@@ -138,7 +138,7 @@ backups configured, or wait for replicated volumes (later work).
   `onFailure`. Example: `psql -c CHECKPOINT` or `redis-cli BGSAVE` (with a wait)
   for a database volume. If the replica has no exec support or is not Ready, the
   snapshot fails with a clear message unless `onFailure: proceed`. Exec in the
-  runtime is a new capability in pass A; the database backups in section 3 do
+  runtime is a new capability in pass C (decision 4); the database backups in section 3 do
   not depend on it.
 
 ### 2. Snapshots and S3 export
@@ -215,7 +215,7 @@ v1 uses a TCP probe on the service port, run by the agent prober (ADR 0010),
 which today only does HTTP. The prober gets a TCP mode. A TCP probe confirms
 the port is listening, not that the database answers queries. The stronger
 check (`pg_isready`, `redis-cli ping`) needs exec in the container; that
-arrives in pass A and is switched on for databases once it is reliable (pass
+arrives in pass C and is switched on for databases once it is reliable (pass
 C). Until then, `Ready` means the port answers.
 
 #### 3.4 Logical backups
@@ -374,22 +374,27 @@ dump is the default backup, and a snapshot is an extra for the volume.
 ### Implementation passes
 Each pass is sized for one agent session and ends with its own tests green.
 
-- **A. Volume kind, agent mounts and node pinning.** `Volume` in
-  `resources.proto` and `internal/resource`; `WorkloadSpec.volumes`; the
-  `runtime.Mount.ReadOnly` change; exec support in the containerd runtime;
-  loop and dir backends behind the agent flag; first-bind pinning in the
-  scheduler; the eviction exception; `shoal` create, get and delete for
-  volumes. Tests: unit, controller with fakes, and a containerd integration
-  test on a runner that writes a file, restarts, and reads it back.
+- **A. Volume kind, agent mounts and node pinning. Done (code only; see
+  Implementation notes).** `Volume` in `resources.proto` and
+  `internal/resource`; `WorkloadSpec.volumes`; `runtime.Mount.ReadWrite`; loop
+  and dir backends behind `--volume-backend`; atomic claims; first-bind
+  pinning and disk accounting in the scheduler; the eviction exception and
+  NodeLost; `shoal apply`, `get volumes`, `delete` for volumes and
+  `shoal volume purge`. Exec is not in A (decision 4). Real loop devices and
+  containers are not run in A: the containerd integration test for volumes is
+  pass F.
 - **B. Snapshots and S3 export.** `Snapshot` and `BackupTarget` kinds; local
-  tar snapshots with `fsfreeze` and the pre-snapshot hook; the interval
-  schedule and retention; the S3 uploader with in-memory credentials; the
-  `from-snapshot` restore into a new Volume. Tests: unit (signing vectors),
-  fakes, and e2e against a test S3 server on the runner.
-- **C. Database controller for Postgres.** `Database` kind; the controller
-  expansion (3.2); generated credentials (3.5); the image table (3.6); TCP
-  health, and `pg_isready` once exec is proven; `Ready` and `Degraded` phases.
-  Tests: fakes plus the first half of the e2e (create, write, kill, persist).
+  tar snapshots with `fsfreeze`; the pre-snapshot hook follows exec in pass C;
+  the interval schedule and retention; the S3 uploader (minio-go, decision 3)
+  with in-memory credentials; the `from-snapshot` restore into a new Volume.
+  Tests: unit (signing vectors), fakes, and e2e against a test S3 server on
+  the runner.
+- **C. Exec and Database controller for Postgres.** Exec in the containerd
+  runtime (decision 4) with its logs kept out of the agent log, and the
+  pre-snapshot hook that uses it. `Database` kind; the controller expansion
+  (3.2); generated credentials (3.5); the image table (3.6); TCP health, and
+  `pg_isready` once exec is proven; `Ready` and `Degraded` phases. Tests:
+  fakes plus the first half of the e2e (create, write, kill, persist).
 - **D. Backups and restore.** `pg_dump` and `pg_restore` one-shots; the
   `Backup` object with checksum; scheduled backups with retention to a backup
   Volume and to S3; `restoreFrom`; minor upgrades with the pre-upgrade
@@ -403,22 +408,70 @@ Each pass is sized for one agent session and ends with its own tests green.
   `docs/testing.md`. This pass also adds the workflow to the quality gate
   (`docs/quality.md`).
 
-## Open questions
-1. **Default backend.** `loop` needs root and loop devices on every node. Is
-   that acceptable, or should `dir` be the default with quotas off until
-   XFS is set up?
-2. **Scheduling library.** Interval-only schedules keep v1 small. Do we add a
-   cron library (for example `robfig/cron`) now or wait for roadmap item 6?
-   Needs an ADR 0008 dependency decision.
-3. **S3 client.** Use `minio-go` (new dependency, less code) or a small SigV4
-   signer (more code, no dependency)?
-4. **Exec in the runtime.** Pass A adds it for the pre-snapshot hook. Confirm
-   that exec is acceptable for the runtime's surface and that its logs do not
-   leak into the agent log.
-5. **Eviction for volume replicas.** Should the operator be able to force a
-   move after a node is confirmed dead (for example a `shoal volume
-   force-rebind`), knowing the old node may still have a copy? Default is no.
-6. **Quota for Database.** Should database volumes count against any node
-   disk limit, or is that left to the operator until quotas (roadmap item 7)?
-7. **Redis persistence mode.** Use RDB snapshots only, or also AOF? v1 plan
-   is RDB only, which means a crash can lose the last minutes of writes.
+## Decisions on open questions
+Resolved and accepted with this ADR's status change:
+
+1. **Default backend: loop.** `--volume-backend` defaults to `loop`. An agent
+   that cannot use loop devices (no `losetup`, `mkfs.ext4`, or
+   `/dev/loop-control`) falls back to `dir` with a clear warning in its log,
+   and reports the backend it actually runs in node status
+   (`NodeStatus.volume_backend`). Volume status shows `quota: none` for dir.
+2. **Schedules: interval-only until roadmap item 6.** No cron library. The
+   interval schedule in section 2 is the only form in v1.
+3. **S3 client: `minio-go`, pinned.** It is a new dependency and needs the
+   ADR 0008 dependency record when pass B adds it. No hand-written SigV4 signer.
+4. **Exec in the runtime: accepted, but in pass C, not pass A.** The
+   pre-snapshot hook (section 1.7) and the exec-based `pg_isready` check
+   (section 3.3) both move to pass C with the Database controller. Pass A
+   does not add exec. Log output of exec must not reach the agent log.
+5. **Force-rebind after node loss: allowed only with `--from-snapshot`.** It
+   creates fresh data on a new node from a snapshot (section 2 restore). It
+   never re-attaches the old disk. Without a snapshot, a NodeLost volume
+   stays NodeLost until its node returns. This is not in pass A.
+6. **Volume sizes count against node disk capacity in scheduling.** A node
+   reports `disk_bytes` in its heartbeat. The scheduler adds the sizes of
+   Volumes bound to the node, and requires room for the sizes of unbound
+   Volumes a replica would first-bind. A node that reports no disk capacity
+   is not eligible for a replica that needs a new Volume.
+7. **Redis persistence: RDB plus AOF with `appendfsync everysec`.** This
+   replaces the RDB-only plan. A crash loses at most about one second of
+   writes. Pass E implements it.
+
+## Implementation notes from pass A
+- The `Volume` kind and `WorkloadSpec.volumes` are implemented as written in
+  1.1. `usedBytes` is in the proto but is not filled in pass A.
+- `runtime.Mount` has a `ReadWrite` field, not `ReadOnly`. The zero value
+  must keep meaning read-only, because the spec hash includes mounts and
+  Secret and Config mounts must not change hash (and so must not restart
+  running containers) after an upgrade.
+- Volume claims are atomic: one internal `VolumeClaim` record per Volume,
+  created with the store's `Create`, which fails with `ErrExists` if another
+  Workload holds it. This is the same reservation idea as Route conflicts,
+  but atomic; the Route check in `control.go` is not atomic (ADR 0015 pass A).
+- A Volume's binding and the first replica's binding are two writes, in a
+  fixed order: the Volume's `status.node` first, then the replica's
+  `spec.node`. A crash between them leaves a Volume bound to a node with no
+  replica yet. The next pass repeats the replica bind on that node, so the
+  result converges. The reverse order could leave a replica on a node the
+  Volume is not bound to.
+- Retained data is removed with `shoal volume purge <name>` on the node that
+  holds it. It is a local command on that node, not a server RPC.
+- Deleting a Volume takes a marker claim first, so a Workload cannot claim it
+  while it is deleted. A Volume that a Workload names is refused with
+  FailedPrecondition, and the refusal changes nothing.
+- A bound Volume's size cannot change (apply is refused): online resize is out
+  of scope (section 5).
+- The agent never deletes data it was not told to delete. A volume on disk
+  that the node's snapshot does not list is retired by its recorded retention
+  (`<name>.meta.json`), and only once the containers that used it are gone.
+  The retention record is written at first mount, so a volume with no record
+  is treated as Retain.
+- Owner and mode are applied once, at the first mount, not on every pass
+  (section 1.7).
+- The quota shown in Volume status comes from the node's reported backend:
+  `size` for loop, `none` for dir. Used bytes are not reported in A.
+- Standalone agents have no volumes: the standalone replicas file has no
+  volume field and rejects unknown fields.
+- Not in pass A: exec and the pre-snapshot hook (decision 4), the containerd
+  integration test with real loop devices and containers (pass F). The
+  portal's kind map accepts `volumes`; its UI was not changed or checked.

@@ -18,6 +18,7 @@ message Object {
     Config config = 5;
     Service service = 6;
     Route route = 7;
+    Volume volume = 8;
   }
 }
 
@@ -261,6 +262,8 @@ message Heartbeat {
   // Revision of the last RouteSnapshot the node applied (ADR 0015, pass E).
   // The leader waits on it before it asks the CA to validate a challenge.
   int64 routes_revision = 9;
+  // Volume backend the agent runs with: loop or dir (ADR 0016).
+  string volume_backend = 10;
 }
 
 message ReplicaReport {
@@ -348,6 +351,9 @@ message AssignmentSnapshot {
   repeated ServiceRoute services = 3;
   // The other nodes of the WireGuard mesh.
   repeated MeshPeer peers = 4;
+  // Volumes bound to this node (ADR 0016). The agent creates or re-mounts
+  // them, and retains or deletes the data of those that are gone.
+  repeated Volume volumes = 5;
 }
 
 message Assignment {

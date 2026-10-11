@@ -7,15 +7,17 @@ package v1alpha1
 const (
 	APIVersion = "v1alpha1"
 
-	KindWorkload  = "Workload"
-	KindNode      = "Node"
-	KindReplica   = "Replica"
-	KindSecret    = "Secret"
-	KindConfig    = "Config"
-	KindService   = "Service"
-	KindRoute     = "Route"
-	KindJoinToken = "JoinToken" // internal
-	KindUIAuth    = "UIAuth"    // internal
+	KindWorkload    = "Workload"
+	KindNode        = "Node"
+	KindReplica     = "Replica"
+	KindSecret      = "Secret"
+	KindConfig      = "Config"
+	KindService     = "Service"
+	KindRoute       = "Route"
+	KindVolume      = "Volume"
+	KindVolumeClaim = "VolumeClaim" // internal: one per Volume in use, see ADR 0016
+	KindJoinToken   = "JoinToken"   // internal
+	KindUIAuth      = "UIAuth"      // internal
 
 	// Internal kinds for automatic TLS (ADR 0015, pass C). Not user-appliable.
 	KindCertificate   = "Certificate"

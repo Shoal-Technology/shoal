@@ -27,6 +27,7 @@ var kindAliases = map[string]string{
 	"config": v1alpha1.KindConfig, "configs": v1alpha1.KindConfig, "cfg": v1alpha1.KindConfig,
 	"service": v1alpha1.KindService, "services": v1alpha1.KindService, "svc": v1alpha1.KindService,
 	"route": v1alpha1.KindRoute, "routes": v1alpha1.KindRoute,
+	"volume": v1alpha1.KindVolume, "volumes": v1alpha1.KindVolume, "vol": v1alpha1.KindVolume,
 }
 
 func parseKind(s string) (string, error) {
@@ -155,6 +156,8 @@ func newGetCmd() *cobra.Command {
 				return printServices(out, items, time.Now())
 			case v1alpha1.KindRoute:
 				return printRoutes(out, items, time.Now())
+			case v1alpha1.KindVolume:
+				return printVolumes(out, items, time.Now())
 			case v1alpha1.KindSecret, v1alpha1.KindConfig:
 				return printData(out, items, time.Now())
 			}
@@ -397,6 +400,25 @@ func printRoutes(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
 			r.GetSpec().GetPathPrefix(), r.GetSpec().GetService(), r.GetSpec().GetPort(), r.GetSpec().GetTls(),
 			state, dash(r.GetStatus().GetMessage()), dash(r.GetStatus().GetCertState()), expires,
 			age(now, r.GetMetadata().GetCreatedAt().AsTime()))
+	}
+	return tw.Flush()
+}
+
+// printVolumes lists Volumes: the node each is bound to and the Workload that
+// mounts it.
+func printVolumes(w io.Writer, items []*v1alpha1.Object, now time.Time) error {
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tSIZE\tNODE\tSTATE\tWORKLOAD\tRETENTION\tQUOTA\tAGE")
+	for _, o := range items {
+		v := o.GetVolume()
+		state := v.GetStatus().GetState()
+		if state == "" {
+			state = "Pending" // the controller has not reconciled it yet
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", v.GetMetadata().GetName(), v.GetSpec().GetSize(),
+			dash(v.GetStatus().GetNode()), state, dash(v.GetStatus().GetAttachedWorkload()),
+			v.GetSpec().GetRetention(), dash(v.GetStatus().GetQuota()),
+			age(now, v.GetMetadata().GetCreatedAt().AsTime()))
 	}
 	return tw.Flush()
 }

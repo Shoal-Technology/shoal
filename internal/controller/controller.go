@@ -69,7 +69,7 @@ func New(cfg Config) *Controller {
 // Run reconciles on every relevant change (debounced) and every Interval,
 // until ctx is done.
 func (c *Controller) Run(ctx context.Context) {
-	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate)
+	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate, v1alpha1.KindVolume)
 	tick := time.NewTicker(c.cfg.Interval)
 	defer tick.Stop()
 	for {
@@ -114,6 +114,7 @@ type state struct {
 	nodes     map[string]*v1alpha1.Node
 	replicas  map[string]*replica
 	services  map[string]*v1alpha1.Service
+	volumes   map[string]*v1alpha1.Volume
 	plans     map[string]plan // per workload, from syncWorkload
 }
 
@@ -140,6 +141,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		errs = append(errs, c.syncWorkload(ctx, s, s.workloads[name], now)...)
 	}
 	errs = append(errs, c.schedule(ctx, s)...)
+	errs = append(errs, c.syncVolumes(ctx, s, now)...)
 	errs = append(errs, c.syncServices(ctx, s)...)
 	errs = append(errs, c.syncRouteStatus(ctx)...)
 	for _, name := range sortedKeys(s.workloads) {
@@ -151,11 +153,23 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 }
 
 func (c *Controller) load(ctx context.Context) (*state, []error) {
-	s := &state{workloads: map[string]*v1alpha1.Workload{}, nodes: map[string]*v1alpha1.Node{}, replicas: map[string]*replica{}, services: map[string]*v1alpha1.Service{}, plans: map[string]plan{}}
+	s := &state{workloads: map[string]*v1alpha1.Workload{}, nodes: map[string]*v1alpha1.Node{}, replicas: map[string]*replica{}, services: map[string]*v1alpha1.Service{}, volumes: map[string]*v1alpha1.Volume{}, plans: map[string]plan{}}
 	var errs []error
 	wrecs, err := c.st.List(ctx, v1alpha1.KindWorkload)
 	if err != nil {
 		return nil, []error{err}
+	}
+	vrecs, err := c.st.List(ctx, v1alpha1.KindVolume)
+	if err != nil {
+		return nil, []error{err}
+	}
+	for _, r := range vrecs {
+		v, err := objects.Volume(r)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		s.volumes[r.Name] = v
 	}
 	nrecs, err := c.st.List(ctx, v1alpha1.KindNode)
 	if err != nil {
@@ -235,6 +249,14 @@ func (c *Controller) removeOrphansAndEvict(ctx context.Context, s *state, now ti
 		} else if node := r.obj.Spec.GetNode(); node != "" {
 			if lost, why := c.nodeLost(s, node, now); lost {
 				if s.workloads[r.obj.Spec.GetWorkload()].Spec.GetPartitionPolicy() == "Hold" {
+					continue
+				}
+				// A replica with a volume is never replaced on another node
+				// (ADR 0016, section 1.5). The Volume is marked NodeLost.
+				if hasVolumes(r) {
+					if err := c.holdVolumeReplica(ctx, r, node); err != nil {
+						errs = append(errs, err)
+					}
 					continue
 				}
 				reason = why

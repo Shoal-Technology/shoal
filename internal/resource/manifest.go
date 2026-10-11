@@ -74,10 +74,13 @@ func decodeDoc(doc []byte) (*v1alpha1.Object, error) {
 	case v1alpha1.KindRoute:
 		r := &v1alpha1.Route{}
 		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Route{Route: r}}, r
+	case v1alpha1.KindVolume:
+		v := &v1alpha1.Volume{}
+		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Volume{Volume: v}}, v
 	case "":
 		return nil, fmt.Errorf("kind is required")
 	default:
-		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Secret, Config)", head.Kind)
+		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Secret, Config)", head.Kind)
 	}
 	if stringy != "" {
 		if j, err = valuesAsStrings(j, stringy); err != nil {

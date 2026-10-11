@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
 	"strconv"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/resource"
 	"example.com/shoal/internal/runtime"
+	"example.com/shoal/internal/volume"
 )
 
 // DesiredState is what the agent should do with an assigned replica.
@@ -64,6 +66,69 @@ type Assignment struct {
 	// RestartedAt is the template's restartedAt: a new value recreates the
 	// container (a restart).
 	RestartedAt string
+	// Volumes are the node-local volumes the replica mounts (ADR 0016). Their
+	// host directories are added to Spec.Mounts when the pass runs.
+	Volumes []VolumeAttachment
+}
+
+// VolumeAttachment is a Volume the replica mounts, with what the agent needs
+// to create it.
+type VolumeAttachment struct {
+	Name        string
+	Destination string // in the container
+	ReadWrite   bool
+	Spec        volume.Spec
+}
+
+// bindVolumes resolves the template's volume mounts against the Volumes that
+// the server bound to this node. A missing Volume is the assignment's problem,
+// as a missing Secret is: the replica is reported and left alone.
+func bindVolumes(a *Assignment, t *v1alpha1.WorkloadSpec, vols map[string]*v1alpha1.Volume) error {
+	for _, m := range t.GetVolumes() {
+		v, ok := vols[m.GetName()]
+		if !ok {
+			if a.Problem == "" {
+				a.Problem = fmt.Sprintf("volume %q is not on this node", m.GetName())
+			}
+			continue
+		}
+		spec, err := volumeSpec(v)
+		if err != nil {
+			return fmt.Errorf("volume %s: %w", m.GetName(), err)
+		}
+		a.Volumes = append(a.Volumes, VolumeAttachment{
+			Name: m.GetName(), Destination: m.GetMountPath(), ReadWrite: !m.GetReadOnly(), Spec: spec,
+		})
+	}
+	return nil
+}
+
+// snapshotVolumeNames lists the Volumes the server bound to this node.
+func snapshotVolumeNames(snap *v1alpha1.AssignmentSnapshot) []string {
+	out := make([]string, 0, len(snap.GetVolumes()))
+	for _, v := range snap.GetVolumes() {
+		out = append(out, v.GetMetadata().GetName())
+	}
+	return out
+}
+
+// volumeSpec converts a Volume from the API into what the volume manager
+// needs.
+func volumeSpec(v *v1alpha1.Volume) (volume.Spec, error) {
+	size, err := resource.VolumeBytes(v.GetSpec())
+	if err != nil {
+		return volume.Spec{}, err
+	}
+	mode, err := strconv.ParseUint(v.GetSpec().GetMode(), 8, 32)
+	if err != nil {
+		return volume.Spec{}, fmt.Errorf("mode %q: %w", v.GetSpec().GetMode(), err)
+	}
+	owner := v.GetSpec().GetOwner()
+	return volume.Spec{
+		Name: v.GetMetadata().GetName(), Bytes: size,
+		UID: int(owner.GetUid()), GID: int(owner.GetGid()),
+		Mode: os.FileMode(mode), Retention: v.GetSpec().GetRetention(),
+	}, nil
 }
 
 // FileMount is a directory of files mounted into the container.

@@ -49,6 +49,16 @@ message WorkloadSpec {
   // Replace (default) permits duplicates during partition. Hold retains lost
   // node assignments, favoring safety over availability; not fencing.
   string partition_policy = 12;
+  // Node-local Volumes mounted into the containers (ADR 0016). A Volume is
+  // referenced by at most one Workload; see replicas below.
+  repeated VolumeMount volumes = 13;
+}
+
+// VolumeMount mounts the Volume called name at mount_path.
+message VolumeMount {
+  string name = 1;
+  string mount_path = 2;
+  bool read_only = 3;
 }
 
 message EnvVar {
@@ -226,11 +236,60 @@ message NodeStatus {
   // WireGuard mesh: the node's public key and host:port peers connect to.
   string wireguard_public_key = 8;
   string wireguard_endpoint = 9;
+  // Volume backend the agent actually uses: loop or dir (ADR 0016).
+  string volume_backend = 10;
 }
 
 message NodeCapacity {
   int64 cpu_millis = 1;
   int64 memory_bytes = 2;
+  // Bytes of the filesystem that holds the agent's volumes (0 = unknown).
+  // Volume sizes are counted against it by the scheduler.
+  int64 disk_bytes = 3;
+}
+
+// Volume is node-local storage (ADR 0016, section 1). It is bound to the node
+// of the first replica that mounts it and does not move in v1.
+message Volume {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  VolumeSpec spec = 4;
+  VolumeStatus status = 5;
+}
+
+message VolumeSpec {
+  // Quantity, e.g. "20Gi". Enforced by the loop backend; advisory for dir.
+  string size = 1;
+  // Only "RWO" in v1. Empty means RWO.
+  string access_mode = 2;
+  // Owner of the volume's root directory, applied at create. Default 0:0.
+  VolumeOwner owner = 3;
+  // Octal permissions of the root directory, e.g. "0700" (default).
+  string mode = 4;
+  // Retain (default) or Delete. What happens to the data when the Volume
+  // object is deleted.
+  string retention = 5;
+}
+
+message VolumeOwner {
+  int32 uid = 1;
+  int32 gid = 2;
+}
+
+message VolumeStatus {
+  // Node the volume is bound to; empty until its first replica is bound.
+  string node = 1;
+  // Pending, Bound or NodeLost.
+  string state = 2;
+  // Why the volume is in its state, when it is not simply Bound.
+  string message = 3;
+  // Workload that references the volume, if any.
+  string attached_workload = 4;
+  // Quota enforcement on the node: size (loop backend) or none (dir).
+  string quota = 5;
+  // Bytes used. Reported by the agent in a later pass; zero in pass A.
+  int64 used_bytes = 6;
 }
 
 // Secret holds sensitive key-value data. It is encrypted at rest and its

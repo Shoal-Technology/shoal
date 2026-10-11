@@ -151,12 +151,7 @@ func (r *containerdRuntime) Create(ctx context.Context, spec runtime.ContainerSp
 		Destination: "/sys/fs/cgroup", Type: "cgroup", Source: "cgroup",
 		Options: []string{"nosuid", "noexec", "nodev", "relatime", "ro"},
 	})
-	for _, m := range spec.Mounts {
-		mounts = append(mounts, specs.Mount{
-			Destination: m.Destination, Type: "bind", Source: m.Source,
-			Options: []string{"rbind", "ro", "nosuid", "nodev"},
-		})
-	}
+	mounts = append(mounts, bindMounts(spec.Mounts)...)
 	specOpts := []oci.SpecOpts{
 		oci.WithImageConfig(img),
 		oci.WithHostname(spec.ID),

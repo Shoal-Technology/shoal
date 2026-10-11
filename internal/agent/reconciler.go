@@ -15,6 +15,7 @@ import (
 
 	"example.com/shoal/internal/runtime"
 	"example.com/shoal/internal/security"
+	"example.com/shoal/internal/volume"
 )
 
 // Config tunes the reconciler. Zero values get defaults.
@@ -30,6 +31,9 @@ type Config struct {
 	// FilesDir holds the files of Secret and Config mounts, one directory
 	// per replica. Required for assignments with files.
 	FilesDir string
+	// Volumes creates and retires the node's volumes (ADR 0016). Nil means
+	// the node has no volume support: a replica with a Volume then waits.
+	Volumes volume.Manager
 }
 
 func (c *Config) setDefaults() {
@@ -70,6 +74,66 @@ type Reconciler struct {
 	puller  *imagePuller
 	prober  *prober
 	probes  map[string]probeTarget // collected during a pass, then synced
+	// knownVolumes is the set of volumes the server assigned to this node,
+	// from SetVolumes. Nil until it is set: then no volume is retired.
+	knownVolumes map[string]bool
+}
+
+// SetVolumes gives the reconciler the names of the volumes that should be on
+// this node. A volume on disk that is not in the set is retired on the next
+// pass, after the containers that use it are gone: its data is retained or
+// deleted according to its retention (ADR 0016, section 1.6).
+func (r *Reconciler) SetVolumes(names []string) {
+	r.knownVolumes = make(map[string]bool, len(names))
+	for _, n := range names {
+		r.knownVolumes[n] = true
+	}
+}
+
+// retireVolumes retires the volumes on disk that are not assigned. It runs
+// only after the unassigned containers were removed without error, so no
+// container still uses a volume it retires.
+func (r *Reconciler) retireVolumes(ctx context.Context) []error {
+	onDisk, err := r.cfg.Volumes.Known()
+	if err != nil {
+		return []error{fmt.Errorf("list volumes: %w", err)}
+	}
+	var errs []error
+	for _, name := range onDisk {
+		if r.knownVolumes[name] {
+			continue
+		}
+		r.log.Info("retiring volume that is no longer assigned", "volume", name)
+		if err := r.cfg.Volumes.Retire(ctx, name); err != nil {
+			errs = append(errs, fmt.Errorf("retire volume %s: %w", name, err))
+		}
+	}
+	return errs
+}
+
+// prepare readies what a replica needs before its container is reconciled:
+// its files and its volumes.
+func (r *Reconciler) prepare(ctx context.Context, a *Assignment) error {
+	if err := r.syncFiles(*a); err != nil {
+		return err
+	}
+	return r.attachVolumes(ctx, a)
+}
+
+// attachVolumes makes the replica's volumes exist and adds their directories
+// to the container's mounts.
+func (r *Reconciler) attachVolumes(ctx context.Context, a *Assignment) error {
+	for _, v := range a.Volumes {
+		if r.cfg.Volumes == nil {
+			return fmt.Errorf("volume %s: this node has no volume support", v.Name)
+		}
+		dir, err := r.cfg.Volumes.Ensure(ctx, v.Spec)
+		if err != nil {
+			return fmt.Errorf("volume %s: %w", v.Name, err)
+		}
+		a.Spec.Mounts = append(a.Spec.Mounts, runtime.Mount{Source: dir, Destination: v.Destination, ReadWrite: v.ReadWrite})
+	}
+	return nil
 }
 
 type backoff struct {
@@ -137,6 +201,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, desired []Assignment) ([]Rep
 	}
 
 	r.removeStaleFiles(want)
+	if len(errs) == 0 && r.knownVolumes != nil && r.cfg.Volumes != nil {
+		errs = append(errs, r.retireVolumes(ctx)...)
+	}
 
 	sorted := slices.SortedFunc(slices.Values(desired), func(a, b Assignment) int {
 		return cmp.Compare(a.ReplicaID, b.ReplicaID)
@@ -153,7 +220,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, desired []Assignment) ([]Rep
 		var err error
 		if a.Problem != "" {
 			st = r.reportProblem(a, c, exists)
-		} else if err = r.syncFiles(a); err == nil {
+		} else if err = r.prepare(ctx, &a); err == nil {
 			st, err = r.reconcileOne(ctx, a, c, exists)
 		} else {
 			st = ReplicaStatus{ReplicaID: a.ReplicaID, Phase: PhasePending}
