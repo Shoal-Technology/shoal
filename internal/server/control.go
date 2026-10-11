@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -42,6 +43,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		kind, name string
 		spec       []byte
 		msg        proto.Message
+		labels     map[string]string
 	}
 	var (
 		objs []prepared
@@ -57,7 +59,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		if err != nil {
 			return nil, apiError(err)
 		}
-		objs = append(objs, prepared{kind, name, b, spec})
+		objs = append(objs, prepared{kind, name, b, spec, resource.ObjectLabels(obj)})
 	}
 	// Routes must not share a host and path prefix with another Route, either
 	// stored or earlier in this batch. This read-only check gives the clear
@@ -195,7 +197,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 				return resp, apiError(err)
 			}
 		}
-		action, err := c.s.applySpec(ctx, o.kind, o.name, o.spec)
+		action, err := c.s.applySpec(ctx, o.kind, o.name, o.spec, o.labels)
 		if err != nil {
 			c.s.releaseClaims(ctx, claims)
 			releaseVolClaims()
@@ -229,28 +231,46 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 	return resp, nil
 }
 
-// applySpec creates the object or replaces its spec, retrying on
-// concurrent changes. It reports created, configured or unchanged.
-func (s *Server) applySpec(ctx context.Context, kind, name string, spec []byte) (string, error) {
+// applySpec creates the object or replaces its spec and labels, retrying on
+// concurrent changes. Labels are replaced as a whole: the labels of the
+// manifest are the labels the object ends with. It reports created,
+// configured or unchanged.
+func (s *Server) applySpec(ctx context.Context, kind, name string, spec []byte, labels map[string]string) (string, error) {
 	for range casRetries {
 		cur, err := s.store.Get(ctx, kind, name)
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			_, err := s.store.Create(ctx, store.Record{Kind: kind, Name: name, Spec: spec})
+			_, err := s.store.Create(ctx, store.Record{Kind: kind, Name: name, Spec: spec, Labels: labels})
 			if errors.Is(err, store.ErrExists) {
 				continue // created concurrently
 			}
 			return "created", err
 		case err != nil:
 			return "", err
-		case bytes.Equal(cur.Spec, spec):
-			return "unchanged", nil
 		}
-		_, err = s.store.Update(ctx, kind, name, spec, cur.Generation)
-		if errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNotFound) {
-			continue // changed or deleted concurrently: start over
+		action := "unchanged"
+		rec := cur
+		if !bytes.Equal(cur.Spec, spec) {
+			rec, err = s.store.Update(ctx, kind, name, spec, cur.Generation)
+			if errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNotFound) {
+				continue // changed or deleted concurrently: start over
+			}
+			if err != nil {
+				return "configured", err
+			}
+			action = "configured"
 		}
-		return "configured", err
+		if !maps.Equal(cur.Labels, labels) {
+			_, err = s.store.SetLabels(ctx, kind, name, labels, rec.Generation)
+			if errors.Is(err, store.ErrConflict) || errors.Is(err, store.ErrNotFound) {
+				continue
+			}
+			if err != nil {
+				return "configured", err
+			}
+			action = "configured"
+		}
+		return action, nil
 	}
 	return "", status.Error(codes.Aborted, "too many concurrent changes, try again")
 }

@@ -32,6 +32,7 @@ func Run(t *testing.T, newStore func(t *testing.T) store.Store) {
 		{"Delete", testDelete},
 		{"ListSortedByKind", testList},
 		{"Watch", testWatch},
+		{"Labels", testLabels},
 		{"ConcurrentUpdates", testConcurrentUpdates},
 	}
 	for _, tt := range tests {
@@ -208,6 +209,47 @@ func testList(t *testing.T, s store.Store) {
 	}
 	if empty, err := s.List(ctx, "Nothing"); err != nil || len(empty) != 0 {
 		t.Fatalf("List of empty kind = %v, %v", empty, err)
+	}
+}
+
+// testLabels checks that labels are stored, survive spec and status writes,
+// and that SetLabels is compare-and-swap on the generation without bumping it.
+func testLabels(t *testing.T, s store.Store) {
+	created, err := s.Create(ctx, store.Record{Kind: "W", Name: "a", Spec: []byte("one"),
+		Labels: map[string]string{"app": "blog"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.Get(ctx, "W", "a")
+	if got.Labels["app"] != "blog" || len(got.Labels) != 1 {
+		t.Fatalf("Get labels = %v, want app=blog", got.Labels)
+	}
+	upd, err := s.Update(ctx, "W", "a", []byte("two"), created.Generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upd.Labels["app"] != "blog" {
+		t.Fatalf("Update dropped labels: %v", upd.Labels)
+	}
+	if _, err := s.UpdateStatus(ctx, "W", "a", []byte("status")); err != nil {
+		t.Fatal(err)
+	}
+	set, err := s.SetLabels(ctx, "W", "a", map[string]string{"app": "shop", "tier": "web"}, upd.Generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.Generation != upd.Generation || set.Revision <= upd.Revision || set.Labels["tier"] != "web" {
+		t.Fatalf("SetLabels = %+v, want same generation %d, higher revision, tier=web", set, upd.Generation)
+	}
+	if _, err := s.SetLabels(ctx, "W", "a", nil, 99); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("SetLabels with stale generation: err = %v, want ErrConflict", err)
+	}
+	got, _ = s.Get(ctx, "W", "a")
+	if got.Labels["app"] != "shop" || string(got.Spec) != "two" || string(got.Status) != "status" {
+		t.Fatalf("after SetLabels: %+v", got)
+	}
+	if _, err := s.SetLabels(ctx, "W", "nope", nil, 1); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("SetLabels on missing record: err = %v, want ErrNotFound", err)
 	}
 }
 

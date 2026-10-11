@@ -38,20 +38,22 @@ const (
 	opCreate = "create"
 	opUpdate = "update"
 	opStatus = "status"
+	opLabels = "labels"
 	opDelete = "delete"
 	opImport = "import"
 )
 
 // command is one replicated write. Now and UID are chosen by the proposer.
 type command struct {
-	Op         string    `json:"op"`
-	Now        time.Time `json:"now"`
-	UID        string    `json:"uid,omitempty"`
-	Kind       string    `json:"kind"`
-	Name       string    `json:"name"`
-	Spec       []byte    `json:"spec,omitempty"`
-	Status     []byte    `json:"status,omitempty"`
-	Generation int64     `json:"generation,omitempty"`
+	Op         string            `json:"op"`
+	Now        time.Time         `json:"now"`
+	UID        string            `json:"uid,omitempty"`
+	Kind       string            `json:"kind"`
+	Name       string            `json:"name"`
+	Spec       []byte            `json:"spec,omitempty"`
+	Status     []byte            `json:"status,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Generation int64             `json:"generation,omitempty"`
 	// Dump is set on an import: the whole state to load into an empty FSM.
 	Dump *store.Dump `json:"dump,omitempty"`
 }
@@ -272,7 +274,14 @@ func (s *Store) List(ctx context.Context, kind string) ([]store.Record, error) {
 func (s *Store) Create(ctx context.Context, rec store.Record) (store.Record, error) {
 	return s.apply(ctx, command{
 		Op: opCreate, Now: time.Now().UTC(), UID: store.NewUID(),
-		Kind: rec.Kind, Name: rec.Name, Spec: rec.Spec, Status: rec.Status,
+		Kind: rec.Kind, Name: rec.Name, Spec: rec.Spec, Status: rec.Status, Labels: rec.Labels,
+	})
+}
+
+func (s *Store) SetLabels(ctx context.Context, kind, name string, labels map[string]string, generation int64) (store.Record, error) {
+	return s.apply(ctx, command{
+		Op: opLabels, Now: time.Now().UTC(), Kind: kind, Name: name,
+		Labels: labels, Generation: generation,
 	})
 }
 
@@ -397,7 +406,10 @@ func (f *fsm) Apply(l *raft.Log) any {
 	ctx := context.Background()
 	switch c.Op {
 	case opCreate:
-		rec, err := f.mem.Create(ctx, store.Record{Kind: c.Kind, Name: c.Name, UID: c.UID, Spec: c.Spec, Status: c.Status})
+		rec, err := f.mem.Create(ctx, store.Record{Kind: c.Kind, Name: c.Name, UID: c.UID, Spec: c.Spec, Status: c.Status, Labels: c.Labels})
+		return &result{rec: rec, err: err}
+	case opLabels:
+		rec, err := f.mem.SetLabels(ctx, c.Kind, c.Name, c.Labels, c.Generation)
 		return &result{rec: rec, err: err}
 	case opUpdate:
 		rec, err := f.mem.Update(ctx, c.Kind, c.Name, c.Spec, c.Generation)

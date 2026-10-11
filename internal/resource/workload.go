@@ -33,10 +33,10 @@ func ValidName(name string, max int) bool {
 
 // DefaultWorkload fills in defaults, so stored objects show the effective
 // values. It also clears fields managed by the server (metadata other than
-// the name, and status), so the output of `get -o yaml` can be re-applied.
+// the name and labels, and status), so the output of `get -o yaml` can be re-applied.
 func DefaultWorkload(w *v1alpha1.Workload) {
 	w.ApiVersion, w.Kind = v1alpha1.APIVersion, v1alpha1.KindWorkload
-	w.Metadata = &v1alpha1.ObjectMeta{Name: w.GetMetadata().GetName()}
+	w.Metadata = &v1alpha1.ObjectMeta{Name: w.GetMetadata().GetName(), Labels: w.GetMetadata().GetLabels()}
 	w.Status = nil
 	if w.Spec == nil {
 		w.Spec = &v1alpha1.WorkloadSpec{}

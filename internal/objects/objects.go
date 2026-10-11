@@ -3,6 +3,7 @@ package objects
 
 import (
 	"fmt"
+	"maps"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -33,6 +34,7 @@ func Meta(r store.Record) *v1alpha1.ObjectMeta {
 		Revision:   r.Revision,
 		CreatedAt:  timestamppb.New(r.CreatedAt),
 		UpdatedAt:  timestamppb.New(r.UpdatedAt),
+		Labels:     maps.Clone(r.Labels),
 	}
 }
 

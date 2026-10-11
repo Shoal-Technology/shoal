@@ -61,9 +61,13 @@ func (s *Store) Import(ctx context.Context, d store.Dump) error {
 		return store.ErrNotEmpty
 	}
 	for _, r := range d.Records {
+		labels, err := encodeLabels(r.Labels)
+		if err != nil {
+			return fmt.Errorf("import %s %q: %w", r.Kind, r.Name, err)
+		}
 		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO objects (`+columns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			r.Kind, r.Name, r.UID, r.Generation, r.Revision, r.CreatedAt.UnixNano(), r.UpdatedAt.UnixNano(), r.Spec, r.Status); err != nil {
+			`INSERT INTO objects (`+columns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			r.Kind, r.Name, r.UID, r.Generation, r.Revision, r.CreatedAt.UnixNano(), r.UpdatedAt.UnixNano(), r.Spec, r.Status, labels); err != nil {
 			return fmt.Errorf("import %s %q: %w", r.Kind, r.Name, err)
 		}
 	}

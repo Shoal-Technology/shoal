@@ -21,8 +21,14 @@ const MaxDataBytes = 256 << 10
 var dataKey = regexp.MustCompile(`^[-._a-zA-Z0-9]{1,253}$`)
 
 // Prepare defaults and validates an applied object. It returns the
-// object's kind, name and the spec to store.
+// object's kind, name and the spec to store. Labels in the metadata are
+// validated too; the caller stores them with the spec.
 func Prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err error) {
+	kind, name, spec, err = prepare(obj)
+	return kind, name, spec, errors.Join(err, ValidateLabels(ObjectLabels(obj)))
+}
+
+func prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err error) {
 	switch k := obj.GetKind().(type) {
 	case *v1alpha1.Object_Workload:
 		w := proto.CloneOf(k.Workload)

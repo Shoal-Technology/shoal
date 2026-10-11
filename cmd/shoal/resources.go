@@ -97,9 +97,10 @@ func newGetCmd() *cobra.Command {
 		cf       clientFlags
 		output   string
 		workload string
+		selector string
 	)
 	cmd := &cobra.Command{
-		Use:   "get workloads|replicas|nodes|services|routes|secrets|configs [NAME]",
+		Use:   "get workloads|replicas|nodes|services|routes|secrets|configs|volumes [NAME]",
 		Short: "List objects or show one",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -109,6 +110,10 @@ func newGetCmd() *cobra.Command {
 			}
 			if output != "" && output != "yaml" && output != "json" {
 				return fmt.Errorf("invalid --output %q: want yaml or json", output)
+			}
+			reqs, err := resource.ParseSelector(selector)
+			if err != nil {
+				return err
 			}
 			c, err := cf.connect()
 			if err != nil {
@@ -134,6 +139,11 @@ func newGetCmd() *cobra.Command {
 			if workload != "" {
 				items = slices.DeleteFunc(items, func(o *v1alpha1.Object) bool {
 					return o.GetReplica().GetSpec().GetWorkload() != workload
+				})
+			}
+			if len(reqs) > 0 {
+				items = slices.DeleteFunc(items, func(o *v1alpha1.Object) bool {
+					return !resource.Matches(reqs, resource.ObjectLabels(o))
 				})
 			}
 			out := cmd.OutOrStdout()
@@ -167,6 +177,7 @@ func newGetCmd() *cobra.Command {
 	cf.register(cmd.Flags())
 	cmd.Flags().StringVarP(&output, "output", "o", "", "output format: yaml or json (default: table)")
 	cmd.Flags().StringVarP(&workload, "workload", "w", "", "only replicas of this workload")
+	cmd.Flags().StringVarP(&selector, "selector", "l", "", "only objects matching labels: app=x, app!=x, key, !key (comma-separated)")
 	return cmd
 }
 

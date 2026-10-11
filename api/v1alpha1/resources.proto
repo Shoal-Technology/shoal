@@ -17,6 +17,9 @@ message ObjectMeta {
   int64 revision = 4;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
+  // Labels are key-value pairs set by the user in metadata.labels (ADR 0017).
+  // Keys and values follow the Kubernetes label rules; see internal/resource.
+  map<string, string> labels = 7;
 }
 
 // Workload is a set of identical replicas of one container.

@@ -29,6 +29,7 @@ type Record struct {
 	Revision   int64 // global revision of the last write to this record
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	Labels     map[string]string
 	Spec       []byte
 	Status     []byte
 }
@@ -60,6 +61,10 @@ type Store interface {
 	// UpdateStatus replaces the status unconditionally: each kind's status
 	// has a single writer.
 	UpdateStatus(ctx context.Context, kind, name string, status []byte) (Record, error)
+	// SetLabels replaces the labels if the record's generation is still
+	// generation, and returns ErrConflict otherwise. Labels are not part of
+	// the spec: the generation does not change, but the revision does.
+	SetLabels(ctx context.Context, kind, name string, labels map[string]string, generation int64) (Record, error)
 	// Delete removes the record if its generation is generation (0 = any).
 	// Returns ErrNotFound if it doesn't exist.
 	Delete(ctx context.Context, kind, name string, generation int64) error

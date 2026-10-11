@@ -138,6 +138,15 @@ func (e *EncryptingStore) Update(ctx context.Context, kind, name string, spec []
 	return out, err
 }
 
+// SetLabels passes labels through unencrypted: they are not secret.
+func (e *EncryptingStore) SetLabels(ctx context.Context, kind, name string, labels map[string]string, generation int64) (Record, error) {
+	r, err := e.Store.SetLabels(ctx, kind, name, labels, generation)
+	if err != nil {
+		return Record{}, err
+	}
+	return e.open(r)
+}
+
 func (e *EncryptingStore) UpdateStatus(ctx context.Context, kind, name string, status []byte) (Record, error) {
 	r, err := e.Store.UpdateStatus(ctx, kind, name, status)
 	if err != nil {

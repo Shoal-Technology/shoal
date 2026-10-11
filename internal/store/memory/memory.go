@@ -48,6 +48,7 @@ func (s *Store) Revision() int64 {
 
 func clone(r store.Record) store.Record {
 	r.Spec, r.Status = bytes.Clone(r.Spec), bytes.Clone(r.Status)
+	r.Labels = maps.Clone(r.Labels)
 	return r
 }
 
@@ -106,6 +107,7 @@ func (s *Store) Create(_ context.Context, rec store.Record) (store.Record, error
 		out = store.Record{
 			Kind: rec.Kind, Name: rec.Name, UID: uid, Generation: 1, Revision: rev,
 			CreatedAt: now, UpdatedAt: now, Spec: bytes.Clone(rec.Spec), Status: bytes.Clone(rec.Status),
+			Labels: maps.Clone(rec.Labels),
 		}
 		s.records[k] = out
 		return store.Event{Kind: rec.Kind, Name: rec.Name, Revision: rev}, nil
@@ -128,6 +130,25 @@ func (s *Store) Update(_ context.Context, kind, name string, spec []byte, genera
 			cur.Generation++
 		}
 		cur.Spec, cur.Revision, cur.UpdatedAt = bytes.Clone(spec), rev, now
+		s.records[k] = cur
+		out = cur
+		return store.Event{Kind: kind, Name: name, Revision: rev}, nil
+	})
+	return clone(out), err
+}
+
+func (s *Store) SetLabels(_ context.Context, kind, name string, labels map[string]string, generation int64) (store.Record, error) {
+	var out store.Record
+	err := s.write(func(rev int64, now time.Time) (store.Event, error) {
+		k := key{kind, name}
+		cur, ok := s.records[k]
+		if !ok {
+			return store.Event{}, fmt.Errorf("%s %q: %w", kind, name, store.ErrNotFound)
+		}
+		if cur.Generation != generation {
+			return store.Event{}, fmt.Errorf("%s %q: generation is %d, not %d: %w", kind, name, cur.Generation, generation, store.ErrConflict)
+		}
+		cur.Labels, cur.Revision, cur.UpdatedAt = maps.Clone(labels), rev, now
 		s.records[k] = cur
 		out = cur
 		return store.Event{Kind: kind, Name: name, Revision: rev}, nil
