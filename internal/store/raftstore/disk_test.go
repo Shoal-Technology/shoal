@@ -113,3 +113,25 @@ func TestDiskSnapshotOnlyRestart(t *testing.T) {
 	defer s.Close()
 	checkRecords(t, s, want)
 }
+
+// TestWildcardBindAdvertisesConfiguredAddress: a wildcard bind (0.0.0.0, as
+// the multi-VM harness uses) must advertise the --raft-advertise address to
+// peers. Before Advertise existed, the transport refused the wildcard.
+func TestWildcardBindAdvertisesConfiguredAddress(t *testing.T) {
+	cfg := DiskConfig{DataDir: t.TempDir(), NodeID: "n1", BindAddr: "0.0.0.0:0", Advertise: "127.0.0.1:7451"}
+	s := openReady(t, cfg)
+	defer s.Close()
+	if got := string(s.raft.Leader()); got != "127.0.0.1:7451" {
+		t.Fatalf("leader address %q, want the advertised 127.0.0.1:7451", got)
+	}
+}
+
+// TestWildcardBindWithoutAdvertiseFails: a wildcard address cannot be
+// advertised, so Open refuses it when no advertise address is given.
+func TestWildcardBindWithoutAdvertiseFails(t *testing.T) {
+	s, err := Open(DiskConfig{DataDir: t.TempDir(), NodeID: "n1", BindAddr: "0.0.0.0:0"})
+	if err == nil {
+		_ = s.Close()
+		t.Fatal("wildcard bind without an advertise address must be refused")
+	}
+}

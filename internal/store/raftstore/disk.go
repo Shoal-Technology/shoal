@@ -3,6 +3,7 @@ package raftstore
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -18,6 +19,9 @@ type DiskConfig struct {
 	DataDir  string
 	NodeID   raft.ServerID
 	BindAddr string // e.g. "127.0.0.1:7000"; port 0 picks a free port
+	// Advertise is the host:port other nodes dial. Required when BindAddr is a
+	// wildcard such as 0.0.0.0:7445, because a wildcard cannot be advertised.
+	Advertise string
 	// Peers is the initial voter set, used only when the data dir has no
 	// existing state. Empty means the node bootstraps alone with its own
 	// address.
@@ -45,7 +49,16 @@ func Open(cfg DiskConfig) (*Store, error) {
 		_ = bolt.Close()
 		return nil, fmt.Errorf("open snapshots: %w", err)
 	}
-	trans, err := raft.NewTCPTransport(cfg.BindAddr, nil, 3, 10*time.Second, io.Discard)
+	var advertise net.Addr
+	if cfg.Advertise != "" {
+		a, err := net.ResolveTCPAddr("tcp", cfg.Advertise)
+		if err != nil {
+			_ = bolt.Close()
+			return nil, fmt.Errorf("raft advertise %s: %w", cfg.Advertise, err)
+		}
+		advertise = a
+	}
+	trans, err := raft.NewTCPTransport(cfg.BindAddr, advertise, 3, 10*time.Second, io.Discard)
 	if err != nil {
 		_ = bolt.Close()
 		return nil, fmt.Errorf("listen %s: %w", cfg.BindAddr, err)

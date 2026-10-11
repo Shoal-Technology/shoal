@@ -17,6 +17,7 @@ jobs:
         run: |
           set -euo pipefail
           make build
+          go test -count=1 -race -run 'TestWildcardBind|TestDisk' ./internal/store/raftstore/
           python3 -m py_compile hack/multihost_e2e.py
           python3 -m unittest discover -s hack -p 'test_*.py' -v
       - name: Provision guest prerequisites only on disposable runner

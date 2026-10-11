@@ -277,10 +277,11 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			return nil, errors.New("server: RaftNodeID is required with the raft store")
 		}
 		rs, err := raftstore.Open(raftstore.DiskConfig{
-			DataDir:  filepath.Join(cfg.DataDir, "raft"),
-			NodeID:   raft.ServerID(cfg.RaftNodeID),
-			BindAddr: cfg.RaftBindAddr,
-			Join:     cfg.RaftJoinAddr != "",
+			DataDir:   filepath.Join(cfg.DataDir, "raft"),
+			NodeID:    raft.ServerID(cfg.RaftNodeID),
+			BindAddr:  cfg.RaftBindAddr,
+			Advertise: cfg.RaftAdvertiseAddr,
+			Join:      cfg.RaftJoinAddr != "",
 		})
 		if err != nil {
 			return nil, err
