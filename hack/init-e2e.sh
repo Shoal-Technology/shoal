@@ -98,8 +98,14 @@ pass "init installed the node in ${init_ms} ms"
 say "node is Ready with the edge label"
 sudo "$SHOAL" get nodes --config "$ADMIN" --server "$SERVER" | tee "$RESULTS/get-nodes.txt"
 awk '$1 == "edge-1" && $2 == "Ready" { ok = 1 } END { exit !ok }' "$RESULTS/get-nodes.txt" || fail "edge-1 is not Ready"
-edge_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1/ || true)
-[ "$edge_code" != "000" ] && [ -n "$edge_code" ] || fail "the edge does not listen on :80 (label not applied?)"
+# The edge starts listening a moment after the label is applied: poll for it.
+edge_code=000
+for _ in $(seq 1 30); do
+  edge_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1/ || true)
+  [ -n "$edge_code" ] && [ "$edge_code" != "000" ] && break
+  sleep 1
+done
+[ -n "$edge_code" ] && [ "$edge_code" != "000" ] || fail "the edge does not listen on :80 (label not applied?)"
 pass "edge-1 is Ready and the edge answers on :80 (HTTP $edge_code for an unknown host)"
 
 say "containerd runs without its CRI plugins"
