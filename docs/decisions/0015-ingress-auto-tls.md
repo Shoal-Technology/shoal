@@ -1,6 +1,6 @@
 # 0015: Ingress and automatic TLS
 
-Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Pass C1 (ACME issuance and renewal on the leader, HTTP-01 challenges on edges) is implemented; see Pass C1 below. Pass D (pebble in CI) and E are not implemented.
+Status: Accepted (Phase 6 follow-up). Pass A (Route object) is implemented. Pass B1 (edge proxy core in internal/edge: routing table, proxy, TLS helpers) is implemented. Pass B2 (route delivery to edge agents, the edge listeners on agents, RouteStatus, `shoal label`; no ACME) is implemented. Pass B2 leaves out the on-disk route cache and the real-host check, listed under Pass B2 below. Pass C1 (ACME issuance and renewal on the leader, HTTP-01 challenges on edges) is implemented; see Pass C1 below. Pass D (pebble in CI) is implemented for the e2e scope, verified by run 38124009985 (see docs/testing.md); its listed extras below are still open. Pass E is not implemented.
 
 ## Context
 Workloads are reachable inside the cluster through Services (ADR 0012): a
@@ -292,8 +292,9 @@ Each pass is about one agent session and leaves the tree green.
   records, the snapshot acks and the staging flag; renewal timing, backoff
   and rate-limit tracking; hot cert load on edges. Tests: unit tests, plus
   pebble locally.
-- **Pass D: CI with pebble.** `ingress.yml` on a disposable runner; the
-  `acme_integration` suite; the VPS guard in the Makefile; docs for the
+- **Pass D: CI with pebble.** Done: `ingress-e2e.yml` on a disposable runner,
+  verified by run 38124009985 on aff0831. Still open from this pass: the
+  `acme_integration` suite, the VPS guard in the Makefile, and docs for the
   staging flag and DNS setup.
 - **Pass E: hardening and docs.** Access-log review, timeout and header
   edge cases (websocket close, slow clients), a README section, and a

@@ -34,6 +34,30 @@ gh workflow run integration.yml --repo kaiserern/shoal
 
 The first verified run passed nine tests with no failures or skips, including real container lifecycle, log completion, SIGKILL escalation, resource limits, published ports, networking across restarts, lost network namespace recovery and agent recovery after a container crash. This is single-host runtime evidence, not control-plane failover or multi-host evidence.
 
+## Ingress and automatic certificates (ADR 0015, pass D)
+
+`ingress-e2e.yml` (manually dispatched, runs `hack/ingress-e2e.sh`) starts a server and an edge agent on a disposable runner, with pebble v2.10.1 as the ACME CA. It deploys workload `web`, Service `web` and Route `app` for `app.shoal.test` with `tls: auto`, then checks the result through the edge.
+
+```sh
+gh workflow run ingress-e2e.yml --repo kaiserern/shoal
+```
+
+Verified run [38124009985](https://github.com/kaiserern/shoal/actions/runs/38124009985) on commit aff0831, 2026-10-11, passed:
+
+- a) Route `app` is `Ready` and `CertIssued`. Pebble validated the host over HTTP-01 through the edge on port 80, finalised the order and issued the certificate.
+- b) `https://app.shoal.test` returns the nginx welcome page through the edge. The pebble root was passed to curl, so the chain was verified without `-k`.
+- c) The served certificate was issued by `Pebble Intermediate CA`.
+- d) Plain HTTP gets a 308 redirect to HTTPS.
+- e) An unknown host gets the stock 404.
+- f) Skipped: websocket upgrade. The nginx image has no websocket endpoint, and no small echo image is wired into CI.
+
+Two earlier runs on this branch failed at step a) and were fixed:
+
+- [38078590852] failed because `CreateCert` polled the order at an empty URL when pebble omitted the `Location` header on finalize. Fixed in c411989, with a regression test in `internal/server/acme_finalize_test.go`.
+- [38123434296] on c411989 failed because the script waited for route state `Accepted`, while the controller reports `Ready`. Fixed in aff0831.
+
+Limits: pebble is a test CA, not Let's Encrypt, so rate limits, real DNS and production behaviour are not covered. `app.shoal.test` resolves to 127.0.0.1 on the runner. The run has one server and one edge, and does not test renewal, failover or revocation. This is one run.
+
 ## Partition policy
 
 Workload manifests accept `spec.partitionPolicy: Hold` or `Replace`. Omitted policy preserves existing Replace behavior. Invalid values are rejected. Hold retains assignments on silent or deleted nodes instead of evicting and replacing them. An unavailable worker can therefore leave the workload unavailable indefinitely. Node record deletion is not proof that containers stopped.
