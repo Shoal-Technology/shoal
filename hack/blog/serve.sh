@@ -12,7 +12,23 @@ mkdir -p "$WWW" /app/uploads
 state=unset
 [ -n "${DATABASE_URL:-}" ] && state=set
 echo "serve: starting on port $PORT, DATABASE_URL $state"
-httpd -p "$PORT" -h "$WWW" || echo "serve: httpd failed" >&2
+# Serve the page. busybox httpd is the first choice. If it cannot start, the
+# log says why, and a netcat loop serves the same page on the same port, so
+# the health check and the Route still get an answer.
+if command -v httpd >/dev/null 2>&1 && httpd -p "$PORT" -h "$WWW" 2>"$WWW/httpd.err"; then
+  echo "serve: httpd listening on $PORT"
+else
+  echo "serve: httpd did not start: $(cat "$WWW/httpd.err" 2>/dev/null) (command: $(command -v httpd || echo missing))"
+  echo "serve: falling back to nc on $PORT"
+  (
+    while :; do
+      {
+        printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n'
+        cat "$WWW/index.html" 2>/dev/null
+      } | nc -l -p "$PORT" >/dev/null 2>&1
+    done
+  ) &
+fi
 
 while :; do
   if out=$(psql "${DATABASE_URL:-}" -X -q -t -A -v ON_ERROR_STOP=1 \
