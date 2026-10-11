@@ -15,8 +15,13 @@ import (
 	"example.com/shoal/internal/runtime/containerd"
 )
 
-// version is set at build time with -ldflags "-X main.version=...".
-var version = "dev"
+// version, commit and date are set at build time with -ldflags
+// "-X main.version=... -X main.commit=... -X main.date=...".
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
 
 func main() {
 	// containerd's shim re-executes this binary as the per-container logging
