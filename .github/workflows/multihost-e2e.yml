@@ -1,0 +1,53 @@
+name: Multi-host e2e (three VMs)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  multihost:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build and validate harness
+        run: |
+          set -euo pipefail
+          make build
+          python3 -m py_compile hack/multihost_e2e.py
+          python3 -m unittest discover -s hack -p 'test_*.py' -v
+      - name: Provision guest prerequisites only on disposable runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y qemu-system-x86 qemu-utils genisoimage
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+          mkdir -p /tmp/shoal-vm-downloads
+          cd /tmp/shoal-vm-downloads
+          base=https://cloud-images.ubuntu.com/noble/20260926
+          curl --retry 2 -fLsS "$base/noble-server-cloudimg-amd64.img" -o ubuntu.img
+          curl --retry 2 -fLsS "$base/SHA256SUMS" -o ubuntu.sha256
+          python3 -c "from pathlib import Path; rows=Path('ubuntu.sha256').read_text().splitlines(); h=next(r.split()[0] for r in rows if r.split()[-1].lstrip('*')=='noble-server-cloudimg-amd64.img'); Path('image.sha256').write_text(h+'  ubuntu.img\n')"
+          sha256sum -c image.sha256
+          base=https://github.com/containerd/containerd/releases/download/v2.4.1
+          curl --retry 2 -fLsS "$base/containerd-2.4.1-linux-amd64.tar.gz" -o containerd.tar.gz
+          curl --retry 2 -fLsS "$base/containerd-2.4.1-linux-amd64.tar.gz.sha256sum" -o containerd.sha256
+          python3 -c "from pathlib import Path; h=Path('containerd.sha256').read_text().split()[0]; Path('containerd-check.sha256').write_text(h+'  containerd.tar.gz\n')"
+          sha256sum -c containerd-check.sha256
+          base=https://github.com/containernetworking/plugins/releases/download/v1.9.1
+          curl --retry 2 -fLsS "$base/cni-plugins-linux-amd64-v1.9.1.tgz" -o cni.tgz
+          curl --retry 2 -fLsS "$base/cni-plugins-linux-amd64-v1.9.1.tgz.sha256" -o cni.sha256
+          python3 -c "from pathlib import Path; h=Path('cni.sha256').read_text().split()[0]; Path('cni-check.sha256').write_text(h+'  cni.tgz\n')"
+          sha256sum -c cni-check.sha256
+      - name: Run three-VM multi-host scenario
+        run: sudo env SHOAL_DISPOSABLE_TEST=1 python3 hack/multihost_e2e.py
+      - name: Upload sanitized evidence and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multihost-e2e-evidence
+          path: test-results/
+          retention-days: 14
