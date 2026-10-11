@@ -182,16 +182,20 @@ done
 pass "e) second deploy: every object unchanged"
 
 # ---------------------------------------------------------------- f) status
-say "f) shoal app status blog lists every object as Ready"
+say "f) shoal app status blog shows every object in a healthy state"
+# The state vocabulary of app status: workload "1/1 ready", database "Ready",
+# route "Ready", volume "Bound", secret "empty" (created, no values set), and a
+# service has no state (shown as "-"). Anything that is not one of these fails.
 cc app status blog >"$RESULTS/app-status.txt" 2>&1 || fail "f) app status blog exited non-zero"
 cat "$RESULTS/app-status.txt"
-for pat in '^workload +blog +Ready' '^service +blog +Ready' '^route +blog +Ready' \
-  '^database +blog-db +Ready' '^volume +blog-uploads +Ready'; do
-  grep -Eq "$pat" "$RESULTS/app-status.txt" || fail "f) app status has no Ready row matching: $pat"
+for pat in '^workload +blog +1/1 ready' '^service +blog +-' '^route +blog +Ready' \
+  '^database +blog-db +Ready' '^volume +blog-uploads +Bound' '^secret +blog-secrets +empty'; do
+  grep -Eq "$pat" "$RESULTS/app-status.txt" || fail "f) app status has no healthy row matching: $pat"
 done
-awk 'NR > 1 && NF >= 3 && $1 != "url:" && $3 != "Ready" { print "not Ready: " $0; bad = 1 } END { exit bad }' \
-  "$RESULTS/app-status.txt" || fail "f) some objects are not Ready (see app-status.txt)"
-pass "f) app status: every object is Ready"
+if grep -Eiq 'pending|failed|degraded|provisioning|noendpoints|not ready|nodelost|0/1' "$RESULTS/app-status.txt"; then
+  fail "f) app status shows an object that is not healthy (see app-status.txt)"
+fi
+pass "f) app status: workload 1/1 ready, database Ready, route Ready, volume Bound, secret empty, service without state"
 
 # ---------------------------------------------------------------- g) delete keeps data
 say "g) shoal app delete blog keeps the Database and the Volume"
