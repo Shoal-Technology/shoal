@@ -75,7 +75,7 @@ pass "runner prepared: no containerd, no shoal"
 # 1. Dry run changes nothing.
 say "shoal init --dry-run"
 sudo "$SHOAL" init --node-name edge-1 --dry-run | tee "$RESULTS/init-dry-run.txt"
-grep -q '^WOULD containerd:' "$RESULTS/init-dry-run.txt" || fail "dry run does not plan the containerd install"
+grep -Eq '^WOULD +containerd:' "$RESULTS/init-dry-run.txt" || fail "dry run does not plan the containerd install"
 grep -Eq '^(done|ok|WOULD) +(binary|kernel)' "$RESULTS/init-dry-run.txt" || fail "dry run lists no kernel or binary step"
 if grep -Eq '^done ' "$RESULTS/init-dry-run.txt"; then fail "dry run performed a step"; fi
 [ ! -e /usr/local/bin/shoal ] && [ ! -e /etc/systemd/system/shoal-server.service ] || fail "dry run wrote files"
