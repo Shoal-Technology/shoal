@@ -1,6 +1,6 @@
 # 0017: Onboarding: init, the app spec and the 5-minute path
 
-Status: Proposed
+Status: Accepted
 
 ## Context
 The goal of this ADR is one experience: a fresh 1 GB VPS to an app with a
@@ -532,27 +532,48 @@ of B to D except for the shared token and join code, so it can start after A.
 - Compose import is a convenience and not a full compatibility layer. Its
   output says what it dropped, so nothing is lost silently.
 
-## Open questions
-1. **Labels versus name-only ownership.** This ADR adds `ObjectMeta.labels`.
-   The alternative is a naming convention plus an `owner` field. Labels are
+## Open questions and decisions
+Accepted with this ADR. Each question keeps its original text, and the decision
+follows it.
+
+1. **Labels versus name-only ownership.** This ADR adds ObjectMeta.labels.
+   The alternative is a naming convention plus an owner field. Labels are
    more general, but they widen the proto change.
-2. **`build:` in v1.** This ADR rejects it and expects images from CI. Whether
+   *Decision:* labels. ObjectMeta.labels (field 7) landed in ce58ce4. Older
+   servers drop it, so deploy refuses labelled objects on them (section 2.4).
+2. **uild: in v1.** This ADR rejects it and expects images from CI. Whether
    Shoal should build images (for example with buildkit) is a separate decision.
-3. **Pull secrets.** E01 needs `image_pull_secret` on WorkloadSpec. The field
+   *Decision:* uild: stays rejected in v1 with the hint to push an image.
+   Image building is deferred to the git-builds roadmap item.
+3. **Pull secrets.** E01 needs image_pull_secret on WorkloadSpec. The field
    needs its own pass, and the ADR 0011 Secret model should be checked against it.
+   *Decision:* the image pull secret field is added later, in pass D.
 4. **Several edges and DNS.** Joining a second edge does not give failover; DNS
    must list both A records. Whether init should print the record set for the
    whole cluster needs a decision.
+   *Decision:* multi-edge DNS comes later. Joining a second edge does not change
+   DNS, which stays an operator step.
 5. **Containerd pin and verification.** Which 2.x release is pinned, and whether
    to verify cosign or GitHub attestations in addition to SHA-256.
-6. **Sysctl and loop devices.** Init writes sysctl and loads `br_netfilter` by
-   default. Confirm that operators accept this, and whether `--volume-backend=dir`
-   should be the default on hosts without `/dev/loop-control`.
+   *Decision:* pin the latest containerd 2.x release with its SHA-256. Cosign
+   verification comes later.
+6. **Sysctl and loop devices.** Init writes sysctl and loads r_netfilter by
+   default. Confirm that operators accept this, and whether --volume-backend=dir
+   should be the default on hosts without /dev/loop-control.
+   *Decision:* init may load r_netfilter and write the required sysctls. The
+   dry-run shows each of them before any write.
 7. **Database memory default.** 384Mi on a 1 GiB host is an expansion-level
    choice. ADR 0016 section 3.1 still says 2Gi, and that needs an update.
-8. **Credential Secret name and key.** `blog-db` with key `url` is assumed from
+   *Decision:* the database: postgres default is 384Mi memory and 500m CPU.
+   ADR 0016 section 3.1 is updated to match in pass C.
+8. **Credential Secret name and key.** log-db with key url is assumed from
    ADR 0016 section 3.2. Confirm it in pass C.
-9. **`--accept-tos` as a flag on init.** Alternatively a one-time prompt on a
+   *Decision:* the credentials Secret is <db>-credentials, key url. For an
+   app named log, that is log-db-credentials. Section 2.2 is read with this name.
+9. **--accept-tos as a flag on init.** Alternatively a one-time prompt on a
    TTY. The flag is simpler to script and is proposed here.
-10. **Compose `depends_on`.** Ignored in v1. Whether to add a start-order hint
+   *Decision:* the terms of service are accepted with the --accept-tos flag.
+   There is no interactive prompt.
+10. **Compose depends_on.** Ignored in v1. Whether to add a start-order hint
     to the Workload spec is later work.
+    *Decision:* a warning only in v1. No start-order hint is added.
