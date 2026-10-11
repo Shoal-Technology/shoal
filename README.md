@@ -125,6 +125,11 @@ printf '%s' "$SESSION_KEY" | ./bin/shoal app secret set blog SESSION_KEY=-   # v
   until the workload has its replicas ready, the database is Ready and the route
   is Ready. On timeout it names the object that is not ready and its status
   message, and exits non-zero. Re-running is safe.
+- A known error is shown with a code, for example
+  `E06: ACME terms not accepted — Re-run init with --accept-tos (ADR 0017, section 1.5)`.
+  A terminal error (E06, E11, E12, E13) ends the wait at once with exit 1, not
+  at the timeout. Run `./bin/shoal explain E07` for any code (E01 to E15).
+  The codes and the rule for terminal states are in ADR 0017, section 4.1.
 - `--prune` never deletes a Volume, Database or Secret unless `--prune-data`
   is also given.
 - A Secret is created empty by deploy and is never overwritten by it. Values

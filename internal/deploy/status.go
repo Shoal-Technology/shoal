@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/errcat"
 )
 
 // Readiness reports whether an object is ready, and a message for the
@@ -64,12 +65,45 @@ func orDefault(s, def string) string {
 	return s
 }
 
+// reasonOf returns the kind, state and message that errcat matches on for
+// obj. A Route with a failed certificate reports the certificate's state.
+func reasonOf(obj *v1alpha1.Object) (kind, state, message string) {
+	switch {
+	case obj.GetDatabase() != nil:
+		st := obj.GetDatabase().GetStatus()
+		return "Database", st.GetPhase(), st.GetMessage()
+	case obj.GetRoute() != nil:
+		st := obj.GetRoute().GetStatus()
+		if st.GetCertState() != "" && st.GetCertState() != "CertIssued" {
+			return "Route", st.GetCertState(), st.GetCertMessage()
+		}
+		return "Route", st.GetState(), st.GetMessage()
+	case obj.GetVolume() != nil:
+		st := obj.GetVolume().GetStatus()
+		return "Volume", st.GetState(), st.GetMessage()
+	}
+	return "", "", ""
+}
+
+// Reason returns the catalogue entry for obj's status, when the status is a
+// known error (ADR 0017, section 4). It is nil for a healthy or pending object.
+func Reason(obj *v1alpha1.Object) (*errcat.Entry, bool) {
+	if obj == nil {
+		return nil, false
+	}
+	return errcat.Match(reasonOf(obj))
+}
+
 // Row is one line of app status.
 type Row struct {
 	Kind    string
 	Name    string
 	State   string
 	Message string
+	// Code and Issue are set when the status matches a catalogue entry:
+	// Issue is "E0x: title — hint".
+	Code  string
+	Issue string
 }
 
 // StatusRows describes objs (in apply order). A Secret shows its key count
@@ -112,6 +146,9 @@ func StatusRows(objs []*v1alpha1.Object) []Row {
 		default:
 			row.State = "-"
 		}
+		if e, ok := Reason(obj); ok {
+			row.Code, row.Issue = e.Code, e.Line()
+		}
 		rows = append(rows, row)
 	}
 	return rows
@@ -153,7 +190,10 @@ type Summary struct {
 	ReadyReplicas int32
 	HasDatabase   bool
 	DatabaseReady bool
-	Elapsed       time.Duration
+	// Issues are the catalogue lines ("E0x: title — hint") of the objects
+	// whose status matches an error.
+	Issues  []string
+	Elapsed time.Duration
 }
 
 // Summarize reads the current state of the app's workload, database and
@@ -169,6 +209,9 @@ func Summarize(ctx context.Context, ctl v1alpha1.ControlClient, app string, desi
 		current = append(current, obj)
 	}
 	for _, obj := range current {
+		if e, ok := Reason(obj); ok {
+			s.Issues = append(s.Issues, e.Line())
+		}
 		switch {
 		case obj.GetWorkload() != nil:
 			w := obj.GetWorkload()
@@ -200,6 +243,9 @@ func PrintSummary(w io.Writer, s Summary) {
 	fmt.Fprintf(w, "url       %s\n", url)
 	if s.HasDatabase {
 		fmt.Fprintf(w, "database  ready: %s\n", yesNo(s.DatabaseReady))
+	}
+	for _, issue := range s.Issues {
+		fmt.Fprintf(w, "issue     %s\n", issue)
 	}
 }
 

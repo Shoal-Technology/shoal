@@ -419,7 +419,7 @@ Golden tests cover each row (section 6).
 ### 4. Errors that explain fixes
 
 Each error has a stable code, a human message with the concrete values, and a
-fix hint. The code and the hint live in `internal/errs` (pass D). Surfaces:
+fix hint. The code and the hint live in `internal/errcat` (pass D). Surfaces:
 **CLI** (`shoal deploy` failure output and exit `1`), **status** (`shoal app
 status` and `-o json`), and **portal** (the banner on the app page, pass D in the
 web portal, ADR 0013).
@@ -445,6 +445,37 @@ web portal, ADR 0013).
 Each message prints the object name, the node and the time. The portal shows
 the same text in its banner, and `status -o json` returns the code, so that
 scripts can match on it.
+
+#### 4.1 Terminal and transient states (pass D)
+
+`internal/errcat` maps the status reasons the server emits to these codes
+(`errcat.Match`). A wait in `shoal deploy --wait` fails at once, with exit
+`1` and the `E0x: title — hint` line, only for a **terminal** code. A terminal
+state does not heal by itself: a person has to change the host, the spec or
+the Secret first. Every other matched state is **transient**: the controller
+retries, or a node or replica may still come back, so the wait keeps going
+until `--wait` runs out.
+
+| Code | Reason it is matched on | Wait |
+|---|---|---|
+| E06 | Route `CertError`, message "terms not accepted" | fail at once |
+| E11 | Database phase `Failed` | fail at once |
+| E12 | Route `SecretInvalid` (a Secret that is not a key pair) | fail at once |
+| E13 | Route `Conflict` (another object holds the host) | fail at once |
+| E07 | Route `CertError` for HTTP-01 or a rate limit | keep waiting (ACME retries) |
+| E08 | "free under /var/lib" in a message (disk) | keep waiting |
+| E09 | "unschedulable: no ready node has" (scheduler) | keep waiting (a node may join) |
+| E10 | Volume `NodeLost` | keep waiting (the node may return) |
+| E14 | "crashed N times; last exit" (crash loop) | keep waiting (restarts back off) |
+| E15 | Route `NoEndpoints`, or "healthz" in a message | keep waiting |
+| E01, E02 | "unauthorized" or "manifest unknown" in a pull message | keep waiting |
+
+Route `SecretNotFound` is matched to E12 for status, but it is not terminal: the
+Secret is applied in the same batch, so it may still appear. `ServiceNotFound`
+and `PortNotFound` match nothing and are transient, for the same reason.
+E03, E04 and E05 are checked by `shoal init` and the edge, not read from an
+object's status, so `Match` does not return them. `shoal explain E0x` prints
+any entry. The portal banner is not done (see pass D below).
 
 ### 5. Low-overhead targets
 
@@ -556,8 +587,17 @@ of B to D except for the shared token and join code, so it can start after A.
     Those run in the e2e pass (F).
 - **C. Compose import.** `shoal import compose` (3), with the golden and
   `--strict` tests.
-- **D. Error catalogue.** `internal/errs` with the 15 codes and hints (4); wired
-  into deploy, status and the portal banner.
+- **D. Error catalogue.** `internal/errcat` with the 15 codes and hints (4);
+  wired into deploy, status and the wait. **Done (pass D)**, with these
+  differences from the text above:
+  - Wired into `shoal deploy` (the summary `issue` lines and the wait error),
+    `shoal app status` (a code next to each matched row), and `shoal explain
+    E0x`. The `status -o json` output and the portal banner are not done.
+  - Terminal states fail the wait at once (section 4.1). Other states keep
+    waiting until `--wait`.
+  - The wait error is a `*FailedError` for a terminal state, and a
+    `*NotReadyError` (now with the code of each pending object) on timeout.
+  - Exit codes are still 1 for every failure; exit 3 is not used.
 - **E. Init, uninstall and join.** Preflight, sysctl, containerd and CNI
   install with pins (1.2 to 1.3); the systemd units; `token create --bundle`;
   `agent --token-file`; `--dry-run`, idempotence and failure-path tests; uninstall

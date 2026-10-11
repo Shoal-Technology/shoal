@@ -46,7 +46,14 @@ func newAppStatusCmd() *cobra.Command {
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "KIND\tNAME\tSTATE\tMESSAGE")
 			for _, r := range deploy.StatusRows(objs) {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", strings.ToLower(r.Kind), r.Name, r.State, dash(r.Message))
+				msg := dash(r.Message)
+				if r.Issue != "" {
+					msg = r.Issue
+					if r.Message != "" {
+						msg = r.Message + "; " + r.Issue
+					}
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", strings.ToLower(r.Kind), r.Name, r.State, msg)
 			}
 			if err := w.Flush(); err != nil {
 				return err

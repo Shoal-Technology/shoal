@@ -15,6 +15,7 @@ import (
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/appspec"
+	"github.com/Shoal-Technology/shoal/internal/errcat"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 )
 
@@ -274,9 +275,11 @@ func WaitTargets(desired []*v1alpha1.Object) []Ref {
 }
 
 // Pending is an object that a wait ended with, and why it is not ready.
+// Entry is set when the status matches a catalogue error.
 type Pending struct {
 	Ref     Ref
 	Message string
+	Entry   *errcat.Entry
 }
 
 // NotReadyError names the objects still not ready when a wait ended.
@@ -287,9 +290,25 @@ type NotReadyError struct {
 func (e *NotReadyError) Error() string {
 	parts := make([]string, 0, len(e.Pending))
 	for _, p := range e.Pending {
-		parts = append(parts, fmt.Sprintf("%s: %s", p.Ref, p.Message))
+		part := fmt.Sprintf("%s: %s", p.Ref, p.Message)
+		if p.Entry != nil {
+			part += " [" + p.Entry.Line() + "]"
+		}
+		parts = append(parts, part)
 	}
 	return "timed out waiting for readiness; not ready: " + strings.Join(parts, "; ")
+}
+
+// FailedError is returned by Wait at once when an object is in a terminal
+// error state (errcat.Terminal). Waiting longer cannot fix it.
+type FailedError struct {
+	Ref     Ref
+	Message string
+	Entry   errcat.Entry
+}
+
+func (e *FailedError) Error() string {
+	return fmt.Sprintf("%s failed: %s (%s)", e.Ref, e.Entry.Line(), e.Message)
 }
 
 // Wait polls the targets until each one is ready, or ctx ends. It prints a
@@ -325,11 +344,20 @@ func Wait(ctx context.Context, ctl v1alpha1.ControlClient, targets []Ref, poll t
 				}
 				continue
 			}
+			entry, known := Reason(obj)
+			if known && errcat.Terminal(*entry) {
+				fmt.Fprintf(out, "failed     %s: %s\n", ref, entry.Line())
+				return &FailedError{Ref: ref, Message: msg, Entry: *entry}
+			}
 			if last[ref] != msg {
 				fmt.Fprintf(out, "waiting    %s: %s\n", ref, msg)
 				last[ref] = msg
 			}
-			next = append(next, Pending{Ref: ref, Message: msg})
+			p := Pending{Ref: ref, Message: msg}
+			if known {
+				p.Entry = entry
+			}
+			next = append(next, p)
 		}
 		if len(next) == 0 {
 			return nil
