@@ -407,6 +407,17 @@ Each pass is sized for one agent session and ends with its own tests green.
   test S3 server, and the full sequence for both engines, recorded in
   `docs/testing.md`. This pass also adds the workflow to the quality gate
   (`docs/quality.md`).
+  **Status: partly done.** The Postgres part of the sequence is verified in
+  `deploy-e2e.yml` (run 38141941992, commit 2b223f9, evidence in
+  `docs/testing.md`, "Deploy end to end"). It covers testing-plan steps 1 to 4:
+  the Database is created and Ready through `shoal deploy`, rows are written
+  through the app, the Postgres task is killed with `ctr task kill`, and the rows
+  are read back after the agent restarts it on the same volume. Not done: steps
+  5 to 7 (logical backup, S3 export to a test server, restore into a new Database
+  and comparison), the Redis repeat, and the quality-gate entry in
+  `docs/quality.md`. The e2e found and fixed two bugs in the Database path:
+  the Database lost its `app` label on apply, and its own children were reported
+  as app orphans (commits 138521e and 7e82265).
 
 ## Decisions on open questions
 Resolved and accepted with this ADR's status change:

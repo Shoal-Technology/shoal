@@ -58,6 +58,42 @@ Two earlier runs on this branch failed at step a) and were fixed:
 
 Limits: pebble is a test CA, not Let's Encrypt, so rate limits, real DNS and production behaviour are not covered. `app.shoal.test` resolves to 127.0.0.1 on the runner. The run has one server and one edge, and does not test renewal, failover or revocation. This is one run.
 
+## Deploy end to end (ADR 0017 pass F, ADR 0016 pass F)
+
+`deploy-e2e.yml` (manually dispatched, runs `hack/deploy-e2e.sh`) starts pebble, a server and one edge agent (`--volume-backend loop`) on a disposable runner. It imports the test app `hack/blog` (a `postgres:16-alpine` base with a shell loop: it connects with `DATABASE_URL`, inserts one row every two seconds and serves the row count on port 3000), then runs `shoal deploy` on this `shoal.yaml`: `name: blog`, `domain: blog.shoal.test`, `database: postgres`, one volume `uploads`, `replicas: 1`. The shared cluster setup is in `hack/e2e-lib.sh`, which `ingress-e2e.sh` also uses.
+
+```sh
+gh workflow run deploy-e2e.yml --repo kaiserern/shoal
+```
+
+Verified run [38141941992](https://github.com/kaiserern/shoal/actions/runs/38141941992) on commit 2b223f9, 2026-10-11, passed every step:
+
+- a) `deploy --dry-run` plans `create` for `workload/blog`, `service/blog`, `route/blog`, `database/blog-db`, `volume/blog-uploads` (and `secret/blog-secrets`).
+- b) `deploy --wait=10m` exits 0 and prints `url https://blog.shoal.test`.
+- c) `curl --cacert <pebble root> https://blog.shoal.test/` returns `connected to postgres: select=1 hits=N`, so the app ran `SELECT 1` against the Database through `DATABASE_URL`.
+- d) The app writes one row per request cycle. With 4 rows written, the Postgres container's task was killed with `ctr -n shoal task kill -s SIGKILL`. The agent restarted it on the same volume, and the row count read back as 6 (rows before the kill: 4). No data was lost.
+- e) A second `deploy` reports all six objects `unchanged`, with no `create`, `update`, `delete` or `orphan` lines.
+- f) `app status blog` shows workload `1/1 ready`, database `Ready`, route `Ready`, volume `Bound`, secret `empty` (created, no values set), and service with no state (shown as `-`).
+- g) `app delete blog --yes` removes the `blog` workload (asserted). `get databases` still lists `blog-db`, and `get volumes` still lists `blog-uploads` (both asserted). The service, route and secret removal is not asserted.
+
+Earlier runs on this branch, each fixed on the branch:
+
+- [38138016916] failed at b): the workload never became ready. This run had no failure diagnostics, so its cause was not captured.
+- [38138904662] failed at b): the app had no HTTP server. The image has no busybox `httpd`, so nothing listened on port 3000, the health check got connection refused, and the agent restarted the container every 30 s. Fixed in 6d8b4f9 by a netcat fallback in `hack/blog/serve.sh`. The failure path now prints app status, replicas, secrets, Databases, app logs and containerd state.
+- [38140270243] passed a) to d) and failed at e): `database/blog-db already exists and is not labelled app=blog`. Fixed in 138521e: `metadataOf` in `internal/resource/labels.go` had no case for Database, so the label was dropped on apply. `TestObjectLabelsEveryKind` walks every member of the `Object` oneof.
+- [38140939413] passed a) to d) and failed at e): the Database's own children (`service/blog-db`, `workload/blog-db`, `secret/blog-db-credentials`, `volume/blog-db-data`) were reported as orphans on every deploy. With `--prune` they would have been deleted. Fixed in 7e82265: owned children carry `shoal.dev/owned-by=database`, and deploy's orphan check and app listing skip them. Tests `TestOwnedChildrenAreNotOrphans` and `TestUnownedAppObjectIsOrphan` in `internal/deploy`.
+- [38141479523] passed a) to e) and failed at f): the assertions expected the words `Ready` on every row. Fixed in 2b223f9 to the states `app status` actually prints.
+
+The Ingress run [38141944451] on 2b223f9 also passed, which confirms the shared setup in `hack/e2e-lib.sh` still works for `ingress-e2e.sh`.
+
+Not covered by this run:
+
+- The volume backend is recorded as `loop`, inferred from the absence of a fallback message in the agent log. The Volume status was not read to confirm it. The `dir` backend was not run.
+- One unexplained event: in run 38141479523 the blog container was restarted once with exit code 137 and no health-check failure logged. Steps d) and e) still passed. The cause is not known.
+- Redis, backups, S3 export, restore and minor upgrades (ADR 0016 pass F, steps 5 to 7 and the Redis repeat) are not covered.
+- `shoal init`, `shoal uninstall` and the onboarding benchmark (ADR 0017 section 6) are not covered. The e2e uses the server and agent started directly, as the ingress e2e does.
+- The test app image is built on `postgres:16-alpine` without a digest pin, and the domain is `blog.shoal.test` on pebble, not a real DNS record.
+
 ## Ingress hardening (ADR 0015, pass E)
 
 Verified run [38126778237](https://github.com/kaiserern/shoal/actions/runs/38126778237) on commit e519bf9 (2026-10-11), first attempt, passed. It runs the same checks a) to f) as above against pebble, now with `--acme-accept-tos` on the server. Check a) would fail if that flag were missing, because the Route would report CertError.

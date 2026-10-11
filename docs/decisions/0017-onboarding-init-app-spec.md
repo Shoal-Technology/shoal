@@ -537,6 +537,19 @@ of B to D except for the shared token and join code, so it can start after A.
   (1.7).
 - **F. E2E and benchmark.** The disposable-runner e2e (6), `scripts/bench/onboard.sh`
   and the `onboard-bench` CI job (5), and `docs/benchmarks/onboarding.csv`.
+  **Status: partly done.** The deploy part of the e2e (6) is verified in
+  `deploy-e2e.yml` (run 38141941992, commit 2b223f9, `docs/testing.md`): a
+  `shoal.yaml` with `database: postgres`, a volume and a domain is deployed,
+  the app connects to Postgres over HTTPS, rows survive a Postgres task kill,
+  a second deploy is unchanged, `app status` is healthy, and `app delete` keeps
+  the Database and the Volume. Not done: `shoal init` and `shoal uninstall` in
+  that e2e (the e2e starts the server and agent directly, as the ingress e2e
+  does), the `curl --resolve` step with `pebble-challtestsrv` (the e2e maps the
+  host in `/etc/hosts`), `scripts/bench/onboard.sh`, the `onboard-bench` job and
+  `docs/benchmarks/onboarding.csv`. Section 6 also asks that no object with
+  `app=blog` remains after `app delete`. That conflicts with keeping
+  `blog-uploads` (section 2.5), so the e2e asserts the kept Database and Volume
+  instead.
 
 ## Consequences
 - The 5-minute path is one file and three commands: `init`, `deploy`, and the
