@@ -190,8 +190,9 @@ pass "second init is all no-ops"
 # 6. Uninstall keeps the data.
 say "shoal uninstall"
 sudo "$SHOAL" uninstall | tee "$RESULTS/uninstall.txt"
-[ -f /var/lib/shoal/init.json ] || fail "uninstall removed /var/lib/shoal/init.json"
-[ -f "$ADMIN" ] || fail "uninstall removed the cluster admin config under /var/lib/shoal"
+# /var/lib/shoal/server is root-only, so these checks run as root.
+sudo test -f /var/lib/shoal/init.json || fail "uninstall removed /var/lib/shoal/init.json"
+sudo test -f "$ADMIN" || fail "uninstall removed the cluster admin config under /var/lib/shoal"
 for p in /etc/systemd/system/shoal-server.service /etc/systemd/system/shoal-agent.service \
   /usr/local/bin/shoal /usr/local/bin/containerd /etc/containerd/config.toml; do
   [ ! -e "$p" ] || fail "uninstall left $p"
