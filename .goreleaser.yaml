@@ -1,0 +1,76 @@
+# GoReleaser v2 configuration. CI pins the goreleaser version (see
+# .github/workflows/release.yml and snapshot.yml). Dry run locally with:
+#   goreleaser release --snapshot --clean --skip=sign
+version: 2
+
+project_name: shoal
+
+builds:
+  - id: shoal
+    main: ./cmd/shoal
+    binary: shoal
+    # Same as `make build`: pure Go (modernc.org/sqlite), so no C toolchain or
+    # cross compiler is needed for linux/arm64.
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .Commit }} -X main.date={{ .Date }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: shoal
+    ids:
+      - shoal
+    formats:
+      - tar.gz
+    name_template: "shoal_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+signs:
+  # Keyless signing of checksums.txt with the GitHub Actions OIDC identity.
+  # Produces checksums.txt.sigstore.json (a cosign bundle). Needs the job to
+  # have id-token: write and cosign on PATH. Not run for snapshots.
+  - id: cosign
+    artifacts: checksum
+    if: '{{ not .IsSnapshot }}'
+    cmd: cosign
+    args:
+      - sign-blob
+      - --yes
+      - --bundle=${signature}
+      - ${artifact}
+    signature: "${artifact}.sigstore.json"
+    output: true
+
+sboms:
+  # SPDX JSON SBOM per archive, produced by syft (installed in CI).
+  - id: archives
+    artifacts: archive
+
+release:
+  github:
+    owner: kaiserern
+    name: shoal
+  # Drafts are not published by the pipeline. The owner publishes them, so a
+  # tag push never makes a public release on its own.
+  draft: true
+  prerelease: auto
+
+snapshot:
+  version_template: "{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}"
+
+changelog:
+  use: github

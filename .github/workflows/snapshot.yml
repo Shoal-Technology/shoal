@@ -1,0 +1,41 @@
+name: Snapshot
+# Manual dry run of the release build. It publishes nothing: no tag, no
+# GitHub Release, no signature. The artifacts are uploaded for inspection.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install syft v1.54.1
+        uses: anchore/sbom-action/download-syft@v0.24.3
+        with:
+          syft-version: v1.54.1
+      - name: GoReleaser v2.18.3 snapshot
+        uses: goreleaser/goreleaser-action@v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.18.3
+          args: release --snapshot --clean
+      - name: install.sh against the snapshot archives
+        run: bash hack/test_install.sh dist
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shoal-snapshot
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/*.tar.gz
+            dist/*.spdx.json
+            dist/checksums.txt

@@ -32,6 +32,22 @@ failover are not verified yet. See [docs/testing.md](docs/testing.md),
   module and UDP port 51820 open between nodes
 - Go (version in `go.mod`) to build
 
+## Install
+
+Linux, amd64 or arm64. The script downloads the release archive, checks its
+sha256 against `checksums.txt` (and the cosign signature when `cosign` is
+installed), and puts `shoal` in `/usr/local/bin`:
+
+```sh
+curl -fsSL https://shoal-technology.solutions/install.sh | sh
+sudo shoal init
+```
+
+Options: `SHOAL_VERSION=v1.2.3` pins a release (default: latest),
+`SHOAL_INSTALL_DIR` changes the directory, and `--dry-run` prints the plan
+without changing anything. Pass it as
+`... | sh -s -- --dry-run`. `shoal version` prints the installed version.
+
 ## Build
 
 ```sh

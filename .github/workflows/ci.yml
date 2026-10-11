@@ -3,6 +3,8 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # release.yml calls this workflow as its test gate.
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -26,6 +28,22 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
+      - name: Shell syntax (install.sh is POSIX sh)
+        run: |
+          sh -n hack/install.sh
+          dash -n hack/install.sh
+          bash -n hack/test_install.sh
+      - name: shellcheck v0.11.0 (sha256 pinned)
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/shellcheck.tar.xz"
+          curl -fsSL -o "$archive" https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          echo "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  $archive" | sha256sum -c -
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" hack/install.sh hack/test_install.sh
+      - name: install.sh tests (local HTTP server, real archive)
+        run: bash hack/test_install.sh
       - name: Vet all test variants
         run: make vet
       - name: Tests with race detector
