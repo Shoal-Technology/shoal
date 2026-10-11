@@ -55,6 +55,16 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 		}
 		secrets[r.Name] = sec.Spec.GetData()
 	}
+	// Claims map each host and path prefix to the Route that holds it. A
+	// Route that is not the holder is in Conflict (ADR 0015, pass E).
+	claimrecs, err := c.st.List(ctx, v1alpha1.KindRouteClaim)
+	if err != nil {
+		return []error{err}
+	}
+	claims := map[string]string{}
+	for _, r := range claimrecs {
+		claims[r.Name] = string(r.Spec)
+	}
 	certs := map[string]*v1alpha1.Certificate{}
 	for _, r := range certrecs {
 		cert, err := objects.Certificate(r)
@@ -73,6 +83,9 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 		}
 		data, found := secrets[rt.Spec.GetTlsSecret()]
 		state, msg := resource.RouteStatusFor(rt, svcs[rt.Spec.GetService()], data, found)
+		if owner, held := claims[resource.RouteKey(rt.Spec)]; held && owner != r.Name {
+			state, msg = resource.RouteConflict, fmt.Sprintf("host and pathPrefix are already used by route %q", owner)
+		}
 		st := &v1alpha1.RouteStatus{State: state, Message: msg}
 		if rt.Spec.GetTls() == "auto" {
 			st.CertState, st.CertMessage, st.CertNotAfter = certStatus(certs[rt.Spec.GetHost()])

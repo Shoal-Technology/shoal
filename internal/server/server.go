@@ -520,6 +520,24 @@ func (s *Server) runLeaderTasks(ctx context.Context) {
 		case <-time.After(time.Second):
 		}
 	}
+	// Routes stored before RouteClaim existed get their claims before the
+	// controller or anything else can reserve a key (ADR 0015, pass E).
+	for {
+		created, conflicts, err := s.backfillRouteClaims(ctx)
+		if err == nil {
+			s.log.Info("route claims backfilled", "created", created, "conflicts", conflicts)
+			break
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		s.log.Error("route claim backfill failed, retrying", "err", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+	}
 	var wg sync.WaitGroup
 	if s.certs != nil {
 		wg.Add(1)

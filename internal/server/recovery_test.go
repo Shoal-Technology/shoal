@@ -12,6 +12,7 @@ import (
 	"example.com/shoal/api/v1alpha1"
 	"example.com/shoal/internal/agent"
 	"example.com/shoal/internal/network"
+	"example.com/shoal/internal/objects"
 	"example.com/shoal/internal/runtime"
 	"example.com/shoal/internal/runtime/fake"
 )
@@ -107,6 +108,24 @@ func (a *testAgent) running(t *testing.T) []string {
 	return ids
 }
 
+// storedNodeReady reports whether the store itself says the node is Ready,
+// which is what the scheduler reads. getNode reads the live overlay, which
+// can be ahead of the store: a test that waits on it can apply a workload
+// before the scheduler sees the node, and then the replicas land on the
+// first node alone.
+func storedNodeReady(t *testing.T, ts *testServer, name string) bool {
+	t.Helper()
+	rec, err := ts.store.Get(context.Background(), v1alpha1.KindNode, name)
+	if err != nil {
+		return false
+	}
+	n, err := objects.Node(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n.GetStatus().GetPhase() == NodeReady
+}
+
 func fastControlPlane(c *Config) {
 	c.NodeCheckInterval = 50 * time.Millisecond
 	c.ControllerInterval = 50 * time.Millisecond
@@ -152,9 +171,8 @@ func TestRecovery(t *testing.T) {
 	ctx := context.Background()
 	a1 := ts.startAgent(t, admin, "node-1")
 	a2 := ts.startAgent(t, admin, "node-2")
-	eventually(t, "both nodes ready", func() bool {
-		return getNode(t, admin, "node-1").GetStatus().GetPhase() == NodeReady &&
-			getNode(t, admin, "node-2").GetStatus().GetPhase() == NodeReady
+	eventually(t, "both nodes ready in the store", func() bool {
+		return storedNodeReady(t, ts, "node-1") && storedNodeReady(t, ts, "node-2")
 	})
 
 	applyWeb(t, admin, 4)
@@ -234,7 +252,7 @@ func TestReturningNodeDropsEvictedReplicas(t *testing.T) {
 	ts := startServer(t, t.TempDir(), &clock{}, fastControlPlane)
 	admin := ts.admin(t)
 	a1 := ts.startAgent(t, admin, "node-1")
-	eventually(t, "node-1 ready", func() bool { return getNode(t, admin, "node-1").GetStatus().GetPhase() == NodeReady })
+	eventually(t, "node-1 ready in the store", func() bool { return storedNodeReady(t, ts, "node-1") })
 	applyWeb(t, admin, 2)
 	eventually(t, "2 running on node-1", func() bool { return len(a1.running(t)) == 2 })
 

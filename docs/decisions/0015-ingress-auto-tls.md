@@ -505,10 +505,18 @@ Taken when the ADR was accepted. Each one answers an open question below.
   store.Create in the same apply, so exactly one of two racing applies wins.
   Moving or deleting a Route releases its old key, and a batch that fails
   releases the claims it made. The read-only check stays, for the clearer
-  message and for Routes stored before claims existed; those get a claim on
-  their next apply. Tests: internal/server/route_claim_test.go (16
-  goroutines on the reservation, and 8 concurrent applies through the API,
-  exactly one accepted).
+  message. Routes stored before claims existed are backfilled: each leader
+  term, before the controllers start, creates the missing claims (oldest
+  Route first, by createdAt, then revision, then name). The older of two
+  legacy Routes on one key keeps the claim; the newer gets none, and the
+  controller sets its RouteStatus.state to `Conflict` with the holder's name
+  in the message. The backfill logs how many claims it created and how many
+  Routes conflicted, and running it again changes nothing. Tests:
+  internal/server/route_claim_test.go (16 goroutines on the reservation, 8
+  concurrent applies through the API with exactly one accepted, and
+  TestBackfillRouteClaims for missing claims, the conflict case and
+  idempotence); internal/controller/routes_test.go
+  (TestRouteConflictIsSetFromClaims).
 - **Applied acknowledgement.** The heartbeat carries outes_revision, the
   revision of the last snapshot the edge applied. The agent sends a heartbeat
   as soon as it applies a snapshot, so the leader does not wait a heartbeat

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -174,6 +175,58 @@ func (s *Server) routeOwners(ctx context.Context) (map[string]string, error) {
 		owners[resource.RouteKey(rt.Spec)] = r.Name
 	}
 	return owners, nil
+}
+
+// backfillRouteClaims gives every stored Route its claim (ADR 0015, pass E).
+// Routes stored before claims existed have none, so reserveRoute cannot see
+// them. Routes are visited oldest first (createdAt, then revision, then name),
+// so the oldest Route on a key keeps the claim. A newer Route whose key is held
+// by another Route gets no claim; the controller reports it as Conflict from
+// the claim records. Running it again changes nothing.
+func (s *Server) backfillRouteClaims(ctx context.Context) (created, conflicts int, err error) {
+	recs, err := s.store.List(ctx, v1alpha1.KindRoute)
+	if err != nil {
+		return 0, 0, err
+	}
+	sort.SliceStable(recs, func(i, j int) bool {
+		a, b := recs[i], recs[j]
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.Before(b.CreatedAt)
+		}
+		if a.Revision != b.Revision {
+			return a.Revision < b.Revision
+		}
+		return a.Name < b.Name
+	})
+	for _, r := range recs {
+		rt, err := objects.Route(r)
+		if err != nil {
+			return created, conflicts, err
+		}
+		key := resource.RouteKey(rt.Spec)
+		cur, err := s.store.Get(ctx, v1alpha1.KindRouteClaim, key)
+		switch {
+		case err == nil && string(cur.Spec) == r.Name:
+			continue // already claimed by this Route
+		case err == nil:
+			conflicts++
+			s.log.Warn("route not claimed: host and pathPrefix held by an older route", "route", r.Name, "key", key, "holder", string(cur.Spec))
+			continue
+		case !errors.Is(err, store.ErrNotFound):
+			return created, conflicts, err
+		}
+		ok, err := s.reserveRoute(ctx, r.Name, key)
+		if err != nil {
+			// Lost a race with an apply that claimed the key meanwhile.
+			conflicts++
+			s.log.Warn("route not claimed", "route", r.Name, "key", key, "err", err)
+			continue
+		}
+		if ok {
+			created++
+		}
+	}
+	return created, conflicts, nil
 }
 
 // reserveRoute claims key for the named Route (ADR 0015, pass E). It reports

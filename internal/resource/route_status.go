@@ -19,6 +19,9 @@ const (
 	RouteNoEndpoints     = "NoEndpoints"
 	RouteSecretNotFound  = "SecretNotFound"
 	RouteSecretInvalid   = "SecretInvalid"
+	// RouteConflict means another Route holds the host and path prefix (its
+	// RouteClaim). The controller sets it; see controller.syncRouteStatus.
+	RouteConflict = "Conflict"
 )
 
 // Keys of the TLS Secret that tls: secret reads (PEM certificate chain and

@@ -33,6 +33,32 @@ func (e *env) routeStatus(name string) *v1alpha1.RouteStatus {
 	return rt.Status
 }
 
+// A Route that is not the holder of its host and path prefix claim is in
+// Conflict; the holder is not (ADR 0015, pass E).
+func TestRouteConflictIsSetFromClaims(t *testing.T) {
+	e, _ := serviceFixture(t, "Replace")
+	spec := &v1alpha1.RouteSpec{Host: "shared.example.com", PathPrefix: "/", Service: "web", Port: 80, Tls: "none"}
+	b, err := objects.Encode(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"old", "new"} {
+		if _, err := e.st.Create(ctx, store.Record{Kind: v1alpha1.KindRoute, Name: name, Spec: b}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := e.st.Create(ctx, store.Record{Kind: v1alpha1.KindRouteClaim, Name: resource.RouteKey(spec), Spec: []byte("old")}); err != nil {
+		t.Fatal(err)
+	}
+	e.reconcile()
+	if got := e.routeStatus("new").GetState(); got != resource.RouteConflict {
+		t.Fatalf("new route state = %q, want %q", got, resource.RouteConflict)
+	}
+	if got := e.routeStatus("old").GetState(); got != resource.RouteReady {
+		t.Fatalf("holder state = %q, want %q", got, resource.RouteReady)
+	}
+}
+
 // The controller writes each Route's status on every pass: Ready when the
 // Service has endpoints and the Secret parses, otherwise the first reason.
 func TestRouteStatusIsWrittenByReconcile(t *testing.T) {

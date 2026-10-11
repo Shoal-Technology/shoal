@@ -11,6 +11,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"example.com/shoal/api/v1alpha1"
+	"example.com/shoal/internal/objects"
+	"example.com/shoal/internal/resource"
+	"example.com/shoal/internal/store"
 )
 
 // Racing reservations for one host and path prefix: exactly one wins, every
@@ -151,5 +154,68 @@ func TestReleaseRouteOnlyFreesOwnClaim(t *testing.T) {
 	ts.releaseRoute(ctx, "c.example.com /", "someone-else")
 	if _, err := ts.reserveRoute(ctx, "theirs", "c.example.com /"); err == nil {
 		t.Fatal("a release by a non-owner freed the claim")
+	}
+}
+
+// Routes stored without claims (before pass E) get them from the backfill.
+// Of two Routes on one key the older keeps the claim, the newer gets none,
+// and running the backfill again changes nothing (ADR 0015, pass E).
+func TestBackfillRouteClaims(t *testing.T) {
+	ctx := context.Background()
+	// Built without Serve, so the leader tasks (which backfill at startup)
+	// do not race with the Routes this test stores.
+	ts, err := New(ctx, Config{DataDir: t.TempDir(), AdvertiseAddress: "127.0.0.1:0", Log: discard(), Now: (&clock{}).now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ts.Close() })
+	storeRoute := func(name, host string) {
+		t.Helper()
+		spec, err := objects.Encode(&v1alpha1.RouteSpec{Host: host, PathPrefix: "/", Service: "web", Port: 80, Tls: "none"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ts.store.Create(ctx, store.Record{Kind: v1alpha1.KindRoute, Name: name, Spec: spec}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Created in this order: "old" is older than "new" (revision breaks ties).
+	storeRoute("a", "a.example.com")
+	storeRoute("b", "b.example.com")
+	storeRoute("old", "shared.example.com")
+	storeRoute("new", "shared.example.com")
+
+	created, conflicts, err := ts.backfillRouteClaims(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created != 3 || conflicts != 1 {
+		t.Fatalf("first run: created=%d conflicts=%d, want 3 and 1", created, conflicts)
+	}
+	for key, want := range map[string]string{"a.example.com /": "a", "b.example.com /": "b", "shared.example.com /": "old"} {
+		cur, err := ts.store.Get(ctx, v1alpha1.KindRouteClaim, key)
+		if err != nil {
+			t.Fatalf("claim %q missing: %v", key, err)
+		}
+		if got := string(cur.Spec); got != want {
+			t.Fatalf("claim %q held by %q, want %q", key, got, want)
+		}
+	}
+
+	// The newer Route cannot take the key through the API either.
+	if _, err := ts.reserveRoute(ctx, "new", "shared.example.com /"); err == nil {
+		t.Fatal("newer route reserved a key the older one holds")
+	}
+
+	created, conflicts, err = ts.backfillRouteClaims(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created != 0 || conflicts != 1 {
+		t.Fatalf("second run: created=%d conflicts=%d, want 0 and 1", created, conflicts)
+	}
+	cur, err := ts.store.Get(ctx, v1alpha1.KindRouteClaim, resource.RouteKey(&v1alpha1.RouteSpec{Host: "shared.example.com", PathPrefix: "/"}))
+	if err != nil || string(cur.Spec) != "old" {
+		t.Fatalf("after second run claim = %v, %v; want held by old", cur, err)
 	}
 }
