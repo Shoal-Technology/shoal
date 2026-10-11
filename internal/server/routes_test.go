@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"example.com/shoal/api/v1alpha1"
+	"example.com/shoal/internal/agent"
 	"example.com/shoal/internal/edge"
 	"example.com/shoal/internal/objects"
 	"example.com/shoal/internal/store"
@@ -78,6 +79,91 @@ func newRouteFixture(t *testing.T) *routeFixture {
 
 func (f *routeFixture) server() *Server {
 	return &Server{store: f.st, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+}
+
+// addDuplicate stores a Route on the same host and prefix as "plain", newer
+// than it: a legacy duplicate.
+func (f *routeFixture) addDuplicate(t *testing.T) {
+	t.Helper()
+	spec, err := objects.Encode(&v1alpha1.RouteSpec{Host: "app.example.com", PathPrefix: "/", Service: "web", Port: 80, Tls: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.st.Create(context.Background(), store.Record{Kind: v1alpha1.KindRoute, Name: "dup", Spec: spec}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func routeNames(snap *v1alpha1.RouteSnapshot) []string {
+	var names []string
+	for _, r := range snap.GetRoutes() {
+		names = append(names, r.GetName())
+	}
+	return names
+}
+
+// The Route that holds a key's claim is the only one sent: the Conflict Route
+// is left out, so the edge never sees two Routes on one host and prefix.
+func TestRouteSnapshotLeavesOutConflictRoute(t *testing.T) {
+	f := newRouteFixture(t)
+	ctx := context.Background()
+	f.addDuplicate(t)
+	if _, err := f.st.Create(ctx, store.Record{Kind: v1alpha1.KindRouteClaim, Name: "app.example.com /", Spec: []byte("plain")}); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := f.server().routeSnapshot(ctx, "edge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"api", "plain", "secure"}; !slices.Equal(routeNames(snap), want) {
+		t.Fatalf("snapshot routes = %v, want %v", routeNames(snap), want)
+	}
+}
+
+// Before the backfill has run a key has no claim. The oldest Route on it is
+// sent and the newer legacy duplicate is not.
+func TestRouteSnapshotLegacyDuplicateWithoutClaims(t *testing.T) {
+	f := newRouteFixture(t)
+	f.addDuplicate(t)
+	snap, err := f.server().routeSnapshot(context.Background(), "edge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"api", "plain", "secure"}; !slices.Equal(routeNames(snap), want) {
+		t.Fatalf("snapshot routes = %v, want %v", routeNames(snap), want)
+	}
+}
+
+// The snapshot built from a store with a legacy duplicate is applied by the
+// edge. A snapshot that still held both Routes would be rejected whole, and
+// the edge would keep stale routes for every host.
+func TestEdgeAppliesSnapshotWithLegacyDuplicate(t *testing.T) {
+	f := newRouteFixture(t)
+	f.addDuplicate(t)
+	snap, err := f.server().routeSnapshot(context.Background(), "edge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap.Revision = 7
+
+	e := agent.NewEdge("127.0.0.1:0", "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { _ = e.Close() })
+	if err := e.Apply(snap); err != nil {
+		t.Fatalf("edge rejected the snapshot: %v", err)
+	}
+	if got := e.AppliedRevision(); got != 7 {
+		t.Fatalf("applied revision = %d, want 7", got)
+	}
+
+	// Control: the same routes with the duplicate put back are rejected.
+	dup := proto.Clone(snap.GetRoutes()[0]).(*v1alpha1.EdgeRoute)
+	dup.Name = "dup"
+	bad := proto.Clone(snap).(*v1alpha1.RouteSnapshot)
+	bad.Routes = append(bad.Routes, dup)
+	bad.Revision = 8
+	if err := e.Apply(bad); err == nil {
+		t.Fatal("edge accepted two routes on one host and prefix")
+	}
 }
 
 func TestRouteSnapshotEdgeNode(t *testing.T) {

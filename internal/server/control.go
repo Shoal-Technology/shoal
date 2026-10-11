@@ -2,10 +2,11 @@ package server
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -177,6 +178,19 @@ func (s *Server) routeOwners(ctx context.Context) (map[string]string, error) {
 	return owners, nil
 }
 
+// routeOrder orders Route records oldest first: createdAt, then revision (the
+// store's write order), then name. The backfill and the edge snapshot both use
+// it, so they agree on which of two legacy Routes on one key is the older.
+func routeOrder(a, b store.Record) int {
+	if c := a.CreatedAt.Compare(b.CreatedAt); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.Revision, b.Revision); c != 0 {
+		return c
+	}
+	return cmp.Compare(a.Name, b.Name)
+}
+
 // backfillRouteClaims gives every stored Route its claim (ADR 0015, pass E).
 // Routes stored before claims existed have none, so reserveRoute cannot see
 // them. Routes are visited oldest first (createdAt, then revision, then name),
@@ -188,16 +202,7 @@ func (s *Server) backfillRouteClaims(ctx context.Context) (created, conflicts in
 	if err != nil {
 		return 0, 0, err
 	}
-	sort.SliceStable(recs, func(i, j int) bool {
-		a, b := recs[i], recs[j]
-		if !a.CreatedAt.Equal(b.CreatedAt) {
-			return a.CreatedAt.Before(b.CreatedAt)
-		}
-		if a.Revision != b.Revision {
-			return a.Revision < b.Revision
-		}
-		return a.Name < b.Name
-	})
+	slices.SortFunc(recs, routeOrder)
 	for _, r := range recs {
 		rt, err := objects.Route(r)
 		if err != nil {

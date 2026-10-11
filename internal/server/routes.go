@@ -60,6 +60,16 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 	if err != nil {
 		return nil, err
 	}
+	holders, err := s.routeClaimHolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// The edge rejects a snapshot with two Routes on one host and prefix, so
+	// a legacy duplicate must never reach it. Only the Route that holds a key's
+	// claim is sent. A key with no claim yet (before the backfill has run)
+	// goes to its oldest Route, in the same order the backfill uses.
+	slices.SortFunc(rrecs, routeOrder)
+	taken := map[string]bool{}
 	autoHosts := map[string]bool{}
 	for _, r := range rrecs {
 		rt, err := objects.Route(r)
@@ -67,6 +77,15 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 			return nil, err
 		}
 		spec := rt.Spec
+		key := resource.RouteKey(spec)
+		if holder, held := holders[key]; held {
+			if holder != r.Name {
+				continue
+			}
+		} else if taken[key] {
+			continue
+		}
+		taken[key] = true
 		er := &v1alpha1.EdgeRoute{
 			Name: r.Name, Host: spec.GetHost(), PathPrefix: spec.GetPathPrefix(), Tls: spec.GetTls(),
 			RedirectHttp: spec.GetRedirectHttp(),
@@ -135,6 +154,20 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 		snap.Challenges = append(snap.Challenges, &v1alpha1.EdgeChallenge{Token: r.Name, KeyAuthorization: ch.Spec.GetKeyAuthorization()})
 	}
 	return snap, nil
+}
+
+// routeClaimHolders maps each host and path prefix that has a RouteClaim to
+// the name of the Route that holds it.
+func (s *Server) routeClaimHolders(ctx context.Context) (map[string]string, error) {
+	recs, err := s.store.List(ctx, v1alpha1.KindRouteClaim)
+	if err != nil {
+		return nil, err
+	}
+	holders := make(map[string]string, len(recs))
+	for _, r := range recs {
+		holders[r.Name] = string(r.Spec)
+	}
+	return holders, nil
 }
 
 // routePusher sends route snapshots on one stream. It sends a snapshot only
