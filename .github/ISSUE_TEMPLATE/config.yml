@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/kaiserern/shoal/blob/main/SECURITY.md
+    about: Report security problems privately. Do not open a public issue for them.
+  - name: Questions and project site
+    url: https://shoal-technology.solutions
+    about: Documentation and project information.

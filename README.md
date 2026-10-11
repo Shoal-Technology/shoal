@@ -1,5 +1,11 @@
 # shoal
 
+> **Status: alpha.** Shoal is pre-1.0. Interfaces, the on-disk state format
+> and the wire protocol can change between minor versions, and it has not had
+> an independent security audit. Read the [limitations](#limitations) before
+> you run it anywhere that matters. Project site:
+> [shoal-technology.solutions](https://shoal-technology.solutions).
+
 A lightweight container orchestrator for small clusters (1–20 nodes): one
 static binary that runs as control-plane **server**, worker **agent** or
 **CLI**, running OCI containers through containerd and continuously
@@ -52,6 +58,13 @@ without changing anything. Pass it as
 
 ```sh
 make build        # -> bin/shoal (static, CGO_ENABLED=0)
+```
+
+Or install the CLI straight from the module. This build has no release
+version stamp; use the release archive for a tagged version:
+
+```sh
+go install github.com/kaiserern/shoal/cmd/shoal@latest
 ```
 
 ## Quickstart: one node with shoal init
@@ -531,6 +544,31 @@ restarted while the server is down then keeps serving its HTTP routes.
 Certificates still come only from the server, so `tls: secret` and `tls: auto`
 hosts need a connection before they answer HTTPS. The cache is off by default.
 
+## Limitations
+
+Shoal is alpha. These are known gaps, stated plainly:
+
+- **Multi-host is not verified end to end.** The WireGuard mesh, agent
+  failover and scheduling across separate machines are covered by unit tests
+  and by single-host or loopback checks only.
+- **Postgres has no high availability.** The managed Postgres database runs as
+  one instance. A node failure means downtime until it is restored.
+- **No S3 backup export.** Database and control-plane backups stay on the
+  local volume or the server. Copy them off the host yourself.
+- **Benchmarks come from a single runner.** The performance numbers in the docs
+  were measured on one machine; expect different results on yours.
+- The control-plane HA path (Raft, three servers) was verified on one hosted
+  runner using loopback addresses only.
+
+See [docs/testing.md](docs/testing.md) for what each test level covers.
+
+## Community and policy
+
+- Security reports: [SECURITY.md](SECURITY.md). Do not use public issues.
+- Contributing, DCO sign-off and the ADR process: [CONTRIBUTING.md](CONTRIBUTING.md).
+- Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- Project site: [shoal-technology.solutions](https://shoal-technology.solutions).
+
 ## Tests
 
 ```sh
@@ -550,4 +588,7 @@ networking and bind ports, so they must not run on a shared machine.
 Copyright 2026 the Shoal authors.
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
-full text.
+full text. [NOTICE](NOTICE) carries Shoal's notice and the attribution notices
+of the dependencies that ship one. Dependency licenses are checked in CI by
+`python3 hack/license_check.py`, which fails on GPL, LGPL, AGPL or
+unclassified licenses.

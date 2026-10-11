@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a change or a new capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Shoal is alpha and the design is still moving. Large changes usually
+        need an ADR (see CONTRIBUTING.md). Describing the problem first helps
+        more than describing the solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What you would like Shoal to do. Include a sketch of the CLI or spec syntax if you have one.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other tools, workarounds or configuration you have tried.
+    validations:
+      required: false
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Checks
+      options:
+        - label: I have searched the existing issues and the ADRs in docs/decisions/.
+          required: true
+        - label: I understand this is an alpha project and the feature may change or be declined.
+          required: true

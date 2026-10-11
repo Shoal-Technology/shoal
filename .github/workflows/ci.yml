@@ -19,6 +19,8 @@ jobs:
           cache: true
       - name: Test report parser
         run: python3 -m unittest discover -s hack -p 'test_test_report.py'
+      - name: Dependency license gate (GPL, LGPL, AGPL and unknown licenses fail)
+        run: python3 hack/license_check.py
       - name: gofmt
         shell: bash
         run: |

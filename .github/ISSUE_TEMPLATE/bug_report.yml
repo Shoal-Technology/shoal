@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in Shoal does not work as the documentation says
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do not include secrets, tokens, certificates or
+        private keys. For security problems, use SECURITY.md instead of this form.
+  - type: input
+    id: version
+    attributes:
+      label: Shoal version
+      description: Output of `shoal --version`, or the commit you built from.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI
+        - Server / control plane
+        - Agent / node
+        - Store (memory, sqlite, raft)
+        - Deploy / rollout
+        - Ingress and TLS
+        - Volumes or databases
+        - Web portal
+        - Install script
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. shoal ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and version, architecture, container runtime version, number of nodes, and whether it is one node or a cluster.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Relevant output. Redact hostnames, IP addresses and tokens.
+      render: shell
+    validations:
+      required: false
