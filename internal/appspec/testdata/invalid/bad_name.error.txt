@@ -1,0 +1,1 @@
+name: must be a lowercase DNS label of at most 40 characters

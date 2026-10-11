@@ -1,0 +1,7 @@
+name: worker
+image: ghcr.io/example/worker:2.0.0
+replicas: 2
+volumes:
+  - name: uploads
+    mountPath: /app/uploads
+    size: 5Gi

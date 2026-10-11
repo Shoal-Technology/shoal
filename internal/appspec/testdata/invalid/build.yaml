@@ -1,0 +1,4 @@
+name: web
+image: nginx
+port: 80
+build: .

@@ -1,0 +1,3 @@
+name: web
+image: nginx
+domain: web.example.com

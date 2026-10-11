@@ -1,0 +1,55 @@
+apiVersion: v1alpha1
+kind: Workload
+metadata:
+  labels:
+    app: blog
+  name: blog
+spec:
+  env:
+  - name: LOG_LEVEL
+    value: info
+  - name: DATABASE_URL
+    valueFrom:
+      secret:
+        key: url
+        name: blog-db-credentials
+  healthCheck:
+    failureThreshold: 3
+    http:
+      path: /healthz
+      port: 3000
+    intervalSeconds: 10
+    timeoutSeconds: 2
+  image: ghcr.io/example/blog:1.4.2
+  ports:
+  - containerPort: 3000
+  replicas: 1
+  resources:
+    cpu: 250m
+    memory: 256Mi
+---
+apiVersion: v1alpha1
+kind: Service
+metadata:
+  labels:
+    app: blog
+  name: blog
+spec:
+  ports:
+  - port: 80
+    protocol: tcp
+    targetPort: 3000
+  selector: blog
+---
+apiVersion: v1alpha1
+kind: Route
+metadata:
+  labels:
+    app: blog
+  name: blog
+spec:
+  host: blog.example.com
+  pathPrefix: /
+  port: 80
+  service: blog
+  tls: auto

@@ -1,0 +1,2 @@
+shoal.yaml: yaml: unmarshal errors:
+  line 3: field prot not found in type appspec.App

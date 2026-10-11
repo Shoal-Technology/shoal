@@ -1,0 +1,21 @@
+# A web app with a Postgres database, a volume and an HTTPS domain.
+# Check it with: shoal deploy --dry-run shoal.yaml (ADR 0017, section 2)
+name: blog
+image: ghcr.io/example/blog:1.4.2
+port: 3000
+domain: blog.example.com
+replicas: 1
+env:
+  LOG_LEVEL: info
+secrets:
+  - SESSION_KEY
+database: postgres
+volumes:
+  - name: uploads
+    mountPath: /app/uploads
+    size: 5Gi
+health:
+  path: /healthz
+resources:
+  cpu: 250m
+  memory: 256Mi

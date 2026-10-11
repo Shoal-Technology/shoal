@@ -1,0 +1,23 @@
+apiVersion: v1alpha1
+kind: Workload
+metadata:
+  labels:
+    app: worker
+  name: worker
+spec:
+  image: ghcr.io/example/worker:2.0.0
+  replicas: 1
+  volumes:
+  - mountPath: /app/uploads
+    name: worker-uploads
+---
+apiVersion: v1alpha1
+kind: Volume
+metadata:
+  labels:
+    app: worker
+  name: worker-uploads
+spec:
+  accessMode: RWO
+  retention: Retain
+  size: 5Gi

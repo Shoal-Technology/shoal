@@ -1,0 +1,6 @@
+name: blog
+image: ghcr.io/example/blog:1.4.2
+port: 3000
+database: postgres
+env:
+  DATABASE_URL: postgres://x

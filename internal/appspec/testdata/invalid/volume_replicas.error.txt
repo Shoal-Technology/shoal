@@ -1,0 +1,1 @@
+replicas: must be 1 when volumes are set (a volume is read-write), not 2

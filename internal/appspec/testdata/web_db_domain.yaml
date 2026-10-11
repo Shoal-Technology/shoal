@@ -1,0 +1,12 @@
+name: blog
+image: ghcr.io/example/blog:1.4.2
+port: 3000
+domain: blog.example.com
+env:
+  LOG_LEVEL: info
+database: postgres
+health:
+  path: /healthz
+resources:
+  cpu: 250m
+  memory: 256Mi

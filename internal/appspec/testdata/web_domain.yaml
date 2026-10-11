@@ -1,0 +1,4 @@
+name: web
+image: nginx:1.27-alpine
+port: 80
+domain: web.example.com

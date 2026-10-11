@@ -1,0 +1,3 @@
+name: Web_App
+image: nginx
+port: 80
