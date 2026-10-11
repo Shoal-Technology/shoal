@@ -218,6 +218,182 @@ func (*Object_Volume) isObject_Kind() {}
 
 func (*Object_Database) isObject_Kind() {}
 
+type DatabaseBackupsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Database      string                 `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DatabaseBackupsRequest) Reset() {
+	*x = DatabaseBackupsRequest{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DatabaseBackupsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DatabaseBackupsRequest) ProtoMessage() {}
+
+func (x *DatabaseBackupsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DatabaseBackupsRequest.ProtoReflect.Descriptor instead.
+func (*DatabaseBackupsRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DatabaseBackupsRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+type DatabaseBackupsResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Backups       []*DatabaseBackupRecord `protobuf:"bytes,1,rep,name=backups,proto3" json:"backups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DatabaseBackupsResponse) Reset() {
+	*x = DatabaseBackupsResponse{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DatabaseBackupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DatabaseBackupsResponse) ProtoMessage() {}
+
+func (x *DatabaseBackupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DatabaseBackupsResponse.ProtoReflect.Descriptor instead.
+func (*DatabaseBackupsResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *DatabaseBackupsResponse) GetBackups() []*DatabaseBackupRecord {
+	if x != nil {
+		return x.Backups
+	}
+	return nil
+}
+
+type BackupDatabaseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Database      string                 `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupDatabaseRequest) Reset() {
+	*x = BackupDatabaseRequest{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupDatabaseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupDatabaseRequest) ProtoMessage() {}
+
+func (x *BackupDatabaseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupDatabaseRequest.ProtoReflect.Descriptor instead.
+func (*BackupDatabaseRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *BackupDatabaseRequest) GetDatabase() string {
+	if x != nil {
+		return x.Database
+	}
+	return ""
+}
+
+type BackupDatabaseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Backup        *DatabaseBackupRecord  `protobuf:"bytes,1,opt,name=backup,proto3" json:"backup,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupDatabaseResponse) Reset() {
+	*x = BackupDatabaseResponse{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupDatabaseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupDatabaseResponse) ProtoMessage() {}
+
+func (x *BackupDatabaseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupDatabaseResponse.ProtoReflect.Descriptor instead.
+func (*BackupDatabaseResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *BackupDatabaseResponse) GetBackup() *DatabaseBackupRecord {
+	if x != nil {
+		return x.Backup
+	}
+	return nil
+}
+
 type ClusterStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -226,7 +402,7 @@ type ClusterStatusRequest struct {
 
 func (x *ClusterStatusRequest) Reset() {
 	*x = ClusterStatusRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[1]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +414,7 @@ func (x *ClusterStatusRequest) String() string {
 func (*ClusterStatusRequest) ProtoMessage() {}
 
 func (x *ClusterStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[1]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +427,7 @@ func (x *ClusterStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterStatusRequest.ProtoReflect.Descriptor instead.
 func (*ClusterStatusRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{1}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{5}
 }
 
 type ClusterStatusResponse struct {
@@ -272,7 +448,7 @@ type ClusterStatusResponse struct {
 
 func (x *ClusterStatusResponse) Reset() {
 	*x = ClusterStatusResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[2]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +460,7 @@ func (x *ClusterStatusResponse) String() string {
 func (*ClusterStatusResponse) ProtoMessage() {}
 
 func (x *ClusterStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[2]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +473,7 @@ func (x *ClusterStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterStatusResponse.ProtoReflect.Descriptor instead.
 func (*ClusterStatusResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{2}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ClusterStatusResponse) GetMembers() []*ClusterMember {
@@ -348,7 +524,7 @@ type ClusterMember struct {
 
 func (x *ClusterMember) Reset() {
 	*x = ClusterMember{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[3]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -360,7 +536,7 @@ func (x *ClusterMember) String() string {
 func (*ClusterMember) ProtoMessage() {}
 
 func (x *ClusterMember) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[3]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -373,7 +549,7 @@ func (x *ClusterMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterMember.ProtoReflect.Descriptor instead.
 func (*ClusterMember) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{3}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ClusterMember) GetNodeId() string {
@@ -413,7 +589,7 @@ type RemoveServerRequest struct {
 
 func (x *RemoveServerRequest) Reset() {
 	*x = RemoveServerRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[4]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -425,7 +601,7 @@ func (x *RemoveServerRequest) String() string {
 func (*RemoveServerRequest) ProtoMessage() {}
 
 func (x *RemoveServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[4]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +614,7 @@ func (x *RemoveServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveServerRequest.ProtoReflect.Descriptor instead.
 func (*RemoveServerRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{4}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RemoveServerRequest) GetNodeId() string {
@@ -458,7 +634,7 @@ type RemoveServerResponse struct {
 
 func (x *RemoveServerResponse) Reset() {
 	*x = RemoveServerResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[5]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -470,7 +646,7 @@ func (x *RemoveServerResponse) String() string {
 func (*RemoveServerResponse) ProtoMessage() {}
 
 func (x *RemoveServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[5]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,7 +659,7 @@ func (x *RemoveServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveServerResponse.ProtoReflect.Descriptor instead.
 func (*RemoveServerResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{5}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RemoveServerResponse) GetCommitIndex() uint64 {
@@ -501,7 +677,7 @@ type JoinBundleRequest struct {
 
 func (x *JoinBundleRequest) Reset() {
 	*x = JoinBundleRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[6]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -513,7 +689,7 @@ func (x *JoinBundleRequest) String() string {
 func (*JoinBundleRequest) ProtoMessage() {}
 
 func (x *JoinBundleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[6]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -526,7 +702,7 @@ func (x *JoinBundleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinBundleRequest.ProtoReflect.Descriptor instead.
 func (*JoinBundleRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{6}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{10}
 }
 
 type JoinBundleResponse struct {
@@ -542,7 +718,7 @@ type JoinBundleResponse struct {
 
 func (x *JoinBundleResponse) Reset() {
 	*x = JoinBundleResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[7]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -554,7 +730,7 @@ func (x *JoinBundleResponse) String() string {
 func (*JoinBundleResponse) ProtoMessage() {}
 
 func (x *JoinBundleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[7]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -567,7 +743,7 @@ func (x *JoinBundleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinBundleResponse.ProtoReflect.Descriptor instead.
 func (*JoinBundleResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{7}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *JoinBundleResponse) GetBundle() []byte {
@@ -596,7 +772,7 @@ type JoinClusterRequest struct {
 
 func (x *JoinClusterRequest) Reset() {
 	*x = JoinClusterRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[8]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -608,7 +784,7 @@ func (x *JoinClusterRequest) String() string {
 func (*JoinClusterRequest) ProtoMessage() {}
 
 func (x *JoinClusterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[8]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +797,7 @@ func (x *JoinClusterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinClusterRequest.ProtoReflect.Descriptor instead.
 func (*JoinClusterRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{8}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *JoinClusterRequest) GetNodeId() string {
@@ -650,7 +826,7 @@ type JoinClusterResponse struct {
 
 func (x *JoinClusterResponse) Reset() {
 	*x = JoinClusterResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[9]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -662,7 +838,7 @@ func (x *JoinClusterResponse) String() string {
 func (*JoinClusterResponse) ProtoMessage() {}
 
 func (x *JoinClusterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[9]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -675,7 +851,7 @@ func (x *JoinClusterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinClusterResponse.ProtoReflect.Descriptor instead.
 func (*JoinClusterResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{9}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *JoinClusterResponse) GetCommitIndex() uint64 {
@@ -694,7 +870,7 @@ type RestartWorkloadRequest struct {
 
 func (x *RestartWorkloadRequest) Reset() {
 	*x = RestartWorkloadRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[10]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -706,7 +882,7 @@ func (x *RestartWorkloadRequest) String() string {
 func (*RestartWorkloadRequest) ProtoMessage() {}
 
 func (x *RestartWorkloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[10]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -719,7 +895,7 @@ func (x *RestartWorkloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartWorkloadRequest.ProtoReflect.Descriptor instead.
 func (*RestartWorkloadRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{10}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RestartWorkloadRequest) GetName() string {
@@ -737,7 +913,7 @@ type ResetUIPasswordRequest struct {
 
 func (x *ResetUIPasswordRequest) Reset() {
 	*x = ResetUIPasswordRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[11]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -749,7 +925,7 @@ func (x *ResetUIPasswordRequest) String() string {
 func (*ResetUIPasswordRequest) ProtoMessage() {}
 
 func (x *ResetUIPasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[11]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -762,7 +938,7 @@ func (x *ResetUIPasswordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetUIPasswordRequest.ProtoReflect.Descriptor instead.
 func (*ResetUIPasswordRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{11}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{15}
 }
 
 type ResetUIPasswordResponse struct {
@@ -774,7 +950,7 @@ type ResetUIPasswordResponse struct {
 
 func (x *ResetUIPasswordResponse) Reset() {
 	*x = ResetUIPasswordResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[12]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +962,7 @@ func (x *ResetUIPasswordResponse) String() string {
 func (*ResetUIPasswordResponse) ProtoMessage() {}
 
 func (x *ResetUIPasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[12]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +975,7 @@ func (x *ResetUIPasswordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetUIPasswordResponse.ProtoReflect.Descriptor instead.
 func (*ResetUIPasswordResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{12}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ResetUIPasswordResponse) GetPassword() string {
@@ -823,7 +999,7 @@ type LogsRequest struct {
 
 func (x *LogsRequest) Reset() {
 	*x = LogsRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[13]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -835,7 +1011,7 @@ func (x *LogsRequest) String() string {
 func (*LogsRequest) ProtoMessage() {}
 
 func (x *LogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[13]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -848,7 +1024,7 @@ func (x *LogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogsRequest.ProtoReflect.Descriptor instead.
 func (*LogsRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{13}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *LogsRequest) GetWorkload() string {
@@ -888,7 +1064,7 @@ type ApplyRequest struct {
 
 func (x *ApplyRequest) Reset() {
 	*x = ApplyRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[14]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -900,7 +1076,7 @@ func (x *ApplyRequest) String() string {
 func (*ApplyRequest) ProtoMessage() {}
 
 func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[14]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -913,7 +1089,7 @@ func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRequest.ProtoReflect.Descriptor instead.
 func (*ApplyRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{14}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ApplyRequest) GetObjects() []*Object {
@@ -932,7 +1108,7 @@ type ApplyResponse struct {
 
 func (x *ApplyResponse) Reset() {
 	*x = ApplyResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[15]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -944,7 +1120,7 @@ func (x *ApplyResponse) String() string {
 func (*ApplyResponse) ProtoMessage() {}
 
 func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[15]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -957,7 +1133,7 @@ func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResponse.ProtoReflect.Descriptor instead.
 func (*ApplyResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{15}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ApplyResponse) GetResults() []*ApplyResult {
@@ -979,7 +1155,7 @@ type ApplyResult struct {
 
 func (x *ApplyResult) Reset() {
 	*x = ApplyResult{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[16]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -991,7 +1167,7 @@ func (x *ApplyResult) String() string {
 func (*ApplyResult) ProtoMessage() {}
 
 func (x *ApplyResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[16]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1004,7 +1180,7 @@ func (x *ApplyResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResult.ProtoReflect.Descriptor instead.
 func (*ApplyResult) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{16}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ApplyResult) GetKind() string {
@@ -1038,7 +1214,7 @@ type GetRequest struct {
 
 func (x *GetRequest) Reset() {
 	*x = GetRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[17]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1050,7 +1226,7 @@ func (x *GetRequest) String() string {
 func (*GetRequest) ProtoMessage() {}
 
 func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[17]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1063,7 +1239,7 @@ func (x *GetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{17}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetRequest) GetKind() string {
@@ -1089,7 +1265,7 @@ type ListRequest struct {
 
 func (x *ListRequest) Reset() {
 	*x = ListRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[18]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1101,7 +1277,7 @@ func (x *ListRequest) String() string {
 func (*ListRequest) ProtoMessage() {}
 
 func (x *ListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[18]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1114,7 +1290,7 @@ func (x *ListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRequest.ProtoReflect.Descriptor instead.
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{18}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListRequest) GetKind() string {
@@ -1133,7 +1309,7 @@ type ListResponse struct {
 
 func (x *ListResponse) Reset() {
 	*x = ListResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[19]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1145,7 +1321,7 @@ func (x *ListResponse) String() string {
 func (*ListResponse) ProtoMessage() {}
 
 func (x *ListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[19]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1158,7 +1334,7 @@ func (x *ListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListResponse.ProtoReflect.Descriptor instead.
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{19}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListResponse) GetItems() []*Object {
@@ -1178,7 +1354,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[20]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1190,7 +1366,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[20]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1203,7 +1379,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{20}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DeleteRequest) GetKind() string {
@@ -1228,7 +1404,7 @@ type DeleteResponse struct {
 
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[21]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1240,7 +1416,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[21]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1253,7 +1429,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{21}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{25}
 }
 
 type CreateJoinTokenRequest struct {
@@ -1269,7 +1445,7 @@ type CreateJoinTokenRequest struct {
 
 func (x *CreateJoinTokenRequest) Reset() {
 	*x = CreateJoinTokenRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[22]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1281,7 +1457,7 @@ func (x *CreateJoinTokenRequest) String() string {
 func (*CreateJoinTokenRequest) ProtoMessage() {}
 
 func (x *CreateJoinTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[22]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1294,7 +1470,7 @@ func (x *CreateJoinTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateJoinTokenRequest.ProtoReflect.Descriptor instead.
 func (*CreateJoinTokenRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{22}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CreateJoinTokenRequest) GetTtl() *durationpb.Duration {
@@ -1331,7 +1507,7 @@ type CreateJoinTokenResponse struct {
 
 func (x *CreateJoinTokenResponse) Reset() {
 	*x = CreateJoinTokenResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[23]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1343,7 +1519,7 @@ func (x *CreateJoinTokenResponse) String() string {
 func (*CreateJoinTokenResponse) ProtoMessage() {}
 
 func (x *CreateJoinTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[23]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1356,7 +1532,7 @@ func (x *CreateJoinTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateJoinTokenResponse.ProtoReflect.Descriptor instead.
 func (*CreateJoinTokenResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{23}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CreateJoinTokenResponse) GetToken() string {
@@ -1393,7 +1569,7 @@ type JoinRequest struct {
 
 func (x *JoinRequest) Reset() {
 	*x = JoinRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[24]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1405,7 +1581,7 @@ func (x *JoinRequest) String() string {
 func (*JoinRequest) ProtoMessage() {}
 
 func (x *JoinRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[24]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1418,7 +1594,7 @@ func (x *JoinRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinRequest.ProtoReflect.Descriptor instead.
 func (*JoinRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{24}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *JoinRequest) GetToken() string {
@@ -1454,7 +1630,7 @@ type JoinResponse struct {
 
 func (x *JoinResponse) Reset() {
 	*x = JoinResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[25]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1466,7 +1642,7 @@ func (x *JoinResponse) String() string {
 func (*JoinResponse) ProtoMessage() {}
 
 func (x *JoinResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[25]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1479,7 +1655,7 @@ func (x *JoinResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinResponse.ProtoReflect.Descriptor instead.
 func (*JoinResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{25}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *JoinResponse) GetCertificate() []byte {
@@ -1504,7 +1680,7 @@ type NodeConfigRequest struct {
 
 func (x *NodeConfigRequest) Reset() {
 	*x = NodeConfigRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[26]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1516,7 +1692,7 @@ func (x *NodeConfigRequest) String() string {
 func (*NodeConfigRequest) ProtoMessage() {}
 
 func (x *NodeConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[26]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1529,7 +1705,7 @@ func (x *NodeConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigRequest.ProtoReflect.Descriptor instead.
 func (*NodeConfigRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{26}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{30}
 }
 
 type NodeConfigResponse struct {
@@ -1546,7 +1722,7 @@ type NodeConfigResponse struct {
 
 func (x *NodeConfigResponse) Reset() {
 	*x = NodeConfigResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[27]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1558,7 +1734,7 @@ func (x *NodeConfigResponse) String() string {
 func (*NodeConfigResponse) ProtoMessage() {}
 
 func (x *NodeConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[27]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1571,7 +1747,7 @@ func (x *NodeConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigResponse.ProtoReflect.Descriptor instead.
 func (*NodeConfigResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{27}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *NodeConfigResponse) GetPodCidr() string {
@@ -1607,7 +1783,7 @@ type AgentMessage struct {
 
 func (x *AgentMessage) Reset() {
 	*x = AgentMessage{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[28]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1619,7 +1795,7 @@ func (x *AgentMessage) String() string {
 func (*AgentMessage) ProtoMessage() {}
 
 func (x *AgentMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[28]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1632,7 +1808,7 @@ func (x *AgentMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentMessage.ProtoReflect.Descriptor instead.
 func (*AgentMessage) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{28}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *AgentMessage) GetMsg() isAgentMessage_Msg {
@@ -1686,7 +1862,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[29]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1874,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[29]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1887,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{29}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *Heartbeat) GetCapacity() *NodeCapacity {
@@ -1794,7 +1970,7 @@ type ReplicaReport struct {
 
 func (x *ReplicaReport) Reset() {
 	*x = ReplicaReport{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[30]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1806,7 +1982,7 @@ func (x *ReplicaReport) String() string {
 func (*ReplicaReport) ProtoMessage() {}
 
 func (x *ReplicaReport) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[30]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1819,7 +1995,7 @@ func (x *ReplicaReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplicaReport.ProtoReflect.Descriptor instead.
 func (*ReplicaReport) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{30}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ReplicaReport) GetReplica() string {
@@ -1851,7 +2027,7 @@ type ServerMessage struct {
 
 func (x *ServerMessage) Reset() {
 	*x = ServerMessage{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[31]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1863,7 +2039,7 @@ func (x *ServerMessage) String() string {
 func (*ServerMessage) ProtoMessage() {}
 
 func (x *ServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[31]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1876,7 +2052,7 @@ func (x *ServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
 func (*ServerMessage) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{31}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ServerMessage) GetMsg() isServerMessage_Msg {
@@ -1975,7 +2151,7 @@ type RouteSnapshot struct {
 
 func (x *RouteSnapshot) Reset() {
 	*x = RouteSnapshot{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[32]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1987,7 +2163,7 @@ func (x *RouteSnapshot) String() string {
 func (*RouteSnapshot) ProtoMessage() {}
 
 func (x *RouteSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[32]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2000,7 +2176,7 @@ func (x *RouteSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteSnapshot.ProtoReflect.Descriptor instead.
 func (*RouteSnapshot) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{32}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *RouteSnapshot) GetRevision() int64 {
@@ -2056,7 +2232,7 @@ type EdgeChallenge struct {
 
 func (x *EdgeChallenge) Reset() {
 	*x = EdgeChallenge{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[33]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2068,7 +2244,7 @@ func (x *EdgeChallenge) String() string {
 func (*EdgeChallenge) ProtoMessage() {}
 
 func (x *EdgeChallenge) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[33]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2081,7 +2257,7 @@ func (x *EdgeChallenge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeChallenge.ProtoReflect.Descriptor instead.
 func (*EdgeChallenge) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{33}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *EdgeChallenge) GetToken() string {
@@ -2110,7 +2286,7 @@ type EdgeCertificate struct {
 
 func (x *EdgeCertificate) Reset() {
 	*x = EdgeCertificate{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[34]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2122,7 +2298,7 @@ func (x *EdgeCertificate) String() string {
 func (*EdgeCertificate) ProtoMessage() {}
 
 func (x *EdgeCertificate) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[34]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2135,7 +2311,7 @@ func (x *EdgeCertificate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeCertificate.ProtoReflect.Descriptor instead.
 func (*EdgeCertificate) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{34}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *EdgeCertificate) GetHost() string {
@@ -2180,7 +2356,7 @@ type EdgeRoute struct {
 
 func (x *EdgeRoute) Reset() {
 	*x = EdgeRoute{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[35]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2192,7 +2368,7 @@ func (x *EdgeRoute) String() string {
 func (*EdgeRoute) ProtoMessage() {}
 
 func (x *EdgeRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[35]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2205,7 +2381,7 @@ func (x *EdgeRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeRoute.ProtoReflect.Descriptor instead.
 func (*EdgeRoute) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{35}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *EdgeRoute) GetName() string {
@@ -2277,7 +2453,7 @@ type SetNodeLabelsRequest struct {
 
 func (x *SetNodeLabelsRequest) Reset() {
 	*x = SetNodeLabelsRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2289,7 +2465,7 @@ func (x *SetNodeLabelsRequest) String() string {
 func (*SetNodeLabelsRequest) ProtoMessage() {}
 
 func (x *SetNodeLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2302,7 +2478,7 @@ func (x *SetNodeLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetNodeLabelsRequest.ProtoReflect.Descriptor instead.
 func (*SetNodeLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{36}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SetNodeLabelsRequest) GetNode() string {
@@ -2336,7 +2512,7 @@ type SetNodeLabelsResponse struct {
 
 func (x *SetNodeLabelsResponse) Reset() {
 	*x = SetNodeLabelsResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2348,7 +2524,7 @@ func (x *SetNodeLabelsResponse) String() string {
 func (*SetNodeLabelsResponse) ProtoMessage() {}
 
 func (x *SetNodeLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2361,7 +2537,7 @@ func (x *SetNodeLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetNodeLabelsResponse.ProtoReflect.Descriptor instead.
 func (*SetNodeLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{37}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *SetNodeLabelsResponse) GetLabels() map[string]string {
@@ -2390,7 +2566,7 @@ type AssignmentSnapshot struct {
 
 func (x *AssignmentSnapshot) Reset() {
 	*x = AssignmentSnapshot{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2402,7 +2578,7 @@ func (x *AssignmentSnapshot) String() string {
 func (*AssignmentSnapshot) ProtoMessage() {}
 
 func (x *AssignmentSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2415,7 +2591,7 @@ func (x *AssignmentSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignmentSnapshot.ProtoReflect.Descriptor instead.
 func (*AssignmentSnapshot) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{38}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *AssignmentSnapshot) GetVersion() string {
@@ -2466,14 +2642,16 @@ type Assignment struct {
 	Mounts []*ResolvedMount `protobuf:"bytes,6,rep,name=mounts,proto3" json:"mounts,omitempty"`
 	// Why the replica can't run as specified (e.g. a missing Secret); the
 	// agent reports it and leaves an existing container alone.
-	Problem       string `protobuf:"bytes,7,opt,name=problem,proto3" json:"problem,omitempty"`
+	Problem string `protobuf:"bytes,7,opt,name=problem,proto3" json:"problem,omitempty"`
+	// A backup or restore the agent runs in the replica (ADR 0016, pass D).
+	Job           *DatabaseJob `protobuf:"bytes,8,opt,name=job,proto3" json:"job,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Assignment) Reset() {
 	*x = Assignment{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2485,7 +2663,7 @@ func (x *Assignment) String() string {
 func (*Assignment) ProtoMessage() {}
 
 func (x *Assignment) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2498,7 +2676,7 @@ func (x *Assignment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Assignment.ProtoReflect.Descriptor instead.
 func (*Assignment) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{39}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *Assignment) GetReplica() string {
@@ -2550,6 +2728,13 @@ func (x *Assignment) GetProblem() string {
 	return ""
 }
 
+func (x *Assignment) GetJob() *DatabaseJob {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
 type ResolvedMount struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Path  string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -2562,7 +2747,7 @@ type ResolvedMount struct {
 
 func (x *ResolvedMount) Reset() {
 	*x = ResolvedMount{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2574,7 +2759,7 @@ func (x *ResolvedMount) String() string {
 func (*ResolvedMount) ProtoMessage() {}
 
 func (x *ResolvedMount) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2587,7 +2772,7 @@ func (x *ResolvedMount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolvedMount.ProtoReflect.Descriptor instead.
 func (*ResolvedMount) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{40}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ResolvedMount) GetPath() string {
@@ -2624,7 +2809,7 @@ type ServiceRoute struct {
 
 func (x *ServiceRoute) Reset() {
 	*x = ServiceRoute{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2636,7 +2821,7 @@ func (x *ServiceRoute) String() string {
 func (*ServiceRoute) ProtoMessage() {}
 
 func (x *ServiceRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2649,7 +2834,7 @@ func (x *ServiceRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceRoute.ProtoReflect.Descriptor instead.
 func (*ServiceRoute) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{41}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ServiceRoute) GetName() string {
@@ -2693,7 +2878,7 @@ type MeshPeer struct {
 
 func (x *MeshPeer) Reset() {
 	*x = MeshPeer{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2705,7 +2890,7 @@ func (x *MeshPeer) String() string {
 func (*MeshPeer) ProtoMessage() {}
 
 func (x *MeshPeer) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2718,7 +2903,7 @@ func (x *MeshPeer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeshPeer.ProtoReflect.Descriptor instead.
 func (*MeshPeer) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{42}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *MeshPeer) GetNode() string {
@@ -2764,7 +2949,7 @@ type LogRequest struct {
 
 func (x *LogRequest) Reset() {
 	*x = LogRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2776,7 +2961,7 @@ func (x *LogRequest) String() string {
 func (*LogRequest) ProtoMessage() {}
 
 func (x *LogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2789,7 +2974,7 @@ func (x *LogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
 func (*LogRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{43}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *LogRequest) GetRequestId() string {
@@ -2833,7 +3018,7 @@ type LogChunk struct {
 
 func (x *LogChunk) Reset() {
 	*x = LogChunk{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2845,7 +3030,7 @@ func (x *LogChunk) String() string {
 func (*LogChunk) ProtoMessage() {}
 
 func (x *LogChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2858,7 +3043,7 @@ func (x *LogChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogChunk.ProtoReflect.Descriptor instead.
 func (*LogChunk) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{44}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *LogChunk) GetRequestId() string {
@@ -2896,7 +3081,7 @@ type LogLine struct {
 
 func (x *LogLine) Reset() {
 	*x = LogLine{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2908,7 +3093,7 @@ func (x *LogLine) String() string {
 func (*LogLine) ProtoMessage() {}
 
 func (x *LogLine) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2921,7 +3106,7 @@ func (x *LogLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogLine.ProtoReflect.Descriptor instead.
 func (*LogLine) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{45}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *LogLine) GetTime() *timestamppb.Timestamp {
@@ -2960,7 +3145,7 @@ type UploadLogsResponse struct {
 
 func (x *UploadLogsResponse) Reset() {
 	*x = UploadLogsResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2972,7 +3157,7 @@ func (x *UploadLogsResponse) String() string {
 func (*UploadLogsResponse) ProtoMessage() {}
 
 func (x *UploadLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2985,7 +3170,7 @@ func (x *UploadLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadLogsResponse.ProtoReflect.Descriptor instead.
 func (*UploadLogsResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{46}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{50}
 }
 
 type SyncConfig struct {
@@ -2997,7 +3182,7 @@ type SyncConfig struct {
 
 func (x *SyncConfig) Reset() {
 	*x = SyncConfig{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3009,7 +3194,7 @@ func (x *SyncConfig) String() string {
 func (*SyncConfig) ProtoMessage() {}
 
 func (x *SyncConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3022,7 +3207,7 @@ func (x *SyncConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncConfig.ProtoReflect.Descriptor instead.
 func (*SyncConfig) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{47}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *SyncConfig) GetHeartbeatInterval() *durationpb.Duration {
@@ -3042,7 +3227,7 @@ type RenewCertificateRequest struct {
 
 func (x *RenewCertificateRequest) Reset() {
 	*x = RenewCertificateRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3054,7 +3239,7 @@ func (x *RenewCertificateRequest) String() string {
 func (*RenewCertificateRequest) ProtoMessage() {}
 
 func (x *RenewCertificateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3067,7 +3252,7 @@ func (x *RenewCertificateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewCertificateRequest.ProtoReflect.Descriptor instead.
 func (*RenewCertificateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{48}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *RenewCertificateRequest) GetCsr() []byte {
@@ -3086,7 +3271,7 @@ type RenewCertificateResponse struct {
 
 func (x *RenewCertificateResponse) Reset() {
 	*x = RenewCertificateResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3098,7 +3283,7 @@ func (x *RenewCertificateResponse) String() string {
 func (*RenewCertificateResponse) ProtoMessage() {}
 
 func (x *RenewCertificateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3111,7 +3296,7 @@ func (x *RenewCertificateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewCertificateResponse.ProtoReflect.Descriptor instead.
 func (*RenewCertificateResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{49}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *RenewCertificateResponse) GetCertificate() []byte {
@@ -3129,7 +3314,7 @@ type BackupRequest struct {
 
 func (x *BackupRequest) Reset() {
 	*x = BackupRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3141,7 +3326,7 @@ func (x *BackupRequest) String() string {
 func (*BackupRequest) ProtoMessage() {}
 
 func (x *BackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3154,7 +3339,7 @@ func (x *BackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
 func (*BackupRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{50}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{54}
 }
 
 type BackupResponse struct {
@@ -3170,7 +3355,7 @@ type BackupResponse struct {
 
 func (x *BackupResponse) Reset() {
 	*x = BackupResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3182,7 +3367,7 @@ func (x *BackupResponse) String() string {
 func (*BackupResponse) ProtoMessage() {}
 
 func (x *BackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3195,7 +3380,7 @@ func (x *BackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupResponse.ProtoReflect.Descriptor instead.
 func (*BackupResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{51}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *BackupResponse) GetBackup() []byte {
@@ -3234,7 +3419,15 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\x05route\x18\a \x01(\v2\x15.shoal.v1alpha1.RouteH\x00R\x05route\x120\n" +
 	"\x06volume\x18\b \x01(\v2\x16.shoal.v1alpha1.VolumeH\x00R\x06volume\x126\n" +
 	"\bdatabase\x18\t \x01(\v2\x18.shoal.v1alpha1.DatabaseH\x00R\bdatabaseB\x06\n" +
-	"\x04kind\"\x16\n" +
+	"\x04kind\"4\n" +
+	"\x16DatabaseBackupsRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\"Y\n" +
+	"\x17DatabaseBackupsResponse\x12>\n" +
+	"\abackups\x18\x01 \x03(\v2$.shoal.v1alpha1.DatabaseBackupRecordR\abackups\"3\n" +
+	"\x15BackupDatabaseRequest\x12\x1a\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\"V\n" +
+	"\x16BackupDatabaseResponse\x12<\n" +
+	"\x06backup\x18\x01 \x01(\v2$.shoal.v1alpha1.DatabaseBackupRecordR\x06backup\"\x16\n" +
 	"\x14ClusterStatusRequest\"\xdf\x01\n" +
 	"\x15ClusterStatusResponse\x127\n" +
 	"\amembers\x18\x01 \x03(\v2\x1d.shoal.v1alpha1.ClusterMemberR\amembers\x12,\n" +
@@ -3379,7 +3572,7 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\vassignments\x18\x02 \x03(\v2\x1a.shoal.v1alpha1.AssignmentR\vassignments\x128\n" +
 	"\bservices\x18\x03 \x03(\v2\x1c.shoal.v1alpha1.ServiceRouteR\bservices\x12.\n" +
 	"\x05peers\x18\x04 \x03(\v2\x18.shoal.v1alpha1.MeshPeerR\x05peers\x120\n" +
-	"\avolumes\x18\x05 \x03(\v2\x16.shoal.v1alpha1.VolumeR\avolumes\"\xa8\x02\n" +
+	"\avolumes\x18\x05 \x03(\v2\x16.shoal.v1alpha1.VolumeR\avolumes\"\xd7\x02\n" +
 	"\n" +
 	"Assignment\x12\x18\n" +
 	"\areplica\x18\x01 \x01(\tR\areplica\x12\x1a\n" +
@@ -3388,7 +3581,8 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\x13template_generation\x18\x04 \x01(\x03R\x12templateGeneration\x12(\n" +
 	"\x03env\x18\x05 \x03(\v2\x16.shoal.v1alpha1.EnvVarR\x03env\x125\n" +
 	"\x06mounts\x18\x06 \x03(\v2\x1d.shoal.v1alpha1.ResolvedMountR\x06mounts\x12\x18\n" +
-	"\aproblem\x18\a \x01(\tR\aproblem\"\xb5\x01\n" +
+	"\aproblem\x18\a \x01(\tR\aproblem\x12-\n" +
+	"\x03job\x18\b \x01(\v2\x1b.shoal.v1alpha1.DatabaseJobR\x03job\"\xb5\x01\n" +
 	"\rResolvedMount\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12>\n" +
 	"\x05files\x18\x02 \x03(\v2(.shoal.v1alpha1.ResolvedMount.FilesEntryR\x05files\x12\x16\n" +
@@ -3438,7 +3632,8 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\x0eBackupResponse\x12\x16\n" +
 	"\x06backup\x18\x01 \x01(\fR\x06backup\x12\x1a\n" +
 	"\brevision\x18\x02 \x01(\x03R\brevision\x12!\n" +
-	"\frecord_count\x18\x03 \x01(\x04R\vrecordCount2\x83\t\n" +
+	"\frecord_count\x18\x03 \x01(\x04R\vrecordCount2\xc8\n" +
+	"\n" +
 	"\aControl\x12D\n" +
 	"\x05Apply\x12\x1c.shoal.v1alpha1.ApplyRequest\x1a\x1d.shoal.v1alpha1.ApplyResponse\x129\n" +
 	"\x03Get\x12\x1a.shoal.v1alpha1.GetRequest\x1a\x16.shoal.v1alpha1.Object\x12A\n" +
@@ -3454,7 +3649,9 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\fRemoveServer\x12#.shoal.v1alpha1.RemoveServerRequest\x1a$.shoal.v1alpha1.RemoveServerResponse\x12S\n" +
 	"\n" +
 	"JoinBundle\x12!.shoal.v1alpha1.JoinBundleRequest\x1a\".shoal.v1alpha1.JoinBundleResponse\x12G\n" +
-	"\x06Backup\x12\x1d.shoal.v1alpha1.BackupRequest\x1a\x1e.shoal.v1alpha1.BackupResponse2I\n" +
+	"\x06Backup\x12\x1d.shoal.v1alpha1.BackupRequest\x1a\x1e.shoal.v1alpha1.BackupResponse\x12b\n" +
+	"\x0fDatabaseBackups\x12&.shoal.v1alpha1.DatabaseBackupsRequest\x1a'.shoal.v1alpha1.DatabaseBackupsResponse\x12_\n" +
+	"\x0eBackupDatabase\x12%.shoal.v1alpha1.BackupDatabaseRequest\x1a&.shoal.v1alpha1.BackupDatabaseResponse2I\n" +
 	"\x04Join\x12A\n" +
 	"\x04Join\x12\x1b.shoal.v1alpha1.JoinRequest\x1a\x1c.shoal.v1alpha1.JoinResponse2\xda\x02\n" +
 	"\x05Agent\x12G\n" +
@@ -3477,164 +3674,177 @@ func file_api_v1alpha1_api_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_api_proto_rawDescData
 }
 
-var file_api_v1alpha1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_api_v1alpha1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_api_v1alpha1_api_proto_goTypes = []any{
 	(*Object)(nil),                   // 0: shoal.v1alpha1.Object
-	(*ClusterStatusRequest)(nil),     // 1: shoal.v1alpha1.ClusterStatusRequest
-	(*ClusterStatusResponse)(nil),    // 2: shoal.v1alpha1.ClusterStatusResponse
-	(*ClusterMember)(nil),            // 3: shoal.v1alpha1.ClusterMember
-	(*RemoveServerRequest)(nil),      // 4: shoal.v1alpha1.RemoveServerRequest
-	(*RemoveServerResponse)(nil),     // 5: shoal.v1alpha1.RemoveServerResponse
-	(*JoinBundleRequest)(nil),        // 6: shoal.v1alpha1.JoinBundleRequest
-	(*JoinBundleResponse)(nil),       // 7: shoal.v1alpha1.JoinBundleResponse
-	(*JoinClusterRequest)(nil),       // 8: shoal.v1alpha1.JoinClusterRequest
-	(*JoinClusterResponse)(nil),      // 9: shoal.v1alpha1.JoinClusterResponse
-	(*RestartWorkloadRequest)(nil),   // 10: shoal.v1alpha1.RestartWorkloadRequest
-	(*ResetUIPasswordRequest)(nil),   // 11: shoal.v1alpha1.ResetUIPasswordRequest
-	(*ResetUIPasswordResponse)(nil),  // 12: shoal.v1alpha1.ResetUIPasswordResponse
-	(*LogsRequest)(nil),              // 13: shoal.v1alpha1.LogsRequest
-	(*ApplyRequest)(nil),             // 14: shoal.v1alpha1.ApplyRequest
-	(*ApplyResponse)(nil),            // 15: shoal.v1alpha1.ApplyResponse
-	(*ApplyResult)(nil),              // 16: shoal.v1alpha1.ApplyResult
-	(*GetRequest)(nil),               // 17: shoal.v1alpha1.GetRequest
-	(*ListRequest)(nil),              // 18: shoal.v1alpha1.ListRequest
-	(*ListResponse)(nil),             // 19: shoal.v1alpha1.ListResponse
-	(*DeleteRequest)(nil),            // 20: shoal.v1alpha1.DeleteRequest
-	(*DeleteResponse)(nil),           // 21: shoal.v1alpha1.DeleteResponse
-	(*CreateJoinTokenRequest)(nil),   // 22: shoal.v1alpha1.CreateJoinTokenRequest
-	(*CreateJoinTokenResponse)(nil),  // 23: shoal.v1alpha1.CreateJoinTokenResponse
-	(*JoinRequest)(nil),              // 24: shoal.v1alpha1.JoinRequest
-	(*JoinResponse)(nil),             // 25: shoal.v1alpha1.JoinResponse
-	(*NodeConfigRequest)(nil),        // 26: shoal.v1alpha1.NodeConfigRequest
-	(*NodeConfigResponse)(nil),       // 27: shoal.v1alpha1.NodeConfigResponse
-	(*AgentMessage)(nil),             // 28: shoal.v1alpha1.AgentMessage
-	(*Heartbeat)(nil),                // 29: shoal.v1alpha1.Heartbeat
-	(*ReplicaReport)(nil),            // 30: shoal.v1alpha1.ReplicaReport
-	(*ServerMessage)(nil),            // 31: shoal.v1alpha1.ServerMessage
-	(*RouteSnapshot)(nil),            // 32: shoal.v1alpha1.RouteSnapshot
-	(*EdgeChallenge)(nil),            // 33: shoal.v1alpha1.EdgeChallenge
-	(*EdgeCertificate)(nil),          // 34: shoal.v1alpha1.EdgeCertificate
-	(*EdgeRoute)(nil),                // 35: shoal.v1alpha1.EdgeRoute
-	(*SetNodeLabelsRequest)(nil),     // 36: shoal.v1alpha1.SetNodeLabelsRequest
-	(*SetNodeLabelsResponse)(nil),    // 37: shoal.v1alpha1.SetNodeLabelsResponse
-	(*AssignmentSnapshot)(nil),       // 38: shoal.v1alpha1.AssignmentSnapshot
-	(*Assignment)(nil),               // 39: shoal.v1alpha1.Assignment
-	(*ResolvedMount)(nil),            // 40: shoal.v1alpha1.ResolvedMount
-	(*ServiceRoute)(nil),             // 41: shoal.v1alpha1.ServiceRoute
-	(*MeshPeer)(nil),                 // 42: shoal.v1alpha1.MeshPeer
-	(*LogRequest)(nil),               // 43: shoal.v1alpha1.LogRequest
-	(*LogChunk)(nil),                 // 44: shoal.v1alpha1.LogChunk
-	(*LogLine)(nil),                  // 45: shoal.v1alpha1.LogLine
-	(*UploadLogsResponse)(nil),       // 46: shoal.v1alpha1.UploadLogsResponse
-	(*SyncConfig)(nil),               // 47: shoal.v1alpha1.SyncConfig
-	(*RenewCertificateRequest)(nil),  // 48: shoal.v1alpha1.RenewCertificateRequest
-	(*RenewCertificateResponse)(nil), // 49: shoal.v1alpha1.RenewCertificateResponse
-	(*BackupRequest)(nil),            // 50: shoal.v1alpha1.BackupRequest
-	(*BackupResponse)(nil),           // 51: shoal.v1alpha1.BackupResponse
-	nil,                              // 52: shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
-	nil,                              // 53: shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
-	nil,                              // 54: shoal.v1alpha1.ResolvedMount.FilesEntry
-	(*Workload)(nil),                 // 55: shoal.v1alpha1.Workload
-	(*Node)(nil),                     // 56: shoal.v1alpha1.Node
-	(*Replica)(nil),                  // 57: shoal.v1alpha1.Replica
-	(*Secret)(nil),                   // 58: shoal.v1alpha1.Secret
-	(*Config)(nil),                   // 59: shoal.v1alpha1.Config
-	(*Service)(nil),                  // 60: shoal.v1alpha1.Service
-	(*Route)(nil),                    // 61: shoal.v1alpha1.Route
-	(*Volume)(nil),                   // 62: shoal.v1alpha1.Volume
-	(*Database)(nil),                 // 63: shoal.v1alpha1.Database
-	(*durationpb.Duration)(nil),      // 64: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),    // 65: google.protobuf.Timestamp
-	(*NodeCapacity)(nil),             // 66: shoal.v1alpha1.NodeCapacity
-	(*ReplicaStatus)(nil),            // 67: shoal.v1alpha1.ReplicaStatus
-	(*WorkloadSpec)(nil),             // 68: shoal.v1alpha1.WorkloadSpec
-	(*EnvVar)(nil),                   // 69: shoal.v1alpha1.EnvVar
-	(*ServicePort)(nil),              // 70: shoal.v1alpha1.ServicePort
+	(*DatabaseBackupsRequest)(nil),   // 1: shoal.v1alpha1.DatabaseBackupsRequest
+	(*DatabaseBackupsResponse)(nil),  // 2: shoal.v1alpha1.DatabaseBackupsResponse
+	(*BackupDatabaseRequest)(nil),    // 3: shoal.v1alpha1.BackupDatabaseRequest
+	(*BackupDatabaseResponse)(nil),   // 4: shoal.v1alpha1.BackupDatabaseResponse
+	(*ClusterStatusRequest)(nil),     // 5: shoal.v1alpha1.ClusterStatusRequest
+	(*ClusterStatusResponse)(nil),    // 6: shoal.v1alpha1.ClusterStatusResponse
+	(*ClusterMember)(nil),            // 7: shoal.v1alpha1.ClusterMember
+	(*RemoveServerRequest)(nil),      // 8: shoal.v1alpha1.RemoveServerRequest
+	(*RemoveServerResponse)(nil),     // 9: shoal.v1alpha1.RemoveServerResponse
+	(*JoinBundleRequest)(nil),        // 10: shoal.v1alpha1.JoinBundleRequest
+	(*JoinBundleResponse)(nil),       // 11: shoal.v1alpha1.JoinBundleResponse
+	(*JoinClusterRequest)(nil),       // 12: shoal.v1alpha1.JoinClusterRequest
+	(*JoinClusterResponse)(nil),      // 13: shoal.v1alpha1.JoinClusterResponse
+	(*RestartWorkloadRequest)(nil),   // 14: shoal.v1alpha1.RestartWorkloadRequest
+	(*ResetUIPasswordRequest)(nil),   // 15: shoal.v1alpha1.ResetUIPasswordRequest
+	(*ResetUIPasswordResponse)(nil),  // 16: shoal.v1alpha1.ResetUIPasswordResponse
+	(*LogsRequest)(nil),              // 17: shoal.v1alpha1.LogsRequest
+	(*ApplyRequest)(nil),             // 18: shoal.v1alpha1.ApplyRequest
+	(*ApplyResponse)(nil),            // 19: shoal.v1alpha1.ApplyResponse
+	(*ApplyResult)(nil),              // 20: shoal.v1alpha1.ApplyResult
+	(*GetRequest)(nil),               // 21: shoal.v1alpha1.GetRequest
+	(*ListRequest)(nil),              // 22: shoal.v1alpha1.ListRequest
+	(*ListResponse)(nil),             // 23: shoal.v1alpha1.ListResponse
+	(*DeleteRequest)(nil),            // 24: shoal.v1alpha1.DeleteRequest
+	(*DeleteResponse)(nil),           // 25: shoal.v1alpha1.DeleteResponse
+	(*CreateJoinTokenRequest)(nil),   // 26: shoal.v1alpha1.CreateJoinTokenRequest
+	(*CreateJoinTokenResponse)(nil),  // 27: shoal.v1alpha1.CreateJoinTokenResponse
+	(*JoinRequest)(nil),              // 28: shoal.v1alpha1.JoinRequest
+	(*JoinResponse)(nil),             // 29: shoal.v1alpha1.JoinResponse
+	(*NodeConfigRequest)(nil),        // 30: shoal.v1alpha1.NodeConfigRequest
+	(*NodeConfigResponse)(nil),       // 31: shoal.v1alpha1.NodeConfigResponse
+	(*AgentMessage)(nil),             // 32: shoal.v1alpha1.AgentMessage
+	(*Heartbeat)(nil),                // 33: shoal.v1alpha1.Heartbeat
+	(*ReplicaReport)(nil),            // 34: shoal.v1alpha1.ReplicaReport
+	(*ServerMessage)(nil),            // 35: shoal.v1alpha1.ServerMessage
+	(*RouteSnapshot)(nil),            // 36: shoal.v1alpha1.RouteSnapshot
+	(*EdgeChallenge)(nil),            // 37: shoal.v1alpha1.EdgeChallenge
+	(*EdgeCertificate)(nil),          // 38: shoal.v1alpha1.EdgeCertificate
+	(*EdgeRoute)(nil),                // 39: shoal.v1alpha1.EdgeRoute
+	(*SetNodeLabelsRequest)(nil),     // 40: shoal.v1alpha1.SetNodeLabelsRequest
+	(*SetNodeLabelsResponse)(nil),    // 41: shoal.v1alpha1.SetNodeLabelsResponse
+	(*AssignmentSnapshot)(nil),       // 42: shoal.v1alpha1.AssignmentSnapshot
+	(*Assignment)(nil),               // 43: shoal.v1alpha1.Assignment
+	(*ResolvedMount)(nil),            // 44: shoal.v1alpha1.ResolvedMount
+	(*ServiceRoute)(nil),             // 45: shoal.v1alpha1.ServiceRoute
+	(*MeshPeer)(nil),                 // 46: shoal.v1alpha1.MeshPeer
+	(*LogRequest)(nil),               // 47: shoal.v1alpha1.LogRequest
+	(*LogChunk)(nil),                 // 48: shoal.v1alpha1.LogChunk
+	(*LogLine)(nil),                  // 49: shoal.v1alpha1.LogLine
+	(*UploadLogsResponse)(nil),       // 50: shoal.v1alpha1.UploadLogsResponse
+	(*SyncConfig)(nil),               // 51: shoal.v1alpha1.SyncConfig
+	(*RenewCertificateRequest)(nil),  // 52: shoal.v1alpha1.RenewCertificateRequest
+	(*RenewCertificateResponse)(nil), // 53: shoal.v1alpha1.RenewCertificateResponse
+	(*BackupRequest)(nil),            // 54: shoal.v1alpha1.BackupRequest
+	(*BackupResponse)(nil),           // 55: shoal.v1alpha1.BackupResponse
+	nil,                              // 56: shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
+	nil,                              // 57: shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
+	nil,                              // 58: shoal.v1alpha1.ResolvedMount.FilesEntry
+	(*Workload)(nil),                 // 59: shoal.v1alpha1.Workload
+	(*Node)(nil),                     // 60: shoal.v1alpha1.Node
+	(*Replica)(nil),                  // 61: shoal.v1alpha1.Replica
+	(*Secret)(nil),                   // 62: shoal.v1alpha1.Secret
+	(*Config)(nil),                   // 63: shoal.v1alpha1.Config
+	(*Service)(nil),                  // 64: shoal.v1alpha1.Service
+	(*Route)(nil),                    // 65: shoal.v1alpha1.Route
+	(*Volume)(nil),                   // 66: shoal.v1alpha1.Volume
+	(*Database)(nil),                 // 67: shoal.v1alpha1.Database
+	(*DatabaseBackupRecord)(nil),     // 68: shoal.v1alpha1.DatabaseBackupRecord
+	(*durationpb.Duration)(nil),      // 69: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),    // 70: google.protobuf.Timestamp
+	(*NodeCapacity)(nil),             // 71: shoal.v1alpha1.NodeCapacity
+	(*ReplicaStatus)(nil),            // 72: shoal.v1alpha1.ReplicaStatus
+	(*WorkloadSpec)(nil),             // 73: shoal.v1alpha1.WorkloadSpec
+	(*EnvVar)(nil),                   // 74: shoal.v1alpha1.EnvVar
+	(*DatabaseJob)(nil),              // 75: shoal.v1alpha1.DatabaseJob
+	(*ServicePort)(nil),              // 76: shoal.v1alpha1.ServicePort
 }
 var file_api_v1alpha1_api_proto_depIdxs = []int32{
-	55, // 0: shoal.v1alpha1.Object.workload:type_name -> shoal.v1alpha1.Workload
-	56, // 1: shoal.v1alpha1.Object.node:type_name -> shoal.v1alpha1.Node
-	57, // 2: shoal.v1alpha1.Object.replica:type_name -> shoal.v1alpha1.Replica
-	58, // 3: shoal.v1alpha1.Object.secret:type_name -> shoal.v1alpha1.Secret
-	59, // 4: shoal.v1alpha1.Object.config:type_name -> shoal.v1alpha1.Config
-	60, // 5: shoal.v1alpha1.Object.service:type_name -> shoal.v1alpha1.Service
-	61, // 6: shoal.v1alpha1.Object.route:type_name -> shoal.v1alpha1.Route
-	62, // 7: shoal.v1alpha1.Object.volume:type_name -> shoal.v1alpha1.Volume
-	63, // 8: shoal.v1alpha1.Object.database:type_name -> shoal.v1alpha1.Database
-	3,  // 9: shoal.v1alpha1.ClusterStatusResponse.members:type_name -> shoal.v1alpha1.ClusterMember
-	0,  // 10: shoal.v1alpha1.ApplyRequest.objects:type_name -> shoal.v1alpha1.Object
-	16, // 11: shoal.v1alpha1.ApplyResponse.results:type_name -> shoal.v1alpha1.ApplyResult
-	0,  // 12: shoal.v1alpha1.ListResponse.items:type_name -> shoal.v1alpha1.Object
-	64, // 13: shoal.v1alpha1.CreateJoinTokenRequest.ttl:type_name -> google.protobuf.Duration
-	65, // 14: shoal.v1alpha1.CreateJoinTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
-	29, // 15: shoal.v1alpha1.AgentMessage.heartbeat:type_name -> shoal.v1alpha1.Heartbeat
-	66, // 16: shoal.v1alpha1.Heartbeat.capacity:type_name -> shoal.v1alpha1.NodeCapacity
-	30, // 17: shoal.v1alpha1.Heartbeat.replicas:type_name -> shoal.v1alpha1.ReplicaReport
-	67, // 18: shoal.v1alpha1.ReplicaReport.status:type_name -> shoal.v1alpha1.ReplicaStatus
-	47, // 19: shoal.v1alpha1.ServerMessage.config:type_name -> shoal.v1alpha1.SyncConfig
-	38, // 20: shoal.v1alpha1.ServerMessage.assignments:type_name -> shoal.v1alpha1.AssignmentSnapshot
-	43, // 21: shoal.v1alpha1.ServerMessage.logs:type_name -> shoal.v1alpha1.LogRequest
-	32, // 22: shoal.v1alpha1.ServerMessage.routes:type_name -> shoal.v1alpha1.RouteSnapshot
-	35, // 23: shoal.v1alpha1.RouteSnapshot.routes:type_name -> shoal.v1alpha1.EdgeRoute
-	33, // 24: shoal.v1alpha1.RouteSnapshot.challenges:type_name -> shoal.v1alpha1.EdgeChallenge
-	34, // 25: shoal.v1alpha1.RouteSnapshot.certificates:type_name -> shoal.v1alpha1.EdgeCertificate
-	52, // 26: shoal.v1alpha1.SetNodeLabelsRequest.set:type_name -> shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
-	53, // 27: shoal.v1alpha1.SetNodeLabelsResponse.labels:type_name -> shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
-	39, // 28: shoal.v1alpha1.AssignmentSnapshot.assignments:type_name -> shoal.v1alpha1.Assignment
-	41, // 29: shoal.v1alpha1.AssignmentSnapshot.services:type_name -> shoal.v1alpha1.ServiceRoute
-	42, // 30: shoal.v1alpha1.AssignmentSnapshot.peers:type_name -> shoal.v1alpha1.MeshPeer
-	62, // 31: shoal.v1alpha1.AssignmentSnapshot.volumes:type_name -> shoal.v1alpha1.Volume
-	68, // 32: shoal.v1alpha1.Assignment.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	69, // 33: shoal.v1alpha1.Assignment.env:type_name -> shoal.v1alpha1.EnvVar
-	40, // 34: shoal.v1alpha1.Assignment.mounts:type_name -> shoal.v1alpha1.ResolvedMount
-	54, // 35: shoal.v1alpha1.ResolvedMount.files:type_name -> shoal.v1alpha1.ResolvedMount.FilesEntry
-	70, // 36: shoal.v1alpha1.ServiceRoute.ports:type_name -> shoal.v1alpha1.ServicePort
-	45, // 37: shoal.v1alpha1.LogChunk.lines:type_name -> shoal.v1alpha1.LogLine
-	65, // 38: shoal.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
-	64, // 39: shoal.v1alpha1.SyncConfig.heartbeat_interval:type_name -> google.protobuf.Duration
-	14, // 40: shoal.v1alpha1.Control.Apply:input_type -> shoal.v1alpha1.ApplyRequest
-	17, // 41: shoal.v1alpha1.Control.Get:input_type -> shoal.v1alpha1.GetRequest
-	18, // 42: shoal.v1alpha1.Control.List:input_type -> shoal.v1alpha1.ListRequest
-	20, // 43: shoal.v1alpha1.Control.Delete:input_type -> shoal.v1alpha1.DeleteRequest
-	36, // 44: shoal.v1alpha1.Control.SetNodeLabels:input_type -> shoal.v1alpha1.SetNodeLabelsRequest
-	22, // 45: shoal.v1alpha1.Control.CreateJoinToken:input_type -> shoal.v1alpha1.CreateJoinTokenRequest
-	13, // 46: shoal.v1alpha1.Control.Logs:input_type -> shoal.v1alpha1.LogsRequest
-	10, // 47: shoal.v1alpha1.Control.RestartWorkload:input_type -> shoal.v1alpha1.RestartWorkloadRequest
-	11, // 48: shoal.v1alpha1.Control.ResetUIPassword:input_type -> shoal.v1alpha1.ResetUIPasswordRequest
-	8,  // 49: shoal.v1alpha1.Control.JoinCluster:input_type -> shoal.v1alpha1.JoinClusterRequest
-	1,  // 50: shoal.v1alpha1.Control.ClusterStatus:input_type -> shoal.v1alpha1.ClusterStatusRequest
-	4,  // 51: shoal.v1alpha1.Control.RemoveServer:input_type -> shoal.v1alpha1.RemoveServerRequest
-	6,  // 52: shoal.v1alpha1.Control.JoinBundle:input_type -> shoal.v1alpha1.JoinBundleRequest
-	50, // 53: shoal.v1alpha1.Control.Backup:input_type -> shoal.v1alpha1.BackupRequest
-	24, // 54: shoal.v1alpha1.Join.Join:input_type -> shoal.v1alpha1.JoinRequest
-	28, // 55: shoal.v1alpha1.Agent.Sync:input_type -> shoal.v1alpha1.AgentMessage
-	48, // 56: shoal.v1alpha1.Agent.RenewCertificate:input_type -> shoal.v1alpha1.RenewCertificateRequest
-	44, // 57: shoal.v1alpha1.Agent.UploadLogs:input_type -> shoal.v1alpha1.LogChunk
-	26, // 58: shoal.v1alpha1.Agent.NodeConfig:input_type -> shoal.v1alpha1.NodeConfigRequest
-	15, // 59: shoal.v1alpha1.Control.Apply:output_type -> shoal.v1alpha1.ApplyResponse
-	0,  // 60: shoal.v1alpha1.Control.Get:output_type -> shoal.v1alpha1.Object
-	19, // 61: shoal.v1alpha1.Control.List:output_type -> shoal.v1alpha1.ListResponse
-	21, // 62: shoal.v1alpha1.Control.Delete:output_type -> shoal.v1alpha1.DeleteResponse
-	37, // 63: shoal.v1alpha1.Control.SetNodeLabels:output_type -> shoal.v1alpha1.SetNodeLabelsResponse
-	23, // 64: shoal.v1alpha1.Control.CreateJoinToken:output_type -> shoal.v1alpha1.CreateJoinTokenResponse
-	45, // 65: shoal.v1alpha1.Control.Logs:output_type -> shoal.v1alpha1.LogLine
-	16, // 66: shoal.v1alpha1.Control.RestartWorkload:output_type -> shoal.v1alpha1.ApplyResult
-	12, // 67: shoal.v1alpha1.Control.ResetUIPassword:output_type -> shoal.v1alpha1.ResetUIPasswordResponse
-	9,  // 68: shoal.v1alpha1.Control.JoinCluster:output_type -> shoal.v1alpha1.JoinClusterResponse
-	2,  // 69: shoal.v1alpha1.Control.ClusterStatus:output_type -> shoal.v1alpha1.ClusterStatusResponse
-	5,  // 70: shoal.v1alpha1.Control.RemoveServer:output_type -> shoal.v1alpha1.RemoveServerResponse
-	7,  // 71: shoal.v1alpha1.Control.JoinBundle:output_type -> shoal.v1alpha1.JoinBundleResponse
-	51, // 72: shoal.v1alpha1.Control.Backup:output_type -> shoal.v1alpha1.BackupResponse
-	25, // 73: shoal.v1alpha1.Join.Join:output_type -> shoal.v1alpha1.JoinResponse
-	31, // 74: shoal.v1alpha1.Agent.Sync:output_type -> shoal.v1alpha1.ServerMessage
-	49, // 75: shoal.v1alpha1.Agent.RenewCertificate:output_type -> shoal.v1alpha1.RenewCertificateResponse
-	46, // 76: shoal.v1alpha1.Agent.UploadLogs:output_type -> shoal.v1alpha1.UploadLogsResponse
-	27, // 77: shoal.v1alpha1.Agent.NodeConfig:output_type -> shoal.v1alpha1.NodeConfigResponse
-	59, // [59:78] is the sub-list for method output_type
-	40, // [40:59] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	59, // 0: shoal.v1alpha1.Object.workload:type_name -> shoal.v1alpha1.Workload
+	60, // 1: shoal.v1alpha1.Object.node:type_name -> shoal.v1alpha1.Node
+	61, // 2: shoal.v1alpha1.Object.replica:type_name -> shoal.v1alpha1.Replica
+	62, // 3: shoal.v1alpha1.Object.secret:type_name -> shoal.v1alpha1.Secret
+	63, // 4: shoal.v1alpha1.Object.config:type_name -> shoal.v1alpha1.Config
+	64, // 5: shoal.v1alpha1.Object.service:type_name -> shoal.v1alpha1.Service
+	65, // 6: shoal.v1alpha1.Object.route:type_name -> shoal.v1alpha1.Route
+	66, // 7: shoal.v1alpha1.Object.volume:type_name -> shoal.v1alpha1.Volume
+	67, // 8: shoal.v1alpha1.Object.database:type_name -> shoal.v1alpha1.Database
+	68, // 9: shoal.v1alpha1.DatabaseBackupsResponse.backups:type_name -> shoal.v1alpha1.DatabaseBackupRecord
+	68, // 10: shoal.v1alpha1.BackupDatabaseResponse.backup:type_name -> shoal.v1alpha1.DatabaseBackupRecord
+	7,  // 11: shoal.v1alpha1.ClusterStatusResponse.members:type_name -> shoal.v1alpha1.ClusterMember
+	0,  // 12: shoal.v1alpha1.ApplyRequest.objects:type_name -> shoal.v1alpha1.Object
+	20, // 13: shoal.v1alpha1.ApplyResponse.results:type_name -> shoal.v1alpha1.ApplyResult
+	0,  // 14: shoal.v1alpha1.ListResponse.items:type_name -> shoal.v1alpha1.Object
+	69, // 15: shoal.v1alpha1.CreateJoinTokenRequest.ttl:type_name -> google.protobuf.Duration
+	70, // 16: shoal.v1alpha1.CreateJoinTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	33, // 17: shoal.v1alpha1.AgentMessage.heartbeat:type_name -> shoal.v1alpha1.Heartbeat
+	71, // 18: shoal.v1alpha1.Heartbeat.capacity:type_name -> shoal.v1alpha1.NodeCapacity
+	34, // 19: shoal.v1alpha1.Heartbeat.replicas:type_name -> shoal.v1alpha1.ReplicaReport
+	72, // 20: shoal.v1alpha1.ReplicaReport.status:type_name -> shoal.v1alpha1.ReplicaStatus
+	51, // 21: shoal.v1alpha1.ServerMessage.config:type_name -> shoal.v1alpha1.SyncConfig
+	42, // 22: shoal.v1alpha1.ServerMessage.assignments:type_name -> shoal.v1alpha1.AssignmentSnapshot
+	47, // 23: shoal.v1alpha1.ServerMessage.logs:type_name -> shoal.v1alpha1.LogRequest
+	36, // 24: shoal.v1alpha1.ServerMessage.routes:type_name -> shoal.v1alpha1.RouteSnapshot
+	39, // 25: shoal.v1alpha1.RouteSnapshot.routes:type_name -> shoal.v1alpha1.EdgeRoute
+	37, // 26: shoal.v1alpha1.RouteSnapshot.challenges:type_name -> shoal.v1alpha1.EdgeChallenge
+	38, // 27: shoal.v1alpha1.RouteSnapshot.certificates:type_name -> shoal.v1alpha1.EdgeCertificate
+	56, // 28: shoal.v1alpha1.SetNodeLabelsRequest.set:type_name -> shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
+	57, // 29: shoal.v1alpha1.SetNodeLabelsResponse.labels:type_name -> shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
+	43, // 30: shoal.v1alpha1.AssignmentSnapshot.assignments:type_name -> shoal.v1alpha1.Assignment
+	45, // 31: shoal.v1alpha1.AssignmentSnapshot.services:type_name -> shoal.v1alpha1.ServiceRoute
+	46, // 32: shoal.v1alpha1.AssignmentSnapshot.peers:type_name -> shoal.v1alpha1.MeshPeer
+	66, // 33: shoal.v1alpha1.AssignmentSnapshot.volumes:type_name -> shoal.v1alpha1.Volume
+	73, // 34: shoal.v1alpha1.Assignment.template:type_name -> shoal.v1alpha1.WorkloadSpec
+	74, // 35: shoal.v1alpha1.Assignment.env:type_name -> shoal.v1alpha1.EnvVar
+	44, // 36: shoal.v1alpha1.Assignment.mounts:type_name -> shoal.v1alpha1.ResolvedMount
+	75, // 37: shoal.v1alpha1.Assignment.job:type_name -> shoal.v1alpha1.DatabaseJob
+	58, // 38: shoal.v1alpha1.ResolvedMount.files:type_name -> shoal.v1alpha1.ResolvedMount.FilesEntry
+	76, // 39: shoal.v1alpha1.ServiceRoute.ports:type_name -> shoal.v1alpha1.ServicePort
+	49, // 40: shoal.v1alpha1.LogChunk.lines:type_name -> shoal.v1alpha1.LogLine
+	70, // 41: shoal.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
+	69, // 42: shoal.v1alpha1.SyncConfig.heartbeat_interval:type_name -> google.protobuf.Duration
+	18, // 43: shoal.v1alpha1.Control.Apply:input_type -> shoal.v1alpha1.ApplyRequest
+	21, // 44: shoal.v1alpha1.Control.Get:input_type -> shoal.v1alpha1.GetRequest
+	22, // 45: shoal.v1alpha1.Control.List:input_type -> shoal.v1alpha1.ListRequest
+	24, // 46: shoal.v1alpha1.Control.Delete:input_type -> shoal.v1alpha1.DeleteRequest
+	40, // 47: shoal.v1alpha1.Control.SetNodeLabels:input_type -> shoal.v1alpha1.SetNodeLabelsRequest
+	26, // 48: shoal.v1alpha1.Control.CreateJoinToken:input_type -> shoal.v1alpha1.CreateJoinTokenRequest
+	17, // 49: shoal.v1alpha1.Control.Logs:input_type -> shoal.v1alpha1.LogsRequest
+	14, // 50: shoal.v1alpha1.Control.RestartWorkload:input_type -> shoal.v1alpha1.RestartWorkloadRequest
+	15, // 51: shoal.v1alpha1.Control.ResetUIPassword:input_type -> shoal.v1alpha1.ResetUIPasswordRequest
+	12, // 52: shoal.v1alpha1.Control.JoinCluster:input_type -> shoal.v1alpha1.JoinClusterRequest
+	5,  // 53: shoal.v1alpha1.Control.ClusterStatus:input_type -> shoal.v1alpha1.ClusterStatusRequest
+	8,  // 54: shoal.v1alpha1.Control.RemoveServer:input_type -> shoal.v1alpha1.RemoveServerRequest
+	10, // 55: shoal.v1alpha1.Control.JoinBundle:input_type -> shoal.v1alpha1.JoinBundleRequest
+	54, // 56: shoal.v1alpha1.Control.Backup:input_type -> shoal.v1alpha1.BackupRequest
+	1,  // 57: shoal.v1alpha1.Control.DatabaseBackups:input_type -> shoal.v1alpha1.DatabaseBackupsRequest
+	3,  // 58: shoal.v1alpha1.Control.BackupDatabase:input_type -> shoal.v1alpha1.BackupDatabaseRequest
+	28, // 59: shoal.v1alpha1.Join.Join:input_type -> shoal.v1alpha1.JoinRequest
+	32, // 60: shoal.v1alpha1.Agent.Sync:input_type -> shoal.v1alpha1.AgentMessage
+	52, // 61: shoal.v1alpha1.Agent.RenewCertificate:input_type -> shoal.v1alpha1.RenewCertificateRequest
+	48, // 62: shoal.v1alpha1.Agent.UploadLogs:input_type -> shoal.v1alpha1.LogChunk
+	30, // 63: shoal.v1alpha1.Agent.NodeConfig:input_type -> shoal.v1alpha1.NodeConfigRequest
+	19, // 64: shoal.v1alpha1.Control.Apply:output_type -> shoal.v1alpha1.ApplyResponse
+	0,  // 65: shoal.v1alpha1.Control.Get:output_type -> shoal.v1alpha1.Object
+	23, // 66: shoal.v1alpha1.Control.List:output_type -> shoal.v1alpha1.ListResponse
+	25, // 67: shoal.v1alpha1.Control.Delete:output_type -> shoal.v1alpha1.DeleteResponse
+	41, // 68: shoal.v1alpha1.Control.SetNodeLabels:output_type -> shoal.v1alpha1.SetNodeLabelsResponse
+	27, // 69: shoal.v1alpha1.Control.CreateJoinToken:output_type -> shoal.v1alpha1.CreateJoinTokenResponse
+	49, // 70: shoal.v1alpha1.Control.Logs:output_type -> shoal.v1alpha1.LogLine
+	20, // 71: shoal.v1alpha1.Control.RestartWorkload:output_type -> shoal.v1alpha1.ApplyResult
+	16, // 72: shoal.v1alpha1.Control.ResetUIPassword:output_type -> shoal.v1alpha1.ResetUIPasswordResponse
+	13, // 73: shoal.v1alpha1.Control.JoinCluster:output_type -> shoal.v1alpha1.JoinClusterResponse
+	6,  // 74: shoal.v1alpha1.Control.ClusterStatus:output_type -> shoal.v1alpha1.ClusterStatusResponse
+	9,  // 75: shoal.v1alpha1.Control.RemoveServer:output_type -> shoal.v1alpha1.RemoveServerResponse
+	11, // 76: shoal.v1alpha1.Control.JoinBundle:output_type -> shoal.v1alpha1.JoinBundleResponse
+	55, // 77: shoal.v1alpha1.Control.Backup:output_type -> shoal.v1alpha1.BackupResponse
+	2,  // 78: shoal.v1alpha1.Control.DatabaseBackups:output_type -> shoal.v1alpha1.DatabaseBackupsResponse
+	4,  // 79: shoal.v1alpha1.Control.BackupDatabase:output_type -> shoal.v1alpha1.BackupDatabaseResponse
+	29, // 80: shoal.v1alpha1.Join.Join:output_type -> shoal.v1alpha1.JoinResponse
+	35, // 81: shoal.v1alpha1.Agent.Sync:output_type -> shoal.v1alpha1.ServerMessage
+	53, // 82: shoal.v1alpha1.Agent.RenewCertificate:output_type -> shoal.v1alpha1.RenewCertificateResponse
+	50, // 83: shoal.v1alpha1.Agent.UploadLogs:output_type -> shoal.v1alpha1.UploadLogsResponse
+	31, // 84: shoal.v1alpha1.Agent.NodeConfig:output_type -> shoal.v1alpha1.NodeConfigResponse
+	64, // [64:85] is the sub-list for method output_type
+	43, // [43:64] is the sub-list for method input_type
+	43, // [43:43] is the sub-list for extension type_name
+	43, // [43:43] is the sub-list for extension extendee
+	0,  // [0:43] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_api_proto_init() }
@@ -3654,10 +3864,10 @@ func file_api_v1alpha1_api_proto_init() {
 		(*Object_Volume)(nil),
 		(*Object_Database)(nil),
 	}
-	file_api_v1alpha1_api_proto_msgTypes[28].OneofWrappers = []any{
+	file_api_v1alpha1_api_proto_msgTypes[32].OneofWrappers = []any{
 		(*AgentMessage_Heartbeat)(nil),
 	}
-	file_api_v1alpha1_api_proto_msgTypes[31].OneofWrappers = []any{
+	file_api_v1alpha1_api_proto_msgTypes[35].OneofWrappers = []any{
 		(*ServerMessage_Config)(nil),
 		(*ServerMessage_Assignments)(nil),
 		(*ServerMessage_Logs)(nil),
@@ -3669,7 +3879,7 @@ func file_api_v1alpha1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_api_proto_rawDesc), len(file_api_v1alpha1_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   55,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

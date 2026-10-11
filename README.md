@@ -372,10 +372,10 @@ spec:
   version: "16.15"     # pinned image; minor upgrades in place
   size: 5Gi            # data storage, fixed after creation
   resources: { cpu: 500m, memory: 384Mi }
-  backup:              # validated and stored; backups run in a later release
-    schedule: 24h
-    retain: 7
-    targets: [volume]
+  backup:              # logical backups (pg_dump), kept on the data volume
+    schedule: 24h      # at least 1h
+    retain: 7          # backups kept, 1 to 365
+    targets: [volume]  # s3 is a later release
 ```
 
 - `version` takes a major (`"16"` runs the newest pinned 16.x, as the app spec
@@ -385,9 +385,27 @@ spec:
   the Secret `app-db-credentials`. Its `url` key is
   `postgres://app:<password>@app-db.shoal:5432/app_db?sslmode=disable`.
   Reference it with `valueFrom: { secret: { name: app-db-credentials, key: url } }`.
-- A minor version change updates the image. A major version change is refused
-  with a `Failed` status: restore a backup into a new Database of the new major.
-  Backups before upgrades and restore are not in this release.
+- A minor version change first takes a backup of the running version and waits
+  for it to verify, then updates the image. If that backup fails, the upgrade is
+  refused with a `Failed` status and the old image keeps running; it is retried
+  after 10 minutes. A major version change is refused with a `Failed` status:
+  restore a backup into a new Database of the new major.
+- Backups run on the database's node: `pg_dump -Fc` writes a dump into
+  `/var/lib/postgresql/data/backups` on the data volume, with its size and
+  SHA-256 recorded. Backups are local to the volume in this release; S3 export
+  is a later release. Retention deletes the oldest backups beyond `retain`.
+
+```sh
+sudo ./bin/shoal db backup app-db                   # a backup now (Ready database)
+sudo ./bin/shoal db backups app-db                  # ID, CREATED, STATUS, REASON, VERSION, SIZE, SHA256
+sudo ./bin/shoal db restore app-db --from <ID> --into app-db-restored
+```
+
+- `db restore` creates a new Database and loads the dump into it once the new
+  Database is Ready. The source is never written. The new Database takes the
+  source's password, so `app-db-restored` connects with the same credentials
+  as `app-db`. The new name must not exist. The restore runs in the source's
+  database container, so the source must be running.
 - Deleting the Database deletes its objects. The data Volume follows its
   retention (`Retain` by default, kept on the node).
 - A database has one replica and no high availability.

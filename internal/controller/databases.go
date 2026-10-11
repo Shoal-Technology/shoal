@@ -41,9 +41,20 @@ const (
 // errNotOwned means an object with a Database's name belongs to someone else.
 var errNotOwned = errors.New("delete it or choose another name")
 
+// expansion is the outcome of expanding one Database. A refusal fails it (its
+// objects are left as they are). A hold leaves its phase as it is and shows the
+// wait; the workload is not changed while a hold lasts. restoreState is the
+// restore state to record, if any.
+type expansion struct {
+	refusal      string
+	hold         string
+	restoreState string
+}
+
 // syncDatabases expands every Database into its owned objects, cascades the
 // deletion of objects whose Database is gone, and writes each Database's
-// status. It returns the errors it skipped over.
+// status. It then runs the Databases' backups and restores (dbbackup.go). It
+// returns the errors it skipped over.
 func (c *Controller) syncDatabases(ctx context.Context, s *state) []error {
 	recs, err := c.st.List(ctx, v1alpha1.KindDatabase)
 	if err != nil {
@@ -68,16 +79,16 @@ func (c *Controller) syncDatabases(ctx context.Context, s *state) []error {
 	}
 	for _, name := range sortedKeys(dbs) {
 		d := dbs[name]
-		reason, err := c.expandDatabase(ctx, d, apps[name])
+		exp, err := c.expandDatabase(ctx, d, apps[name])
 		if err != nil {
 			errs = append(errs, fmt.Errorf("database %s: %w", name, err))
 			continue
 		}
-		if err := c.writeDatabaseStatus(ctx, s, d, reason); err != nil {
+		if err := c.writeDatabaseStatus(ctx, s, d, exp); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	return errs
+	return append(errs, c.syncDatabaseJobs(ctx, s, dbs)...)
 }
 
 // appLabel is the label that names the app a Database belongs to. Owned objects
@@ -85,23 +96,46 @@ func (c *Controller) syncDatabases(ctx context.Context, s *state) []error {
 const appLabel = "app"
 
 // expandDatabase makes the owned objects of d match its spec. app is the
-// Database's app label, or "". It returns a non-empty reason when d is refused
-// (a conflict or a major upgrade); the objects are left as they are. The error
-// is for transient store failures.
-func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, app string) (string, error) {
+// Database's app label, or "". The error is for transient store failures; a
+// refusal or a hold is in the expansion.
+func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, app string) (expansion, error) {
 	name := d.GetMetadata().GetName()
 	spec := d.GetSpec()
 	version, image, ok := database.Resolve(spec.GetEngine(), spec.GetVersion())
 	if !ok {
-		return fmt.Sprintf("version %q is not in the image table", spec.GetVersion()), nil
+		return expansion{refusal: fmt.Sprintf("version %q is not in the image table", spec.GetVersion())}, nil
 	}
-	if cur := d.GetStatus().GetVersion(); cur != "" && database.Major(cur) != database.Major(version) {
-		return fmt.Sprintf("major upgrade from %s to %s is refused: restore a backup into a new Database of version %s (ADR 0016, section 3.8)",
-			cur, version, version), nil
+	cur := d.GetStatus().GetVersion()
+	if cur != "" && database.Major(cur) != database.Major(version) {
+		return expansion{refusal: fmt.Sprintf("major upgrade from %s to %s is refused: restore a backup into a new Database of version %s (ADR 0016, section 3.8)",
+			cur, version, version)}, nil
 	}
+
+	// A restore creates a new Database (section 3.7). It is refused for a
+	// Database that already exists, so a restore never overwrites live data.
+	var exp expansion
+	var source *v1alpha1.DatabaseBackupRecord
+	if from := spec.GetRestoreFrom(); from != "" {
+		src, refusal, err := c.restoreSource(ctx, from)
+		if err != nil {
+			return expansion{}, err
+		}
+		if refusal != "" {
+			return expansion{refusal: refusal}, nil
+		}
+		fresh := d.GetStatus().GetPhase() == ""
+		if !fresh && d.GetStatus().GetRestoreState() == "" {
+			return expansion{refusal: "restore refused: the database already exists; restore into a new Database (ADR 0016, section 3.7)"}, nil
+		}
+		source = src
+		if d.GetStatus().GetRestoreState() == "" {
+			exp.restoreState = database.RestorePending
+		}
+	}
+
 	labels := ownedLabels(app)
 	dataName, credName := name+dbDataSuffix, name+dbCredsSuffix
-	dbName := strings.ReplaceAll(name, "-", "_")
+	dbName := database.DBName(name)
 
 	// Storage is fixed once created: online resize is not in v1.
 	vol, err := objects.Encode(&v1alpha1.VolumeSpec{
@@ -109,7 +143,7 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 		Owner: &v1alpha1.VolumeOwner{Uid: dbUID, Gid: dbUID}, Mode: "0700", Retention: resource.RetentionRetain,
 	})
 	if err != nil {
-		return "", err
+		return expansion{}, err
 	}
 	if err := c.putOwned(ctx, v1alpha1.KindVolume, dataName, name, labels, vol, false); err != nil {
 		return blockedBy(err)
@@ -120,16 +154,27 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 	var creds []byte
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		if creds, err = newCredentials(name, dbName); err != nil {
-			return "", err
+		if creds, err = c.newDatabaseCredentials(ctx, name, dbName, source); err != nil {
+			return expansion{}, err
 		}
 	case err != nil:
-		return "", err
+		return expansion{}, err
 	default:
 		creds = secret.Spec
 	}
 	if err := c.putOwned(ctx, v1alpha1.KindSecret, credName, name, labels, creds, false); err != nil {
 		return blockedBy(err)
+	}
+
+	// A minor upgrade takes a verified backup first (section 3.8).
+	if cur != "" && cur != version {
+		refusal, hold, err := c.upgradeGate(ctx, name, cur, version)
+		if err != nil {
+			return expansion{}, err
+		}
+		if refusal != "" || hold != "" {
+			return expansion{refusal: refusal, hold: hold, restoreState: exp.restoreState}, nil
+		}
 	}
 
 	w := &v1alpha1.Workload{
@@ -157,11 +202,11 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 	}
 	resource.DefaultWorkload(w)
 	if err := resource.ValidateWorkload(w); err != nil {
-		return "", fmt.Errorf("database %s: expanded workload is invalid: %w", name, err)
+		return expansion{}, fmt.Errorf("database %s: expanded workload is invalid: %w", name, err)
 	}
 	wb, err := objects.Encode(w.Spec)
 	if err != nil {
-		return "", err
+		return expansion{}, err
 	}
 	if err := c.putOwned(ctx, v1alpha1.KindWorkload, name, name, labels, wb, true); err != nil {
 		return blockedBy(err)
@@ -172,21 +217,21 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 		Ports:    []*v1alpha1.ServicePort{{Port: dbPort, TargetPort: dbPort, Protocol: "tcp"}},
 	})
 	if err != nil {
-		return "", err
+		return expansion{}, err
 	}
 	if err := c.putOwned(ctx, v1alpha1.KindService, name, name, labels, svc, true); err != nil {
 		return blockedBy(err)
 	}
-	return "", nil
+	return exp, nil
 }
 
-// blockedBy turns an ownership conflict into a refusal reason and passes any
-// other error on.
-func blockedBy(err error) (string, error) {
+// blockedBy turns an ownership conflict into a refusal and passes any other
+// error on.
+func blockedBy(err error) (expansion, error) {
 	if errors.Is(err, errNotOwned) {
-		return err.Error(), nil
+		return expansion{refusal: err.Error()}, nil
 	}
-	return "", err
+	return expansion{}, err
 }
 
 func secretEnv(name, secret, key string) *v1alpha1.EnvVar {
@@ -200,7 +245,12 @@ func newCredentials(name, dbName string) ([]byte, error) {
 	if _, err := rand.Read(raw); err != nil {
 		return nil, fmt.Errorf("generate database password: %w", err)
 	}
-	pw := base64.RawURLEncoding.EncodeToString(raw) // URL-safe: needs no escaping in the URL
+	return encodeCredentials(name, dbName, base64.RawURLEncoding.EncodeToString(raw)) // URL-safe: needs no escaping in the URL
+}
+
+// encodeCredentials returns the encoded spec of the credentials Secret of a
+// Database with password pw.
+func encodeCredentials(name, dbName, pw string) ([]byte, error) {
 	host := name + "." + v1alpha1.DNSDomain
 	port := strconv.Itoa(dbPort)
 	return objects.Encode(&v1alpha1.SecretSpec{Data: map[string]string{
@@ -398,26 +448,40 @@ func (c *Controller) deleteIgnoringMissing(ctx context.Context, kind, name strin
 }
 
 // writeDatabaseStatus sets the phase of d. The phase comes from the expansion's
-// refusal reason, or from the replicas of its Workload as of the last pass.
-func (c *Controller) writeDatabaseStatus(ctx context.Context, s *state, d *v1alpha1.Database, reason string) error {
+// refusal, or from the replicas of its Workload as of the last pass. A hold
+// keeps the running version and shows the wait as the message.
+func (c *Controller) writeDatabaseStatus(ctx context.Context, s *state, d *v1alpha1.Database, exp expansion) error {
 	name := d.GetMetadata().GetName()
 	prev := d.GetStatus().GetPhase()
 	st := &v1alpha1.DatabaseStatus{
-		Endpoint: fmt.Sprintf("%s.%s:%d", name, v1alpha1.DNSDomain, dbPort),
-		Version:  d.GetStatus().GetVersion(),
+		Endpoint:     fmt.Sprintf("%s.%s:%d", name, v1alpha1.DNSDomain, dbPort),
+		Version:      d.GetStatus().GetVersion(),
+		RestoreState: d.GetStatus().GetRestoreState(),
+	}
+	if exp.restoreState != "" {
+		st.RestoreState = exp.restoreState
 	}
 	// The version is the full major.minor the spec resolves to (16 is 16.15).
 	version, _, _ := database.Resolve(d.GetSpec().GetEngine(), d.GetSpec().GetVersion())
 	w, exists := s.workloads[name]
 	switch {
-	case reason != "":
-		st.Phase, st.Message = "Failed", reason
+	case exp.refusal != "":
+		st.Phase, st.Message = "Failed", exp.refusal
 	case exists && w.GetStatus().GetReadyReplicas() > 0:
-		st.Phase, st.Version = "Ready", version
+		st.Phase = "Ready"
 	case prev == "Ready" || prev == "Degraded":
-		st.Phase, st.Version, st.Message = "Degraded", version, "no replica is ready"
+		st.Phase, st.Message = "Degraded", "no replica is ready"
 	default:
-		st.Phase, st.Version, st.Message = "Provisioning", version, "waiting for the database to start"
+		st.Phase, st.Message = "Provisioning", "waiting for the database to start"
+	}
+	if exp.refusal == "" && exp.hold == "" {
+		st.Version = version
+	}
+	if exp.hold != "" {
+		st.Message = exp.hold
+	}
+	if st.Phase == "Ready" && exp.hold == "" && st.GetRestoreState() == database.RestoreFailed {
+		st.Message = d.GetStatus().GetMessage() // keep the restore's error
 	}
 	if proto.Equal(d.GetStatus(), st) {
 		return nil

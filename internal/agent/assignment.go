@@ -69,6 +69,8 @@ type Assignment struct {
 	// Volumes are the node-local volumes the replica mounts (ADR 0016). Their
 	// host directories are added to Spec.Mounts when the pass runs.
 	Volumes []VolumeAttachment
+	// Job is the backup or restore to run in the replica (ADR 0016, pass D).
+	Job *v1alpha1.DatabaseJob
 }
 
 // VolumeAttachment is a Volume the replica mounts, with what the agent needs
@@ -200,6 +202,9 @@ type ReplicaStatus struct {
 	// Ready: running and passing the health check (if any).
 	Ready              bool
 	TemplateGeneration int64
+	// Job is the result of the replica's database job, once it has run
+	// (ADR 0016, pass D). Nil while it runs or when there is none.
+	Job *v1alpha1.DatabaseJobResult
 	// outdated: the running container predates the assignment's spec (it
 	// is kept while the new image is pulled).
 	outdated bool
@@ -215,6 +220,7 @@ func (s ReplicaStatus) API() *v1alpha1.ReplicaStatus {
 		Message:            s.Message,
 		Ready:              s.Ready,
 		TemplateGeneration: s.TemplateGeneration,
+		Job:                s.Job,
 	}
 	if !s.StartedAt.IsZero() {
 		st.StartedAt = timestamppb.New(s.StartedAt)
@@ -233,6 +239,7 @@ func AssignmentFromAPI(a *v1alpha1.Assignment) (Assignment, error) {
 		Spec:          runtime.ContainerSpec{Image: t.GetImage(), Command: t.GetCommand()},
 
 		TemplateGeneration: a.GetTemplateGeneration(),
+		Job:                a.GetJob(),
 	}
 	if out.RestartPolicy == "" {
 		out.RestartPolicy = RestartAlways

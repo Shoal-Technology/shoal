@@ -171,5 +171,27 @@ type Runtime interface {
 	// ExitCode is then -1 and the error says so). Output is capped at
 	// ExecOutputLimit per stream. It returns ErrNotFound for an unknown
 	// container and an error if the container is not running.
-	Exec(ctx context.Context, id string, argv []string, timeout time.Duration) (ExecResult, error)
+	// opts may add environment entries (WithEnv) for the process.
+	Exec(ctx context.Context, id string, argv []string, timeout time.Duration, opts ...ExecOption) (ExecResult, error)
+}
+
+// ExecOption changes one Exec call.
+type ExecOption func(*execOptions)
+
+type execOptions struct{ env []string }
+
+// WithEnv adds KEY=VALUE entries to the environment of the exec process, on
+// top of the container's own. Put secrets here, not in argv: argv is visible
+// in the process list.
+func WithEnv(kv ...string) ExecOption {
+	return func(o *execOptions) { o.env = append(o.env, kv...) }
+}
+
+// ExecEnv returns the entries that opts add to an exec process environment.
+func ExecEnv(opts ...ExecOption) []string {
+	var o execOptions
+	for _, f := range opts {
+		f(&o)
+	}
+	return o.env
 }

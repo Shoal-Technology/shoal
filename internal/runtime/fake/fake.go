@@ -24,7 +24,23 @@ type Runtime struct {
 	crashing   map[string]bool               // images whose containers exit right after starting
 	logs       map[string][]runtime.LogEntry // by container ID
 	execs      map[string]func([]string) runtime.ExecResult
+	execCalls  []ExecCall
 	calls      []string
+}
+
+// ExecCall is one Exec call: the container, the argv and the environment the
+// call added with runtime.WithEnv.
+type ExecCall struct {
+	ID   string
+	Argv []string
+	Env  []string
+}
+
+// ExecCalls returns the Exec calls so far, oldest first.
+func (r *Runtime) ExecCalls() []ExecCall {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.execCalls)
 }
 
 type container struct {
@@ -62,7 +78,7 @@ func (r *Runtime) SetExec(id string, fn func(argv []string) runtime.ExecResult) 
 // Exec implements runtime.Runtime. Like containerd, it needs a running
 // container, and output is capped at runtime.ExecOutputLimit. The timeout is
 // not enforced: a handler returns at once.
-func (r *Runtime) Exec(_ context.Context, id string, argv []string, _ time.Duration) (runtime.ExecResult, error) {
+func (r *Runtime) Exec(_ context.Context, id string, argv []string, _ time.Duration, opts ...runtime.ExecOption) (runtime.ExecResult, error) {
 	r.mu.Lock()
 	c, ok := r.containers[id]
 	switch {
@@ -80,6 +96,7 @@ func (r *Runtime) Exec(_ context.Context, id string, argv []string, _ time.Durat
 		r.mu.Unlock()
 		return runtime.ExecResult{}, err
 	}
+	r.execCalls = append(r.execCalls, ExecCall{ID: id, Argv: slices.Clone(argv), Env: runtime.ExecEnv(opts...)})
 	fn := r.execs[id]
 	r.mu.Unlock()
 

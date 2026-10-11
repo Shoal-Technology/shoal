@@ -33,6 +33,8 @@ const (
 	Control_RemoveServer_FullMethodName    = "/shoal.v1alpha1.Control/RemoveServer"
 	Control_JoinBundle_FullMethodName      = "/shoal.v1alpha1.Control/JoinBundle"
 	Control_Backup_FullMethodName          = "/shoal.v1alpha1.Control/Backup"
+	Control_DatabaseBackups_FullMethodName = "/shoal.v1alpha1.Control/DatabaseBackups"
+	Control_BackupDatabase_FullMethodName  = "/shoal.v1alpha1.Control/BackupDatabase"
 )
 
 // ControlClient is the client API for Control service.
@@ -79,6 +81,12 @@ type ControlClient interface {
 	// format. On the raft store only the leader answers (FAILED_PRECONDITION
 	// names the leader otherwise). Secrets stay encrypted in the backup.
 	Backup(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*BackupResponse, error)
+	// DatabaseBackups lists the logical backups of a Database, newest first
+	// (ADR 0016, pass D).
+	DatabaseBackups(ctx context.Context, in *DatabaseBackupsRequest, opts ...grpc.CallOption) (*DatabaseBackupsResponse, error)
+	// BackupDatabase asks for a logical backup of a Database now. The backup
+	// runs on the database's node; the returned record is pending.
+	BackupDatabase(ctx context.Context, in *BackupDatabaseRequest, opts ...grpc.CallOption) (*BackupDatabaseResponse, error)
 }
 
 type controlClient struct {
@@ -238,6 +246,26 @@ func (c *controlClient) Backup(ctx context.Context, in *BackupRequest, opts ...g
 	return out, nil
 }
 
+func (c *controlClient) DatabaseBackups(ctx context.Context, in *DatabaseBackupsRequest, opts ...grpc.CallOption) (*DatabaseBackupsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DatabaseBackupsResponse)
+	err := c.cc.Invoke(ctx, Control_DatabaseBackups_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) BackupDatabase(ctx context.Context, in *BackupDatabaseRequest, opts ...grpc.CallOption) (*BackupDatabaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BackupDatabaseResponse)
+	err := c.cc.Invoke(ctx, Control_BackupDatabase_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -282,6 +310,12 @@ type ControlServer interface {
 	// format. On the raft store only the leader answers (FAILED_PRECONDITION
 	// names the leader otherwise). Secrets stay encrypted in the backup.
 	Backup(context.Context, *BackupRequest) (*BackupResponse, error)
+	// DatabaseBackups lists the logical backups of a Database, newest first
+	// (ADR 0016, pass D).
+	DatabaseBackups(context.Context, *DatabaseBackupsRequest) (*DatabaseBackupsResponse, error)
+	// BackupDatabase asks for a logical backup of a Database now. The backup
+	// runs on the database's node; the returned record is pending.
+	BackupDatabase(context.Context, *BackupDatabaseRequest) (*BackupDatabaseResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -333,6 +367,12 @@ func (UnimplementedControlServer) JoinBundle(context.Context, *JoinBundleRequest
 }
 func (UnimplementedControlServer) Backup(context.Context, *BackupRequest) (*BackupResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Backup not implemented")
+}
+func (UnimplementedControlServer) DatabaseBackups(context.Context, *DatabaseBackupsRequest) (*DatabaseBackupsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DatabaseBackups not implemented")
+}
+func (UnimplementedControlServer) BackupDatabase(context.Context, *BackupDatabaseRequest) (*BackupDatabaseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BackupDatabase not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -600,6 +640,42 @@ func _Control_Backup_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_DatabaseBackups_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DatabaseBackupsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).DatabaseBackups(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_DatabaseBackups_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).DatabaseBackups(ctx, req.(*DatabaseBackupsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_BackupDatabase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BackupDatabaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).BackupDatabase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_BackupDatabase_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).BackupDatabase(ctx, req.(*BackupDatabaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -658,6 +734,14 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Backup",
 			Handler:    _Control_Backup_Handler,
+		},
+		{
+			MethodName: "DatabaseBackups",
+			Handler:    _Control_DatabaseBackups_Handler,
+		},
+		{
+			MethodName: "BackupDatabase",
+			Handler:    _Control_BackupDatabase_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -219,6 +219,10 @@ arrives in pass C and is switched on for databases once it is reliable (pass
 C). Pass C switched databases to `pg_isready` (section 3.3 of the implementation notes below), so `Ready` means the server answers.
 
 #### 3.4 Logical backups
+**Pass D decision:** Postgres dumps run with exec in the database container, not
+in a one-shot container (see "Implementation notes from pass D"). The text below
+is the original plan.
+
 Both engines back up over the network from a one-shot container of the same
 pinned image, so no exec into the database is needed:
 - Postgres: `pg_dump -Fc -h <db>.shoal -U <user> <db>` writes a custom-format
@@ -395,11 +399,13 @@ Each pass is sized for one agent session and ends with its own tests green.
   (3.2); generated credentials (3.5); the image table (3.6); TCP health, and
   `pg_isready` once exec is proven; `Ready` and `Degraded` phases. Tests:
   fakes plus the first half of the e2e (create, write, kill, persist).
-- **D. Backups and restore.** `pg_dump` and `pg_restore` one-shots; the
-  `Backup` object with checksum; scheduled backups with retention to a backup
-  Volume and to S3; `restoreFrom`; minor upgrades with the pre-upgrade
-  backup and rollback. Tests: fakes plus the full e2e (backup, restore,
-  compare).
+- **D. Done, local volume only (see "Implementation notes from pass D").**
+  `pg_dump` and `pg_restore` run by exec in the database container; the
+  `DatabaseBackup` record with checksum; scheduled backups with retention to the
+  data volume; `restoreFrom`; minor upgrades with the pre-upgrade backup. **S3
+  export is deferred to a later pass** (the `s3` target is still validated and
+  stored only). Tests: fakes, plus the e2e steps for backup and restore (see
+  Implementation notes from pass D for the run).
 - **E. Redis.** Engine branch in the controller; `requirepass` from a mounted
   file; `redis-cli --rdb` backup; RDB restore through the restore one-shot;
   same e2e sequence. Tests: as C and D.

@@ -33,6 +33,11 @@ const (
 	// Database's name. The server refuses user edits of owned objects.
 	KindOwnerClaim = "OwnerClaim"
 
+	// KindDatabaseBackup is a logical backup of a Database (ADR 0016, pass D).
+	// Its name is the backup ID. It is internal: users read it through the
+	// DatabaseBackups RPC, and Apply refuses it.
+	KindDatabaseBackup = "DatabaseBackup"
+
 	// DNSDomain is the domain of Service names: <service>.shoal.
 	DNSDomain = "shoal"
 )

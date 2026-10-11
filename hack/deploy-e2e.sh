@@ -53,6 +53,8 @@ diagnose() {
     cc get databases -o yaml || true
     echo "== diagnose: app logs (last 200 lines per replica)"
     cc app logs blog --tail 200 || true
+    echo == diagnose: database backups
+    cc db backups blog-db || true
     echo "== diagnose: containerd containers"
     sudo -n ctr -n shoal containers ls || true
     sudo -n ctr -n shoal task ls || true
@@ -217,6 +219,62 @@ grep -Eq '(^|[[:space:]])blog-uploads([[:space:]]|$)' "$RESULTS/volumes-after-de
 cc get databases -o yaml >"$RESULTS/databases.yaml" 2>/dev/null || true
 cc get volumes -o yaml >"$RESULTS/volumes.yaml" 2>/dev/null || true
 pass "g) app delete removed the workload and kept database blog-db and volume blog-uploads"
+
+# ---------------------------------------------------------------- h) backup
+# pg_scalar WORKLOAD DATABASE SQL: runs SQL with psql in the Postgres container
+# of WORKLOAD (through ctr, outside Shoal) and prints the single value.
+pg_scalar() {
+  local wl=$1 db=$2 sql=$3 id="" cid info out
+  for cid in $(sudo -n ctr -n shoal containers ls -q); do
+    info=$(sudo -n ctr -n shoal containers info "$cid" 2>/dev/null || true)
+    if printf '%s' "$info" | grep -Eq "\"shoal.workload\": *\"$wl\""; then
+      id=$cid
+    fi
+  done
+  [ -n "$id" ] || return 1
+  out=$(sudo -n ctr -n shoal task exec --exec-id "psql-$RANDOM-$RANDOM" "$id" psql -U app -d "$db" -tAc "$sql") || return 1
+  printf '%s' "$out" | tr -d '[:space:]'
+}
+# backup_ok ID: the backup is listed with status ok.
+backup_ok() {
+  cc db backups blog-db >"$RESULTS/db-backups.txt" 2>&1 || return 1
+  grep -Eq "^$1[[:space:]]+[^[:space:]]+[[:space:]]+ok[[:space:]]" "$RESULTS/db-backups.txt"
+}
+# restore_done: the restored Database reports restore state done.
+restore_done() {
+  cc get databases blog-db-restored -o yaml >"$RESULTS/restored-db.yaml" 2>&1 || return 1
+  grep -Eq 'restore(State|_state)"?:[[:space:]]*"?done' "$RESULTS/restored-db.yaml"
+}
+
+say "h) shoal db backup blog-db takes a logical backup that verifies"
+rows_before=$(pg_scalar blog-db blog_db 'select count(*) from hits') || fail "h) cannot query blog-db"
+[ "$rows_before" -ge 3 ] || fail "h) blog-db has $rows_before rows, want at least 3"
+if ! cc db backup blog-db >"$RESULTS/db-backup.txt" 2>&1; then
+  cat "$RESULTS/db-backup.txt"
+  fail "h) shoal db backup blog-db exited non-zero"
+fi
+cat "$RESULTS/db-backup.txt"
+backup_id=$(awk '/^backup /{print $2; exit}' "$RESULTS/db-backup.txt")
+[ -n "$backup_id" ] || fail "h) shoal db backup printed no backup ID"
+wait_for 300 "h) backup $backup_id is ok" backup_ok "$backup_id"
+cat "$RESULTS/db-backups.txt"
+pass "h) backup $backup_id verified (blog-db had $rows_before rows)"
+
+# ---------------------------------------------------------------- i) restore
+say "i) shoal db restore loads the backup into a new database, and the source keeps its rows"
+if ! cc db restore blog-db --from "$backup_id" --into blog-db-restored >"$RESULTS/db-restore.txt" 2>&1; then
+  cat "$RESULTS/db-restore.txt"
+  fail "i) shoal db restore exited non-zero"
+fi
+cat "$RESULTS/db-restore.txt"
+wait_for 600 "i) blog-db-restored finished its restore" restore_done
+cat "$RESULTS/restored-db.yaml"
+restored=$(pg_scalar blog-db-restored blog_db_restored 'select count(*) from hits') || fail "i) cannot query blog-db-restored"
+[ "$restored" -ge "$rows_before" ] || fail "i) blog-db-restored has $restored rows, the backup had $rows_before"
+src=$(pg_scalar blog-db blog_db 'select count(*) from hits') || fail "i) cannot query blog-db"
+[ "$src" -ge "$rows_before" ] || fail "i) blog-db has $src rows, fewer than the $rows_before it had at backup"
+echo "rows at backup: $rows_before; blog-db-restored: $restored; blog-db: $src" | tee "$RESULTS/restore-rows.txt"
+pass "i) blog-db-restored has $restored rows (the backup had $rows_before); blog-db kept $src"
 
 # ---------------------------------------------------------------- evidence
 if grep -qiE 'fall(ing)? back|dir backend' "$LOGS/agent.log" 2>/dev/null; then

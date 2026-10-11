@@ -194,6 +194,10 @@ message ReplicaSpec {
   // When the template was last set; an update that isn't ready within the
   // workload's progress deadline fails the rollout.
   google.protobuf.Timestamp template_updated_at = 5;
+  // A backup or restore the agent runs in this replica (ADR 0016, pass D).
+  // A replica runs one job at a time: a new job is set only after the result
+  // of the previous one is in the status.
+  DatabaseJob job = 6;
 }
 
 message ReplicaStatus {
@@ -212,6 +216,8 @@ message ReplicaStatus {
   // replica's current template only when this equals
   // spec.template_generation.
   int64 template_generation = 8;
+  // The result of the job whose ID is the spec's job ID, once it has run.
+  DatabaseJobResult job = 9;
 }
 
 // Node is a worker that has joined the cluster. Nodes are created by Join and
@@ -325,8 +331,11 @@ message DatabaseSpec {
   Resources resources = 4;
   // Fixed at 1 in v1. Unset means 1.
   optional int32 replicas = 5;
-  // Optional. Validated and stored in this pass; backups run in pass D.
+  // Optional scheduled logical backups (ADR 0016, section 3.4).
   DatabaseBackup backup = 6;
+  // Optional backup ID (a DatabaseBackupRecord) to restore into this new
+  // Database. Refused for a Database that already exists (section 3.7).
+  string restore_from = 7;
 }
 
 message DatabaseBackup {
@@ -349,6 +358,58 @@ message DatabaseStatus {
   string endpoint = 3;
   // Version of the image the database runs.
   string version = 4;
+  // State of the restore_from restore: pending, running, done or failed.
+  // Empty for a Database that was not restored.
+  string restore_state = 5;
+}
+
+// DatabaseJob is a backup or restore the agent runs in a database replica
+// with exec (ADR 0016, pass D).
+message DatabaseJob {
+  string id = 1;
+  // "backup" or "restore".
+  string kind = 2;
+  // backup: the dump file to write in the container. restore: the dump to load.
+  string file = 3;
+  // The database: the one dumped (backup) or the one loaded into (restore).
+  string database = 4;
+  // restore: the host to connect to, e.g. blog-db-restored.shoal.
+  string target = 5;
+  // backup: files to delete after the dump is written (retention).
+  repeated string prune = 6;
+  // restore: the SHA-256 the dump must have before it is loaded.
+  string sha256 = 7;
+}
+
+// DatabaseJobResult is what the agent reports for a DatabaseJob.
+message DatabaseJobResult {
+  string id = 1;
+  bool ok = 2;
+  // backup: the size and SHA-256 of the dump.
+  int64 size = 3;
+  string sha256 = 4;
+  // Why the job failed, or a non-fatal problem when ok (e.g. a file that
+  // could not be pruned). It never contains a password.
+  string error = 5;
+}
+
+// DatabaseBackupRecord is one logical backup of a Database, kept by the server
+// (ADR 0016, section 3.4). Its name is the backup ID.
+message DatabaseBackupRecord {
+  string id = 1;
+  string database = 2;
+  google.protobuf.Timestamp created_at = 3;
+  // The dump file in the database container.
+  string file = 4;
+  int64 size = 5;
+  string sha256 = 6;
+  // pending, running, ok or failed.
+  string status = 7;
+  string error = 8;
+  // scheduled, manual or upgrade.
+  string reason = 9;
+  // The engine version the dump was taken from.
+  string version = 10;
 }
 
 // Secret holds sensitive key-value data. It is encrypted at rest and its

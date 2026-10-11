@@ -621,7 +621,7 @@ var execSeq atomic.Uint64
 // Exec runs argv in the running container as a separate process. The process
 // takes the container's process spec (user, environment, working directory)
 // and is deleted afterwards. Not exercised until the e2e pass (ADR 0016, F).
-func (r *containerdRuntime) Exec(ctx context.Context, id string, argv []string, timeout time.Duration) (res runtime.ExecResult, retErr error) {
+func (r *containerdRuntime) Exec(ctx context.Context, id string, argv []string, timeout time.Duration, opts ...runtime.ExecOption) (res runtime.ExecResult, retErr error) {
 	if len(argv) == 0 {
 		return runtime.ExecResult{}, fmt.Errorf("exec %s: empty command", id)
 	}
@@ -650,6 +650,7 @@ func (r *containerdRuntime) Exec(ctx context.Context, id string, argv []string, 
 	proc := *spec.Process
 	proc.Args = argv
 	proc.Terminal = false
+	proc.Env = append(append([]string(nil), proc.Env...), runtime.ExecEnv(opts...)...)
 
 	stdout := &runtime.CappedBuffer{Limit: runtime.ExecOutputLimit}
 	stderr := &runtime.CappedBuffer{Limit: runtime.ExecOutputLimit}

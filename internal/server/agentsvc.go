@@ -190,6 +190,7 @@ func (a *agentService) snapshot(ctx context.Context, node string) (*v1alpha1.Ass
 		as := &v1alpha1.Assignment{
 			Replica: r.Name, Workload: rp.Spec.GetWorkload(), Template: rp.Spec.GetTemplate(),
 			TemplateGeneration: rp.Spec.GetTemplateGeneration(),
+			Job:                rp.Spec.GetJob(),
 		}
 		data.resolve(as)
 		snap.Assignments = append(snap.Assignments, as)

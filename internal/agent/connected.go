@@ -606,6 +606,7 @@ func (c *Connected) loadCachedAssignments() (*v1alpha1.AssignmentSnapshot, bool)
 func (c *Connected) reconcileLoop(ctx context.Context) {
 	r := NewReconciler(c.cfg.Runtime, c.log, c.cfg.Reconciler)
 	defer r.Close()
+	jobs := newJobRunner(c.log)
 	snap, have := c.loadCachedAssignments()
 	desired := c.convert(snap)
 	prev := map[string]ReplicaStatus{}
@@ -619,6 +620,7 @@ func (c *Connected) reconcileLoop(ctx context.Context) {
 			if err != nil && ctx.Err() == nil {
 				c.log.Warn("reconcile incomplete", "err", err)
 			}
+			statuses = jobs.run(ctx, c.cfg.Runtime, desired, statuses)
 			if ctx.Err() == nil {
 				prev = logTransitions(c.log, prev, statuses)
 				c.setStatuses(statuses)

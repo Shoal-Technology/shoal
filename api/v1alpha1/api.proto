@@ -63,6 +63,28 @@ service Control {
   // format. On the raft store only the leader answers (FAILED_PRECONDITION
   // names the leader otherwise). Secrets stay encrypted in the backup.
   rpc Backup(BackupRequest) returns (BackupResponse);
+  // DatabaseBackups lists the logical backups of a Database, newest first
+  // (ADR 0016, pass D).
+  rpc DatabaseBackups(DatabaseBackupsRequest) returns (DatabaseBackupsResponse);
+  // BackupDatabase asks for a logical backup of a Database now. The backup
+  // runs on the database's node; the returned record is pending.
+  rpc BackupDatabase(BackupDatabaseRequest) returns (BackupDatabaseResponse);
+}
+
+message DatabaseBackupsRequest {
+  string database = 1;
+}
+
+message DatabaseBackupsResponse {
+  repeated DatabaseBackupRecord backups = 1;
+}
+
+message BackupDatabaseRequest {
+  string database = 1;
+}
+
+message BackupDatabaseResponse {
+  DatabaseBackupRecord backup = 1;
 }
 
 message ClusterStatusRequest {}
@@ -370,6 +392,8 @@ message Assignment {
   // Why the replica can't run as specified (e.g. a missing Secret); the
   // agent reports it and leaves an existing container alone.
   string problem = 7;
+  // A backup or restore the agent runs in the replica (ADR 0016, pass D).
+  DatabaseJob job = 8;
 }
 
 message ResolvedMount {

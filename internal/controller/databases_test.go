@@ -225,14 +225,25 @@ func TestCredentialsStoredEncrypted(t *testing.T) {
 	}
 }
 
-// A minor version change updates the image in place, and keeps the volume.
+// A minor version change updates the image in place, after a verified
+// pre-upgrade backup, and keeps the volume (ADR 0016, section 3.8).
 func TestMinorUpgradeUpdatesImage(t *testing.T) {
 	e := newEnv(t)
 	e.database("app-db", "16.14")
 	e.reconcile()
 	volBefore := e.record(v1alpha1.KindVolume, "app-db-data").Generation
+	oldImg := e.dbWorkload("app-db").Spec.GetImage()
 
 	e.database("app-db", "16.15")
+	e.reconcile()
+	if img := e.dbWorkload("app-db").Spec.GetImage(); img != oldImg {
+		t.Fatalf("image changed before the pre-upgrade backup verified: %q", img)
+	}
+	backups := e.bkBackups("app-db")
+	if len(backups) != 1 {
+		t.Fatalf("pre-upgrade backups = %d, want 1", len(backups))
+	}
+	e.bkSetBackupStatus(backups[0].b.GetId(), database.BackupOK, "")
 	e.reconcile()
 	want, _ := database.Image("postgres", "16.15")
 	if img := e.dbWorkload("app-db").Spec.GetImage(); img != want {
