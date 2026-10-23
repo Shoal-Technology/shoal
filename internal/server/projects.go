@@ -114,7 +114,11 @@ func (s *Server) findObject(ctx context.Context, kind, name, project string) (st
 		return s.store.Get(ctx, kind, name)
 	}
 	if project != "" {
-		return s.store.Get(ctx, kind, tenancy.Key(project, name))
+		r, err := s.store.Get(ctx, kind, tenancy.Key(project, name))
+		if errors.Is(err, store.ErrNotFound) {
+			return r, fmt.Errorf("%s %q not found in project %q: %w", kind, name, project, store.ErrNotFound)
+		}
+		return r, err
 	}
 	recs, err := s.store.List(ctx, kind)
 	if err != nil {

@@ -105,9 +105,10 @@ func TestProjectsScopeObjects(t *testing.T) {
 	if a := p.mustApply(projDoc(v1alpha1.KindWorkload, "api", "", workloadBody(1, "100m"))); a != "unchanged" {
 		t.Fatalf("api re-applied: %s", a)
 	}
-	// Left out, metadata.project keeps the project the object has.
-	if a := p.mustApply(projDoc(v1alpha1.KindWorkload, "web", "", workloadBody(1, "100m"))); a != "unchanged" {
-		t.Fatalf("web re-applied without a project: %s", a)
+	// Left out, metadata.project means default: the name in team-a is another
+	// object (ADR 0023, pass B1).
+	if a := p.mustApply(projDoc(v1alpha1.KindWorkload, "web", "", workloadBody(1, "100m"))); a != "created" {
+		t.Fatalf("web without a project: %s", a)
 	}
 
 	web, err := p.admin.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: "team-a"})
@@ -128,10 +129,12 @@ func TestProjectsScopeObjects(t *testing.T) {
 		t.Fatalf("api project = %q, want default", got)
 	}
 
-	// A Get in the wrong project finds nothing, and a Get with no project finds
-	// the object in any project.
-	_, err = p.admin.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: tenancy.DefaultProject})
+	// A Get in a project that has no such name finds nothing. A Get with no
+	// project finds the name only when one project holds it.
+	_, err = p.admin.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: "ghost"})
 	projWantStatus(t, err, codes.NotFound, "not found in project")
+	_, err = p.admin.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: "web"})
+	projWantStatus(t, err, codes.FailedPrecondition, "several projects")
 
 	inTeamA, err := p.admin.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindWorkload, Project: "team-a"})
 	if err != nil {
@@ -144,20 +147,16 @@ func TestProjectsScopeObjects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := workloadNames(inDefault); !slices.Equal(got, []string{"api"}) {
+	if got := workloadNames(inDefault); !slices.Equal(got, []string{"api", "web"}) {
 		t.Fatalf("default workloads = %v", got)
 	}
 	all, err := p.admin.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindWorkload})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := workloadNames(all); !slices.Equal(got, []string{"api", "web"}) {
+	if got := workloadNames(all); !slices.Equal(got, []string{"api", "web", "web"}) {
 		t.Fatalf("all workloads = %v", got)
 	}
-
-	// An object moves only by being deleted and applied again.
-	_, err = p.apply(projDoc(v1alpha1.KindWorkload, "web", tenancy.DefaultProject, workloadBody(1, "100m")))
-	projWantStatus(t, err, codes.InvalidArgument, "move it by deleting it")
 
 	// The project must exist.
 	_, err = p.apply(projDoc(v1alpha1.KindWorkload, "db", "ghost", workloadBody(1, "100m")))
@@ -173,9 +172,12 @@ func TestProjectsScopeObjects(t *testing.T) {
 	// nothing to delete.
 	_, err = p.admin.Delete(ctx, &v1alpha1.DeleteRequest{Kind: v1alpha1.KindProject, Name: "team-a"})
 	projWantStatus(t, err, codes.FailedPrecondition, "still has 1 objects")
-	_, err = p.admin.Delete(ctx, &v1alpha1.DeleteRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: tenancy.DefaultProject})
+	_, err = p.admin.Delete(ctx, &v1alpha1.DeleteRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: "ghost"})
 	projWantStatus(t, err, codes.NotFound, "not found in project")
 	if _, err := p.admin.Delete(ctx, &v1alpha1.DeleteRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: "team-a"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.admin.Delete(ctx, &v1alpha1.DeleteRequest{Kind: v1alpha1.KindWorkload, Name: "web", Project: tenancy.DefaultProject}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := p.admin.Delete(ctx, &v1alpha1.DeleteRequest{Kind: v1alpha1.KindProject, Name: "team-a"}); err != nil {

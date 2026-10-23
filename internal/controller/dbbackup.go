@@ -154,7 +154,7 @@ func pruneSet(backups []backupRec, retain int32, exclude string) []backupRec {
 
 // backupJob is the job that writes the dump of b and deletes the prune files.
 func backupJob(db string, b *v1alpha1.DatabaseBackupRecord, prune []backupRec) *v1alpha1.DatabaseJob {
-	job := &v1alpha1.DatabaseJob{Id: b.GetId(), Kind: database.JobBackup, File: b.GetFile(), Database: database.DBName(db)}
+	job := &v1alpha1.DatabaseJob{Id: b.GetId(), Kind: database.JobBackup, File: b.GetFile(), Database: database.DBName(tenancy.KeyName(db))}
 	for _, p := range prune {
 		job.Prune = append(job.Prune, p.b.GetFile())
 	}
@@ -350,7 +350,7 @@ func restoreJob(target string, src *v1alpha1.DatabaseBackupRecord) *v1alpha1.Dat
 		Id:       database.RestoreJobID(target, src.GetId()),
 		Kind:     database.JobRestore,
 		File:     src.GetFile(),
-		Database: database.DBName(target),
+		Database: database.DBName(tenancy.KeyName(target)),
 		Target:   target + "." + v1alpha1.DNSDomain,
 		Sha256:   src.GetSha256(),
 	}
