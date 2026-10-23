@@ -78,6 +78,12 @@ func metadataOf(obj *v1alpha1.Object) *v1alpha1.ObjectMeta {
 		return k.Database.GetMetadata()
 	case *v1alpha1.Object_BuildConfig:
 		return k.BuildConfig.GetMetadata()
+	case *v1alpha1.Object_Pipeline:
+		return k.Pipeline.GetMetadata()
+	case *v1alpha1.Object_PipelineRun:
+		return k.PipelineRun.GetMetadata()
+	case *v1alpha1.Object_Job:
+		return k.Job.GetMetadata()
 	case *v1alpha1.Object_Build:
 		return k.Build.GetMetadata()
 	}

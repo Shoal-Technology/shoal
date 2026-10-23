@@ -479,6 +479,11 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 			return nil, err
 		}
 	}
+	if k := req.GetKind(); k == v1alpha1.KindPipelineRun || k == v1alpha1.KindJob {
+		if err := c.s.checkPipelineDeletable(ctx, k, req.GetName()); err != nil {
+			return nil, err
+		}
+	}
 	if req.GetKind() == v1alpha1.KindVolume {
 		if err := c.deleteVolume(ctx, req.GetName()); err != nil {
 			return nil, err
@@ -637,6 +642,24 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 			return nil, err
 		}
 		return &v1alpha1.Object{Kind: &v1alpha1.Object_Build{Build: b}}, nil
+	case v1alpha1.KindPipeline:
+		p, err := objects.Pipeline(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Pipeline{Pipeline: p}}, nil
+	case v1alpha1.KindPipelineRun:
+		p, err := objects.PipelineRun(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_PipelineRun{PipelineRun: p}}, nil
+	case v1alpha1.KindJob:
+		j, err := objects.Job(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Job{Job: j}}, nil
 	}
 	return nil, fmt.Errorf("unexpected kind %q", r.Kind)
 }
@@ -646,10 +669,10 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 func checkKind(kind string) error {
 	switch kind {
 	case v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica,
-		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume, v1alpha1.KindDatabase, v1alpha1.KindBuildConfig, v1alpha1.KindBuild:
+		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume, v1alpha1.KindDatabase, v1alpha1.KindBuildConfig, v1alpha1.KindBuild, v1alpha1.KindPipeline, v1alpha1.KindPipelineRun, v1alpha1.KindJob:
 		return nil
 	}
-	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, BuildConfig, Build, Secret or Config)", kind)
+	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, BuildConfig, Build, Pipeline, PipelineRun, Job, Secret or Config)", kind)
 }
 
 // RestartWorkload sets spec.restartedAt, which changes the template and so

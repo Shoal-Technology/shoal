@@ -83,10 +83,13 @@ func decodeDoc(doc []byte) (*v1alpha1.Object, error) {
 	case v1alpha1.KindBuildConfig:
 		b := &v1alpha1.BuildConfig{}
 		obj, msg, stringy = &v1alpha1.Object{Kind: &v1alpha1.Object_BuildConfig{BuildConfig: b}}, b, "buildArgs"
+	case v1alpha1.KindPipeline:
+		p := &v1alpha1.Pipeline{}
+		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Pipeline{Pipeline: p}}, p
 	case "":
 		return nil, fmt.Errorf("kind is required")
 	default:
-		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Database, BuildConfig, Secret, Config)", head.Kind)
+		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Database, BuildConfig, Pipeline, Secret, Config)", head.Kind)
 	}
 	if stringy != "" {
 		if j, err = valuesAsStrings(j, stringy); err != nil {
