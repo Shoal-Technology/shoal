@@ -58,8 +58,8 @@ Status is for `main`. The labels mean:
 | Init and the app format | Available | `shoal init` on a single node. `shoal deploy` for `shoal.yaml` | [ADR 0017](docs/decisions/0017-onboarding-init-app-spec.md) |
 | Observability | Alpha | Metrics and health endpoints. No alerts or webhooks yet | [ADR 0018](docs/decisions/0018-observability.md) |
 | Embedded OCI registry | Alpha | Off unless `--registry-listen` is set. Agents pull `shoal.local/<repo>:<tag>` | [ADR 0020](docs/decisions/0020-embedded-registry.md) |
-| Builds: BuildConfig, Build records, queue, CLI | In progress | On `main` there is no build executor yet, so a started build ends in phase `Error`. The BuildKit executor is in [PR #9](https://github.com/Shoal-Technology/shoal/pull/9) | [ADR 0021](docs/decisions/0021-builds.md) |
-| Git webhooks and build-to-rollout | Alpha (merged, requires a builder; BuildKit executor in progress: [PR #9](https://github.com/Shoal-Technology/shoal/pull/9)) | Merged in [PR #8](https://github.com/Shoal-Technology/shoal/pull/8). Webhooks start Builds, which run only once an executor is on `main` | [ADR 0021](docs/decisions/0021-builds.md) |
+| Builds: BuildConfig, Build records, queue, BuildKit executor, CLI | Alpha | Runs on nodes labelled `shoal.dev/builder=true`, using a rootless BuildKit executor ([PR #9](https://github.com/Shoal-Technology/shoal/pull/9)). Proven in CI for a public https repository only | [ADR 0021](docs/decisions/0021-builds.md) |
+| Git webhooks and build-to-rollout | Alpha | [PR #8](https://github.com/Shoal-Technology/shoal/pull/8). Webhooks start Builds, which need a builder node. Redelivered pushes are not deduplicated yet ([issue #13](https://github.com/Shoal-Technology/shoal/issues/13)) | [ADR 0021](docs/decisions/0021-builds.md) |
 | Projects, RBAC and quotas | Planned | Tenancy and permissions | [parity matrix](docs/platform/parity-matrix.md) |
 | Jobs, CronJobs and node placement | Planned | | [parity matrix](docs/platform/parity-matrix.md) |
 | S3 export of backups | Planned | Backups stay on the local volume for now | [ADR 0016](docs/decisions/0016-volumes-managed-databases.md) |
@@ -639,17 +639,17 @@ client certificate, unless `--registry-anonymous-pull` is set, which lets them
 pull without one. Pushes are admin-only. Agents pull `shoal.local/<repo>:<tag>`
 from it. The CLI has `shoal registry login` and `shoal registry ls`.
 
-**Builds (in progress, ADR 0021).** A `BuildConfig` describes a build: a git
+**Builds (alpha, ADR 0021).** A `BuildConfig` describes a build: a git
 URL, a ref, the context directory, the Dockerfile, a credentials Secret, the
 output repository and tag template, and build arguments. Each run is a `Build`,
 with phases from `New` to `Complete`. A config runs one build at a time and
-keeps its last 10 finished runs. On `main` there is no build executor yet, so a
-started build ends in phase `Error`. The BuildKit executor is pass B of
-ADR 0021, in [PR #9](https://github.com/Shoal-Technology/shoal/pull/9).
+keeps its last 10 finished runs. Builds run on nodes labelled
+`shoal.dev/builder=true`. If no such node exists, a started build ends in phase
+`Error`. The executor is a rootless BuildKit daemon
+([PR #9](https://github.com/Shoal-Technology/shoal/pull/9)).
 
-Git webhooks and build-to-rollout are merged
-([PR #8](https://github.com/Shoal-Technology/shoal/pull/8)) and marked alpha.
-They need a builder to produce images. The webhook endpoint is
+Git webhooks and build-to-rollout ([PR #8](https://github.com/Shoal-Technology/shoal/pull/8))
+are alpha. They need a builder node to produce images. The webhook endpoint is
 `POST /hooks/v1/<config uid>` on the portal listener (`--ui-listen`, port
 7444 by default). The git host must be able to reach that port, and the
 portal certificate (`--ui-cert` and `--ui-key`) must be one that host trusts.
@@ -664,8 +664,10 @@ shoal build ls app                            # its runs
 
 Shoal is alpha. These are known gaps, stated plainly:
 
-- **Builds do not run yet.** `main` records builds and queues them, but has no
-  executor. The BuildKit executor is in progress, in [PR #9](https://github.com/Shoal-Technology/shoal/pull/9).
+- **Builds are alpha.** They run only on builder-labelled nodes, and only the
+  public https git path is proven in CI. Private https and ssh are covered by
+  unit tests only. Redelivered webhook pushes are not deduplicated
+  ([issue #13](https://github.com/Shoal-Technology/shoal/issues/13)).
 
 - **Multi-host is not verified end to end.** The WireGuard mesh, agent
   failover and scheduling across separate machines are covered by unit tests
