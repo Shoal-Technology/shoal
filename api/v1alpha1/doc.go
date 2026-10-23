@@ -25,6 +25,9 @@ const (
 	KindJob         = "Job"         // ADR 0022, K-06 subset
 	KindJoinToken   = "JoinToken"   // internal
 	KindUIAuth      = "UIAuth"      // internal
+	// KindProject and KindResourceQuota are the tenancy kinds (ADR 0023).
+	KindProject       = "Project"
+	KindResourceQuota = "ResourceQuota"
 
 	// Internal kinds for automatic TLS (ADR 0015, pass C). Not user-appliable.
 	KindCertificate   = "Certificate"
