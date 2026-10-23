@@ -18,6 +18,8 @@ const (
 	KindVolume      = "Volume"
 	KindVolumeClaim = "VolumeClaim" // internal: one per Volume in use, see ADR 0016
 	KindDatabase    = "Database"
+	KindBuildConfig = "BuildConfig"
+	KindBuild       = "Build"
 	KindJoinToken   = "JoinToken" // internal
 	KindUIAuth      = "UIAuth"    // internal
 

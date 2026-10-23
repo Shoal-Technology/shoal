@@ -20,6 +20,8 @@ message Object {
     Route route = 7;
     Volume volume = 8;
     Database database = 9;
+    BuildConfig build_config = 10;
+    Build build = 11;
   }
 }
 
@@ -69,6 +71,36 @@ service Control {
   // BackupDatabase asks for a logical backup of a Database now. The backup
   // runs on the database's node; the returned record is pending.
   rpc BackupDatabase(BackupDatabaseRequest) returns (BackupDatabaseResponse);
+  // StartBuild creates a Build from a BuildConfig (ADR 0021). The run is
+  // Pending or Running when it returns; the controller drives it.
+  rpc StartBuild(StartBuildRequest) returns (StartBuildResponse);
+  // CancelBuild asks a New, Pending or Running Build to stop. A finished
+  // Build is refused with FAILED_PRECONDITION.
+  rpc CancelBuild(CancelBuildRequest) returns (CancelBuildResponse);
+  // BuildLogs returns the output of a Build, oldest line first.
+  rpc BuildLogs(BuildLogsRequest) returns (BuildLogsResponse);
+}
+
+message StartBuildRequest {
+  string config = 1;
+}
+
+message StartBuildResponse {
+  string build = 1;
+}
+
+message CancelBuildRequest {
+  string build = 1;
+}
+
+message CancelBuildResponse {}
+
+message BuildLogsRequest {
+  string build = 1;
+}
+
+message BuildLogsResponse {
+  repeated LogLine lines = 1;
 }
 
 message DatabaseBackupsRequest {

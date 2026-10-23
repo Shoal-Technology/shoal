@@ -35,6 +35,9 @@ const (
 	Control_Backup_FullMethodName          = "/shoal.v1alpha1.Control/Backup"
 	Control_DatabaseBackups_FullMethodName = "/shoal.v1alpha1.Control/DatabaseBackups"
 	Control_BackupDatabase_FullMethodName  = "/shoal.v1alpha1.Control/BackupDatabase"
+	Control_StartBuild_FullMethodName      = "/shoal.v1alpha1.Control/StartBuild"
+	Control_CancelBuild_FullMethodName     = "/shoal.v1alpha1.Control/CancelBuild"
+	Control_BuildLogs_FullMethodName       = "/shoal.v1alpha1.Control/BuildLogs"
 )
 
 // ControlClient is the client API for Control service.
@@ -87,6 +90,14 @@ type ControlClient interface {
 	// BackupDatabase asks for a logical backup of a Database now. The backup
 	// runs on the database's node; the returned record is pending.
 	BackupDatabase(ctx context.Context, in *BackupDatabaseRequest, opts ...grpc.CallOption) (*BackupDatabaseResponse, error)
+	// StartBuild creates a Build from a BuildConfig (ADR 0021). The run is
+	// Pending or Running when it returns; the controller drives it.
+	StartBuild(ctx context.Context, in *StartBuildRequest, opts ...grpc.CallOption) (*StartBuildResponse, error)
+	// CancelBuild asks a New, Pending or Running Build to stop. A finished
+	// Build is refused with FAILED_PRECONDITION.
+	CancelBuild(ctx context.Context, in *CancelBuildRequest, opts ...grpc.CallOption) (*CancelBuildResponse, error)
+	// BuildLogs returns the output of a Build, oldest line first.
+	BuildLogs(ctx context.Context, in *BuildLogsRequest, opts ...grpc.CallOption) (*BuildLogsResponse, error)
 }
 
 type controlClient struct {
@@ -266,6 +277,36 @@ func (c *controlClient) BackupDatabase(ctx context.Context, in *BackupDatabaseRe
 	return out, nil
 }
 
+func (c *controlClient) StartBuild(ctx context.Context, in *StartBuildRequest, opts ...grpc.CallOption) (*StartBuildResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartBuildResponse)
+	err := c.cc.Invoke(ctx, Control_StartBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) CancelBuild(ctx context.Context, in *CancelBuildRequest, opts ...grpc.CallOption) (*CancelBuildResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelBuildResponse)
+	err := c.cc.Invoke(ctx, Control_CancelBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) BuildLogs(ctx context.Context, in *BuildLogsRequest, opts ...grpc.CallOption) (*BuildLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BuildLogsResponse)
+	err := c.cc.Invoke(ctx, Control_BuildLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -316,6 +357,14 @@ type ControlServer interface {
 	// BackupDatabase asks for a logical backup of a Database now. The backup
 	// runs on the database's node; the returned record is pending.
 	BackupDatabase(context.Context, *BackupDatabaseRequest) (*BackupDatabaseResponse, error)
+	// StartBuild creates a Build from a BuildConfig (ADR 0021). The run is
+	// Pending or Running when it returns; the controller drives it.
+	StartBuild(context.Context, *StartBuildRequest) (*StartBuildResponse, error)
+	// CancelBuild asks a New, Pending or Running Build to stop. A finished
+	// Build is refused with FAILED_PRECONDITION.
+	CancelBuild(context.Context, *CancelBuildRequest) (*CancelBuildResponse, error)
+	// BuildLogs returns the output of a Build, oldest line first.
+	BuildLogs(context.Context, *BuildLogsRequest) (*BuildLogsResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -373,6 +422,15 @@ func (UnimplementedControlServer) DatabaseBackups(context.Context, *DatabaseBack
 }
 func (UnimplementedControlServer) BackupDatabase(context.Context, *BackupDatabaseRequest) (*BackupDatabaseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BackupDatabase not implemented")
+}
+func (UnimplementedControlServer) StartBuild(context.Context, *StartBuildRequest) (*StartBuildResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartBuild not implemented")
+}
+func (UnimplementedControlServer) CancelBuild(context.Context, *CancelBuildRequest) (*CancelBuildResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelBuild not implemented")
+}
+func (UnimplementedControlServer) BuildLogs(context.Context, *BuildLogsRequest) (*BuildLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BuildLogs not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -676,6 +734,60 @@ func _Control_BackupDatabase_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_StartBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartBuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).StartBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_StartBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).StartBuild(ctx, req.(*StartBuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_CancelBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelBuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).CancelBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_CancelBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).CancelBuild(ctx, req.(*CancelBuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_BuildLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BuildLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).BuildLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_BuildLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).BuildLogs(ctx, req.(*BuildLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -742,6 +854,18 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BackupDatabase",
 			Handler:    _Control_BackupDatabase_Handler,
+		},
+		{
+			MethodName: "StartBuild",
+			Handler:    _Control_StartBuild_Handler,
+		},
+		{
+			MethodName: "CancelBuild",
+			Handler:    _Control_CancelBuild_Handler,
+		},
+		{
+			MethodName: "BuildLogs",
+			Handler:    _Control_BuildLogs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

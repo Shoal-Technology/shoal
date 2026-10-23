@@ -29,6 +29,8 @@ var kindAliases = map[string]string{
 	"route": v1alpha1.KindRoute, "routes": v1alpha1.KindRoute,
 	"volume": v1alpha1.KindVolume, "volumes": v1alpha1.KindVolume, "vol": v1alpha1.KindVolume,
 	"database": v1alpha1.KindDatabase, "databases": v1alpha1.KindDatabase, "db": v1alpha1.KindDatabase,
+	"buildconfig": v1alpha1.KindBuildConfig, "buildconfigs": v1alpha1.KindBuildConfig, "bc": v1alpha1.KindBuildConfig,
+	"build": v1alpha1.KindBuild, "builds": v1alpha1.KindBuild,
 }
 
 func parseKind(s string) (string, error) {
@@ -171,6 +173,10 @@ func newGetCmd() *cobra.Command {
 				return printVolumes(out, items, time.Now())
 			case v1alpha1.KindDatabase:
 				return printDatabases(out, items, time.Now())
+			case v1alpha1.KindBuildConfig:
+				return printBuildConfigs(out, items, time.Now())
+			case v1alpha1.KindBuild:
+				return printBuilds(out, items, time.Now())
 			case v1alpha1.KindSecret, v1alpha1.KindConfig:
 				return printData(out, items, time.Now())
 			}

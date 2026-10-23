@@ -618,3 +618,88 @@ message ImageTagSpec {
   string digest = 3;
   string media_type = 4;
 }
+
+// BuildConfig is a recipe that builds an image from a git repository (ADR
+// 0021, OB-01). Each run is a Build.
+message BuildConfig {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  BuildConfigSpec spec = 4;
+  BuildConfigStatus status = 5;
+}
+
+message BuildConfigSpec {
+  GitSource git = 1;
+  // Name of a Secret with the credentials for git: kubernetes.io/basic-auth
+  // for an https URL, kubernetes.io/ssh-auth for an ssh URL. Empty for a
+  // public repository.
+  string credentials_secret = 2;
+  BuildOutput output = 3;
+  // Dockerfile build arguments (ARG values).
+  map<string, string> build_args = 4;
+}
+
+message GitSource {
+  // https://host/path or ssh://, or git@host:path. Credentials never go in the URL.
+  string url = 1;
+  // A branch, tag or commit. HEAD means the repository's default branch.
+  string ref = 2;
+  // Build context, relative to the repository root. Defaults to ".".
+  string context_dir = 3;
+  // Dockerfile, relative to the context directory. Defaults to Dockerfile.
+  string dockerfile = 4;
+}
+
+message BuildOutput {
+  // Repository in the embedded registry. Defaults to the BuildConfig's name.
+  string repository = 1;
+  // Tag template: {short-sha} (default), {sha} or {ref}.
+  string tag = 2;
+}
+
+message BuildConfigStatus {
+  // The newest Build of this config, and its phase. Set by the controller.
+  string last_build = 1;
+  string last_phase = 2;
+}
+
+// Build is one run of a BuildConfig (ADR 0021, OB-02). The server creates it
+// from the config's spec at start time; the controller owns the status.
+message Build {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  BuildSpec spec = 4;
+  BuildStatus status = 5;
+}
+
+message BuildSpec {
+  // The BuildConfig this run came from.
+  string config = 1;
+  // The config's spec when the run was started. Later edits do not change it.
+  BuildConfigSpec source = 2;
+  // manual (webhook triggers come in a later pass).
+  string trigger = 3;
+  // Set by CancelBuild. The controller stops the run and sets Cancelled.
+  bool cancel_requested = 4;
+}
+
+message BuildStatus {
+  // New, Pending, Running, Complete, Failed, Error or Cancelled. The names
+  // follow OpenShift's BuildPhase (OB-02). Error is an infrastructure failure
+  // (no executor, or the job could not start or was lost); Failed is a build
+  // that ran and failed.
+  string phase = 1;
+  string message = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp finished_at = 4;
+  // Commit the build resolved to. Set on success.
+  string commit = 5;
+  // repository:tag that was pushed. Set on success.
+  string image = 6;
+  // Manifest digest of the pushed image. Set on success.
+  string digest = 7;
+  // Name of the log stream the executor writes (OB-20). Set when the run starts.
+  string log_ref = 8;
+}

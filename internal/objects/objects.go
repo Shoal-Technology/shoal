@@ -164,3 +164,21 @@ func Template(spec *v1alpha1.WorkloadSpec) *v1alpha1.WorkloadSpec {
 	t.Replicas, t.Update = nil, nil
 	return t
 }
+
+// BuildConfig decodes a BuildConfig record.
+func BuildConfig(r store.Record) (*v1alpha1.BuildConfig, error) {
+	c := &v1alpha1.BuildConfig{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindBuildConfig, Metadata: Meta(r),
+		Spec: &v1alpha1.BuildConfigSpec{}, Status: &v1alpha1.BuildConfigStatus{},
+	}
+	return c, decode(r, c.Spec, c.Status)
+}
+
+// Build decodes a Build record.
+func Build(r store.Record) (*v1alpha1.Build, error) {
+	b := &v1alpha1.Build{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindBuild, Metadata: Meta(r),
+		Spec: &v1alpha1.BuildSpec{}, Status: &v1alpha1.BuildStatus{},
+	}
+	return b, decode(r, b.Spec, b.Status)
+}

@@ -75,6 +75,14 @@ func prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err e
 		}
 		DefaultDatabase(s)
 		return v1alpha1.KindDatabase, name, s, ValidateDatabase(name, s)
+	case *v1alpha1.Object_BuildConfig:
+		name := k.BuildConfig.GetMetadata().GetName()
+		s := proto.CloneOf(k.BuildConfig.GetSpec())
+		if s == nil {
+			s = &v1alpha1.BuildConfigSpec{}
+		}
+		DefaultBuildConfig(name, s)
+		return v1alpha1.KindBuildConfig, name, s, ValidateBuildConfig(name, s)
 	case *v1alpha1.Object_Volume:
 		name := k.Volume.GetMetadata().GetName()
 		s := proto.CloneOf(k.Volume.GetSpec())
@@ -84,7 +92,7 @@ func prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err e
 		DefaultVolume(s)
 		return v1alpha1.KindVolume, name, s, ValidateVolume(name, s)
 	}
-	return "", "", nil, errors.New("only Workload, Service, Route, Volume, Database, Secret and Config objects can be applied")
+	return "", "", nil, errors.New("only Workload, Service, Route, Volume, Database, BuildConfig, Secret and Config objects can be applied")
 }
 
 func validateData(name string, data map[string]string) error {

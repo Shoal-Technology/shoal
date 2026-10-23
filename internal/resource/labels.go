@@ -76,6 +76,10 @@ func metadataOf(obj *v1alpha1.Object) *v1alpha1.ObjectMeta {
 		return k.Volume.GetMetadata()
 	case *v1alpha1.Object_Database:
 		return k.Database.GetMetadata()
+	case *v1alpha1.Object_BuildConfig:
+		return k.BuildConfig.GetMetadata()
+	case *v1alpha1.Object_Build:
+		return k.Build.GetMetadata()
 	}
 	return nil
 }
