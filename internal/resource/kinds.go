@@ -40,7 +40,10 @@ func prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err e
 		if s == nil {
 			s = &v1alpha1.SecretSpec{}
 		}
-		return v1alpha1.KindSecret, name, s, validateData(name, s.GetData())
+		if s.Type == "" {
+			s.Type = SecretTypeOpaque
+		}
+		return v1alpha1.KindSecret, name, s, ValidateSecret(name, s)
 	case *v1alpha1.Object_Config:
 		name := k.Config.GetMetadata().GetName()
 		s := proto.CloneOf(k.Config.GetSpec())

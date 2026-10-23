@@ -55,6 +55,9 @@ message WorkloadSpec {
   // Node-local Volumes mounted into the containers (ADR 0016). A Volume is
   // referenced by at most one Workload; see replicas below.
   repeated VolumeMount volumes = 13;
+  // Secrets of type kubernetes.io/dockerconfigjson with the registry logins
+  // that pull the image (K-19). Read by the server when it builds a snapshot.
+  repeated string image_pull_secrets = 14;
 }
 
 // VolumeMount mounts the Volume called name at mount_path.
@@ -423,6 +426,17 @@ message Secret {
 
 message SecretSpec {
   map<string, string> data = 1;
+  // Opaque (default), kubernetes.io/dockerconfigjson or kubernetes.io/tls.
+  // The data is checked against the type on every apply (K-28).
+  string type = 2;
+}
+
+// RegistryCredential is one registry login, taken from a dockerconfigjson
+// Secret. The server sends it to the nodes that pull the image.
+message RegistryCredential {
+  string host = 1;
+  string username = 2;
+  string password = 3;
 }
 
 // Config holds plain key-value configuration.

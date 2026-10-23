@@ -9,16 +9,18 @@ import (
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
+	"github.com/Shoal-Technology/shoal/internal/resource"
 )
 
 // dataSources holds the Secrets and Configs a snapshot resolves from.
 type dataSources struct {
-	secrets map[string]map[string]string
-	configs map[string]map[string]string
+	secrets     map[string]map[string]string
+	configs     map[string]map[string]string
+	secretTypes map[string]string
 }
 
 func (s *Server) loadDataSources(ctx context.Context) (*dataSources, error) {
-	d := &dataSources{secrets: map[string]map[string]string{}, configs: map[string]map[string]string{}}
+	d := &dataSources{secrets: map[string]map[string]string{}, secretTypes: map[string]string{}, configs: map[string]map[string]string{}}
 	secs, err := s.store.List(ctx, v1alpha1.KindSecret)
 	if err != nil {
 		return nil, err
@@ -29,6 +31,7 @@ func (s *Server) loadDataSources(ctx context.Context) (*dataSources, error) {
 			return nil, err
 		}
 		d.secrets[r.Name] = sec.Spec.GetData()
+		d.secretTypes[r.Name] = sec.Spec.GetType()
 	}
 	cfgs, err := s.store.List(ctx, v1alpha1.KindConfig)
 	if err != nil {
@@ -49,6 +52,10 @@ func (s *Server) loadDataSources(ctx context.Context) (*dataSources, error) {
 // assignment's problem; the agent then leaves the replica alone.
 func (d *dataSources) resolve(a *v1alpha1.Assignment) {
 	t := a.GetTemplate()
+	d.resolvePullSecrets(a)
+	if a.Problem != "" {
+		return
+	}
 	lookup := func(kind string, src map[string]map[string]string, name, key string) (string, bool) {
 		data, ok := src[name]
 		if !ok {
@@ -88,6 +95,34 @@ func (d *dataSources) resolve(a *v1alpha1.Assignment) {
 			return
 		}
 		a.Mounts = append(a.Mounts, &v1alpha1.ResolvedMount{Path: m.GetPath(), Files: maps.Clone(data), Secret: kind == "secret"})
+	}
+}
+
+// resolvePullSecrets adds the registry logins of the template's
+// image_pull_secrets. A Secret that is missing, has another type or does not
+// parse is the assignment's problem, as a missing env Secret is. The problem
+// names the Secret, never a credential.
+func (d *dataSources) resolvePullSecrets(a *v1alpha1.Assignment) {
+	for _, name := range a.GetTemplate().GetImagePullSecrets() {
+		data, ok := d.secrets[name]
+		if !ok {
+			a.Problem = fmt.Sprintf("image pull secret %q not found", name)
+			return
+		}
+		typ := d.secretTypes[name]
+		if typ == "" {
+			typ = resource.SecretTypeOpaque
+		}
+		if typ != resource.SecretTypeDockerConfigJSON {
+			a.Problem = fmt.Sprintf("image pull secret %q has type %s, want %s", name, typ, resource.SecretTypeDockerConfigJSON)
+			return
+		}
+		creds, err := resource.ParseDockerConfig(data)
+		if err != nil {
+			a.Problem = fmt.Sprintf("image pull secret %q: %v", name, err)
+			return
+		}
+		a.RegistryCredentials = append(a.RegistryCredentials, creds...)
 	}
 }
 

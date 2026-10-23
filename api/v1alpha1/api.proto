@@ -394,6 +394,9 @@ message Assignment {
   string problem = 7;
   // A backup or restore the agent runs in the replica (ADR 0016, pass D).
   DatabaseJob job = 8;
+  // Registry logins for the template's image_pull_secrets, resolved by the
+  // server. Like Secret values, they travel only over mTLS.
+  repeated RegistryCredential registry_credentials = 9;
 }
 
 message ResolvedMount {

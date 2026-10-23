@@ -172,9 +172,10 @@ func build(app *App) []*Object {
 // workloadSpec builds the Workload spec of app.
 func workloadSpec(app *App) *v1alpha1.WorkloadSpec {
 	s := &v1alpha1.WorkloadSpec{
-		Image:    app.Image,
-		Replicas: proto.Int32(int32(app.replicaCount())),
-		Env:      envVars(app),
+		Image:            app.Image,
+		Replicas:         proto.Int32(int32(app.replicaCount())),
+		Env:              envVars(app),
+		ImagePullSecrets: app.ImagePullSecrets,
 	}
 	if app.Port > 0 {
 		s.Ports = []*v1alpha1.Port{{ContainerPort: int32(app.Port)}}

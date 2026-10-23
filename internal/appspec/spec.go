@@ -41,11 +41,14 @@ type App struct {
 	Env      map[string]string `yaml:"env"`
 	// Secrets lists keys of the Secret <name>-secrets. Each one becomes an
 	// environment variable with the same name.
-	Secrets   []string  `yaml:"secrets"`
-	Database  Database  `yaml:"database"`
-	Volumes   []Volume  `yaml:"volumes"`
-	Health    *Health   `yaml:"health"`
-	Resources Resources `yaml:"resources"`
+	Secrets []string `yaml:"secrets"`
+	// ImagePullSecrets names dockerconfigjson Secrets whose registry logins
+	// pull the image (K-19). Create them with `shoal secret create`.
+	ImagePullSecrets []string  `yaml:"imagePullSecrets"`
+	Database         Database  `yaml:"database"`
+	Volumes          []Volume  `yaml:"volumes"`
+	Health           *Health   `yaml:"health"`
+	Resources        Resources `yaml:"resources"`
 	// Build is reserved. Any value is rejected: Shoal does not build images
 	// in v1 (ADR 0017, open question 2).
 	Build any `yaml:"build"`
@@ -203,6 +206,18 @@ func checkFields(app *App) error {
 			bad(f, "%s is set by database: remove it from secrets", DatabaseURLEnv)
 		}
 		seenSecret[s] = true
+	}
+
+	seenPull := map[string]bool{}
+	for i, s := range app.ImagePullSecrets {
+		f := fmt.Sprintf("imagePullSecrets[%d]", i)
+		switch {
+		case !resource.ValidName(s, 63):
+			bad(f, "invalid Secret name %q", s)
+		case seenPull[s]:
+			bad(f, "duplicate %q", s)
+		}
+		seenPull[s] = true
 	}
 
 	seenVolume := map[string]bool{}

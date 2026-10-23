@@ -71,6 +71,10 @@ type Assignment struct {
 	Volumes []VolumeAttachment
 	// Job is the backup or restore to run in the replica (ADR 0016, pass D).
 	Job *v1alpha1.DatabaseJob
+	// PullAuth are the logins for the image pull (the template's
+	// image_pull_secrets). They are not part of the container, so a new
+	// password does not recreate it.
+	PullAuth []runtime.RegistryAuth
 }
 
 // VolumeAttachment is a Volume the replica mounts, with what the agent needs
@@ -287,6 +291,9 @@ func AssignmentFromAPI(a *v1alpha1.Assignment) (Assignment, error) {
 		out.Files = append(out.Files, FileMount{Path: m.GetPath(), Files: m.GetFiles()})
 	}
 	out.Problem = a.GetProblem()
+	for _, c := range a.GetRegistryCredentials() {
+		out.PullAuth = append(out.PullAuth, runtime.RegistryAuth{Host: c.GetHost(), Username: c.GetUsername(), Password: c.GetPassword()})
+	}
 	if r := t.GetRestartedAt(); r != nil {
 		out.RestartedAt = r.AsTime().UTC().Format(time.RFC3339Nano)
 	}

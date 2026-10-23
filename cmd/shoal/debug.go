@@ -118,7 +118,7 @@ func newDebugRunCmd(withRuntime runtimeRunE) *cobra.Command {
 					return err
 				}
 			}
-			if err := rt.EnsureImage(ctx, image); err != nil {
+			if err := rt.EnsureImage(ctx, image, nil); err != nil {
 				return err
 			}
 			if err := rt.Create(ctx, spec); err != nil {

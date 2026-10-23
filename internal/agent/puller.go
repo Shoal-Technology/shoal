@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +21,7 @@ type imagePuller struct {
 	wg     sync.WaitGroup
 
 	mu    sync.Mutex
-	pulls map[string]*pull // by image reference
+	pulls map[string]*pull // by pullKey: image reference and logins
 }
 
 type pull struct {
@@ -36,19 +37,22 @@ func newImagePuller(rt runtime.Runtime, timeout, wait time.Duration) *imagePulle
 // ensure reports whether ref is available locally. If no pull of ref is in
 // progress it starts one and waits up to p.wait for it, so local images and
 // fast pulls are ready in the same pass. A finished pull's result is
-// returned once; after a failure the next call starts a new pull.
-func (p *imagePuller) ensure(ctx context.Context, ref string) (bool, error) {
+// returned once; after a failure the next call starts a new pull. auth are
+// the logins the pull uses. Only pulls of the same ref with the same logins
+// are shared.
+func (p *imagePuller) ensure(ctx context.Context, ref string, auth []runtime.RegistryAuth) (bool, error) {
+	key := pullKey(ref, auth)
 	p.mu.Lock()
-	pl, inProgress := p.pulls[ref]
+	pl, inProgress := p.pulls[key]
 	if !inProgress {
 		pl = &pull{done: make(chan struct{})}
-		p.pulls[ref] = pl
+		p.pulls[key] = pl
 		p.wg.Add(1)
 		go func() {
 			defer p.wg.Done()
 			pctx, cancel := context.WithTimeout(p.ctx, p.timeout)
 			defer cancel()
-			pl.err = p.rt.EnsureImage(pctx, ref)
+			pl.err = p.rt.EnsureImage(pctx, ref, auth)
 			close(pl.done)
 		}()
 	}
@@ -66,14 +70,25 @@ func (p *imagePuller) ensure(ctx context.Context, ref string) (bool, error) {
 	select {
 	case <-pl.done:
 		p.mu.Lock()
-		if p.pulls[ref] == pl {
-			delete(p.pulls, ref)
+		if p.pulls[key] == pl {
+			delete(p.pulls, key)
 		}
 		p.mu.Unlock()
 		return pl.err == nil, pl.err
 	default:
 		return false, nil
 	}
+}
+
+// pullKey identifies a pull by its image and the registry users it logs in
+// as. Passwords are left out of the key.
+func pullKey(ref string, auth []runtime.RegistryAuth) string {
+	var b strings.Builder
+	b.WriteString(ref)
+	for _, a := range auth {
+		b.WriteString("\x00" + a.Host + "\x00" + a.Username)
+	}
+	return b.String()
 }
 
 // close cancels pulls in progress and waits for them to return.

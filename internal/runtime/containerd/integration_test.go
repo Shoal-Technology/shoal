@@ -69,7 +69,7 @@ func newRuntime(t *testing.T) containerd.Client {
 	}
 	cleanup() // leftovers from an aborted run
 	t.Cleanup(func() { cleanup(); rt.Close() })
-	if err := rt.EnsureImage(ctx, testImage); err != nil {
+	if err := rt.EnsureImage(ctx, testImage, nil); err != nil {
 		t.Fatal(err)
 	}
 	return rt

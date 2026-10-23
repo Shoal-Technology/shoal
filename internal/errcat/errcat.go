@@ -32,7 +32,7 @@ func (e Entry) Message(args ...any) string {
 
 var entries = []Entry{
 	{"E01", "Image pull unauthorized", "pull %s: unauthorized",
-		"Add a pull secret; image_pull_secret needs the new WorkloadSpec field (ADR 0017, open question 3)"},
+		"Set imagePullSecrets in the app to a dockerconfigjson Secret: shoal secret create NAME --type dockerconfigjson"},
 	{"E02", "Image or tag not found", "pull %s: manifest unknown",
 		"Check the tag; :latest is not pinned"},
 	{"E03", "Edge port in use", "edge port %d is held by %s (pid %d); Shoal cannot serve HTTPS",
