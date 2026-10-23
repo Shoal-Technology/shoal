@@ -1,39 +1,99 @@
-# shoal
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/shoal-mark-white.svg">
+    <img src="docs/assets/shoal-mark-dark.svg" alt="Shoal logo" width="96">
+  </picture>
+</p>
 
-> **Status: alpha.** Shoal is pre-1.0. Interfaces, the on-disk state format
-> and the wire protocol can change between minor versions, and it has not had
-> an independent security audit. Read the [limitations](#limitations) before
-> you run it anywhere that matters. Project site:
-> [shoal-technology.solutions](https://shoal-technology.solutions).
+<h1 align="center">Shoal</h1>
 
-**Shoal is a lightweight platform that combines a container orchestrator
-(Kubernetes-like), git-driven builds and an embedded registry (OpenShift and
-GitLab-like). It is a single binary that runs on your own servers.**
+<p align="center">
+  Kubernetes-style orchestration, git-driven builds and an embedded registry — one binary, your own servers.
+</p>
 
-The server keeps the desired state. Agents on each node run OCI containers
-through containerd and keep them matching it. The control plane can run as a
-three-server Raft cluster. The same binary is the **server**, the **agent**
-and the **CLI**, and it includes a web portal.
+<p align="center">
+  <a href="https://github.com/Shoal-Technology/shoal/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Shoal-Technology/shoal?include_prereleases&amp;label=release"></a>
+  <a href="https://github.com/Shoal-Technology/shoal/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Shoal-Technology/shoal/ci.yml?branch=main&amp;label=CI"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/github/license/Shoal-Technology/shoal?label=license"></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/Shoal-Technology/shoal"></a>
+</p>
+
+<p align="center"><a href="https://shoal-technology.solutions">Project site</a></p>
 
 ## Quick start
 
 ```sh
 curl -fsSL https://shoal-technology.solutions/install.sh | sh
-sudo shoal init                 # one node: containerd, server, agent, edge
-shoal deploy -f web.yaml        # see the example below
+sudo shoal init
 ```
 
+`shoal init` sets up containerd, the server, the agent and the ingress edge on
+one node. Details are in [Install](#install) and
+[Quickstart](#quickstart-one-node-with-shoal-init).
+
+## From git push to live
+
+Deploy the app once. Then a git host calls Shoal on each push to `main`: Shoal
+builds the image, pushes it to the embedded registry and rolls it out.
+
 ```yaml
-# web.yaml
+# web.yaml: the app
 name: web
 image: nginx:1.27-alpine
 port: 80
 ```
 
-`shoal init` and the install steps are described in [Install](#install) and
-[Quickstart](#quickstart-one-node-with-shoal-init). The app format, with
-domains, volumes and databases, is in [Deploy an app](#deploy-an-app).
+```yaml
+# buildconfig.yaml: the recipe
+kind: BuildConfig
+metadata: { name: web }
+spec:
+  git:
+    url: https://github.com/you/web.git
+    ref: main
+  output: { repository: web, tag: "{short-sha}" }
+  webhook: { provider: github, secret: web-hook, branch: main }
+  onSuccess: { updateWorkload: web }
+```
 
+```sh
+shoal deploy -f web.yaml
+shoal secret create web-hook webhook-secret=<random-secret>
+shoal build create-config -f buildconfig.yaml
+shoal build webhook-url web    # the URL and secret to set in the git host
+shoal build start web          # one run by hand; a push starts one too
+```
+
+Builds need three things that `shoal init` does not set up: a node labelled
+`shoal.dev/builder=true` (`shoal label node NAME shoal.dev/builder=true`), the
+embedded registry turned on with `--registry-listen` on `shoal server`
+([ADR 0020](docs/decisions/0020-embedded-registry.md)), and a portal the git
+host can reach on port 7444 with a certificate it trusts. See
+[Images and builds](#images-and-builds). The app format, with domains, volumes
+and databases, is in [Deploy an app](#deploy-an-app).
+
+> **Status: alpha.** Shoal is pre-1.0 with no independent security audit, and
+> interfaces, the state format and the wire protocol can change between minor versions.
+> Read the [limitations](#limitations) before you run it anywhere that matters.
+
+## What's inside
+
+The server keeps the desired state. Agents on each node run OCI containers
+through containerd and keep them matching it. The control plane can run as a
+three-server Raft cluster. The same binary is the **server**, the **agent** and
+the **CLI**, and it includes a web portal.
+
+- **Orchestration**: workloads with health checks and rolling updates, services
+  on a WireGuard mesh, ingress with automatic TLS, volumes and managed Postgres.
+  The status of each feature is in [What works today](#what-works-today).
+- **Builds**: `BuildConfig`s built from git by a rootless BuildKit executor, with
+  webhooks and rollout to a workload. See [Images and builds](#images-and-builds).
+- **Embedded registry**: an OCI registry in the same binary, off unless enabled
+  ([ADR 0020](docs/decisions/0020-embedded-registry.md)).
+- **Roadmap**: the scope and phases are in
+  [ADR 0019](docs/decisions/0019-shoal-platform-scope.md).
+- **Parity**: the comparison with OpenShift, Kubernetes and GitLab is in the
+  [parity matrix](docs/platform/parity-matrix.md).
 ## What works today
 
 Status is for `main`. The labels mean:
