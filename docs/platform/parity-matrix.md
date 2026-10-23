@@ -165,8 +165,8 @@ Source: `openshift-api/image/v1/types.go` (ImageStream, ImageStreamTag, TagRefer
 
 | Upstream concept | What it does | Shoal today | Gap | Proposed design | Priority |
 |---|---|---|---|---|---|
-| **OB-22** ImageStream (ImageStreamSpec, ImageStreamStatus) | Named repository of tags | None. Images are plain strings: `WorkloadSpec.image` and appspec `image:` | No named repository | Build: embedded OCI registry (CNCF Distribution), one repository namespace per Project, tag table in the store | P0 |
-| **OB-23** ImageStreamTag (TagReference: from, referencePolicy) | Named tag pointing at an image | None | No tags | Build: a tag row in the store, pointing at a digest. Skip referencePolicy | P0 |
+| **OB-22** ImageStream (ImageStreamSpec, ImageStreamStatus) | Named repository of tags | Have (pass A, ADR 0020): embedded registry behind `--registry-listen`, repositories named `<namespace>/<name>`, mTLS authorization for admin and node certificates. Workloads still take plain image strings | Agents do not pull from it yet (no containerd hosts entry, no pull credentials). No Project scope. No garbage collection | Pass B (ADR 0020 follow-ups): containerd hosts.toml and pull credentials through K-19; Project scoping when Project lands | P0 |
+| **OB-23** ImageStreamTag (TagReference: from, referencePolicy) | Named tag pointing at an image | Have (pass A, ADR 0020): an ImageTag store record per tag, `<repo>:<tag>` pointing at the manifest digest, moved on re-push | Tags do not trigger anything yet. No history (OB-24). No referencePolicy (skipped by design) | OB-45 follows tags through the existing rollout path; OB-24 history later | P0 |
 | **OB-24** TagEvent, NamedTagEventList | History of images a tag pointed to | None. Rollback keeps only `stable_template` (`RolloutStatus`) | No tag history | Build: keep the last N tag events, so rollback can target an earlier digest | P1 |
 | **OB-25** TagImportPolicy, ImportModeType (Legacy, PreserveOriginal) | Scheduled import of external images into a stream | None | None | Skip for v1. Pull external images directly by reference | P3 |
 | **OB-26** Image, ImageLayer, ImageManifest | Digest and manifest metadata | None. No digest stored per tag | No digest-pinned deploys | Build: record digests in tag events; deploy by digest *(inferred)* | P1 |
@@ -281,7 +281,7 @@ Source: `gitlab-org/gitlab` `app/assets/javascripts/editor/schema/ci.json` (top-
 
 | Upstream concept | What it does | Shoal today | Gap | Proposed design | Priority |
 |---|---|---|---|---|---|
-| **GL-40** Container registry, per project, with access tokens (docs knowledge; not in ci.json) | Store and serve images per project | None | No registry | Build: embedded CNCF Distribution registry, the same one as OB-22, with Project-scoped tokens | P0 |
+| **GL-40** Container registry, per project, with access tokens (docs knowledge; not in ci.json) | Store and serve images per project | Have (partial, ADR 0020): the embedded registry, the same as OB-22, with admin and node certificates | No Project-scoped tokens yet: a node certificate can pull any repository. No garbage collection (CC-09) | Project-scoped tokens when Project lands (ADR 0020 follow-ups) | P0 |
 | **GL-41** Package registries: npm, Maven, PyPI, generic (docs knowledge) | Host language packages | None | None | Skip. Integrate external registries | P3 |
 | **GL-42** Runners and job `tags` | Execute jobs on hosts that match the tags | Shoal agent runs containers on nodes (ADR 0003, ADR 0006). Labels exist but do not affect placement | No tag matching | Build: map job tags to node labels, using K-15 | P1 |
 | **GL-43** Executors (docs knowledge: docker, kubernetes, shell) | How a job runs | containerd only | Container executor only | Build the containerd executor. Skip shell and other executors | P1 |
