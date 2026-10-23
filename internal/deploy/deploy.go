@@ -450,9 +450,24 @@ func SetSecret(ctx context.Context, ctl v1alpha1.ControlClient, app string, valu
 
 var keyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// ParseAssignments reads KEY=VALUE arguments. A value of "-" is read from
-// stdin, once, without its final newline. Errors never include a value.
+// ParseAssignments reads KEY=VALUE arguments whose keys become environment
+// variables (app env, and the app secret keys its spec lists). A value of "-"
+// is read from stdin, once, without its final newline. Errors never include a
+// value.
 func ParseAssignments(args []string, stdin io.Reader) (map[string]string, error) {
+	return parseAssignments(args, stdin, keyPattern.MatchString,
+		"invalid key (letters, digits and underscores, not starting with a digit)")
+}
+
+// ParseSecretAssignments reads KEY=VALUE arguments for the data of a Secret.
+// Keys follow resource.ValidDataKey, so webhook-secret is valid. Values are
+// read as in ParseAssignments.
+func ParseSecretAssignments(args []string, stdin io.Reader) (map[string]string, error) {
+	return parseAssignments(args, stdin, resource.ValidDataKey,
+		"invalid key (letters, digits, '-', '_', '.'; at most 253 characters; not '.' or '..')")
+}
+
+func parseAssignments(args []string, stdin io.Reader, validKey func(string) bool, keyRule string) (map[string]string, error) {
 	values := map[string]string{}
 	var errs []error
 	stdinUsed := false
@@ -462,8 +477,8 @@ func ParseAssignments(args []string, stdin io.Reader) (map[string]string, error)
 			errs = append(errs, fmt.Errorf("argument %d: want KEY=VALUE", i+1))
 			continue
 		}
-		if !keyPattern.MatchString(k) {
-			errs = append(errs, fmt.Errorf("argument %d: invalid key (letters, digits and underscores, not starting with a digit)", i+1))
+		if !validKey(k) {
+			errs = append(errs, fmt.Errorf("argument %d: %s", i+1, keyRule))
 			continue
 		}
 		if _, dup := values[k]; dup {
