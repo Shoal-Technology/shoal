@@ -698,6 +698,19 @@ func (s *Server) PortalTLS(certFile, keyFile string, extraNames []string) (*tls.
 		}
 		return &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{cert}}, nil
 	}
+	cert, err := s.servingCert(extraNames)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12, // browsers
+		Certificates: []tls.Certificate{cert},
+	}, nil
+}
+
+// servingCert issues a certificate from the cluster CA for the server's
+// names and addresses, plus extraNames. Each call uses a new key.
+func (s *Server) servingCert(extraNames []string) (tls.Certificate, error) {
 	names := append([]string{"localhost"}, extraNames...)
 	if h, err := os.Hostname(); err == nil {
 		names = append(names, h)
@@ -723,14 +736,11 @@ func (s *Server) PortalTLS(certFile, keyFile string, extraNames []string) (*tls.
 	}
 	key, err := security.NewKey()
 	if err != nil {
-		return nil, err
+		return tls.Certificate{}, err
 	}
 	leaf, err := s.ca.IssueServerFor(key.Public(), s.now(), dns, ips)
 	if err != nil {
-		return nil, err
+		return tls.Certificate{}, err
 	}
-	return &tls.Config{
-		MinVersion:   tls.VersionTLS12, // browsers
-		Certificates: []tls.Certificate{{Certificate: [][]byte{leaf.Raw, s.ca.Cert.Raw}, PrivateKey: key, Leaf: leaf}},
-	}, nil
+	return tls.Certificate{Certificate: [][]byte{leaf.Raw, s.ca.Cert.Raw}, PrivateKey: key, Leaf: leaf}, nil
 }

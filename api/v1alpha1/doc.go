@@ -14,6 +14,7 @@ const (
 	KindConfig      = "Config"
 	KindService     = "Service"
 	KindRoute       = "Route"
+	KindImageTag    = "ImageTag"
 	KindVolume      = "Volume"
 	KindVolumeClaim = "VolumeClaim" // internal: one per Volume in use, see ADR 0016
 	KindDatabase    = "Database"

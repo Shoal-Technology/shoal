@@ -20,26 +20,29 @@ import (
 
 func newServerCmd(c *cli) *cobra.Command {
 	var (
-		dataDir, listen, advertise string
-		clusterCIDR, serviceCIDR   string
-		keyFile                    string
-		storeBackend, raftBind     string
-		raftNodeID                 string
-		raftJoin, raftAdvertise    string
-		raftJoinBundle             string
-		restoreFrom                string
-		uiListen, uiCert, uiKey    string
-		uiNames                    []string
-		withAgent                  bool
-		metricsListen              string
-		rf                         runtimeFlags
-		nf                         networkFlags
-		nodeName                   string
-		stopTimeout                time.Duration
-		acmeDirectory, acmeEmail   string
-		acmeCARoots                string
-		acmeDisable                bool
-		acmeAcceptTOS              bool
+		dataDir, listen, advertise  string
+		clusterCIDR, serviceCIDR    string
+		keyFile                     string
+		storeBackend, raftBind      string
+		raftNodeID                  string
+		raftJoin, raftAdvertise     string
+		raftJoinBundle              string
+		restoreFrom                 string
+		uiListen, uiCert, uiKey     string
+		uiNames                     []string
+		registryListen, registryDir string
+		registryNames               []string
+		registryAnon                bool
+		withAgent                   bool
+		metricsListen               string
+		rf                          runtimeFlags
+		nf                          networkFlags
+		nodeName                    string
+		stopTimeout                 time.Duration
+		acmeDirectory, acmeEmail    string
+		acmeCARoots                 string
+		acmeDisable                 bool
+		acmeAcceptTOS               bool
 	)
 	cmd := &cobra.Command{
 		Use:   "server",
@@ -98,6 +101,15 @@ joins without a token: a complete single-node cluster in one process.`,
 				}
 				defer stop()
 			}
+			if registryListen != "" {
+				stop, err := serveRegistry(ctx, srv, log, registryListen, server.RegistryOptions{
+					Dir: registryDir, Names: registryNames, AnonymousPull: registryAnon}, &wg)
+				if err != nil {
+					lis.Close()
+					return err
+				}
+				defer stop()
+			}
 			if withAgent {
 				// In the background: the agent's setup asks this very server
 				// for the node's network settings, so Serve must be running.
@@ -138,6 +150,10 @@ joins without a token: a complete single-node cluster in one process.`,
 	cmd.Flags().BoolVar(&withAgent, "with-agent", false, "also run an agent for this machine (single-node cluster)")
 	cmd.Flags().StringVar(&metricsListen, "metrics-listen", "127.0.0.1:9464", "address for /metrics, /healthz and /readyz (loopback by default; empty disables)")
 	cmd.Flags().StringVar(&uiListen, "ui-listen", ":7444", "address of the web portal (HTTPS; empty disables it)")
+	cmd.Flags().StringVar(&registryListen, "registry-listen", "", "address of the embedded OCI registry (HTTPS with client certificates; empty disables it, ADR 0020)")
+	cmd.Flags().StringVar(&registryDir, "registry-dir", "", "directory for the registry's blobs and manifests (default <data-dir>/registry)")
+	cmd.Flags().StringSliceVar(&registryNames, "registry-name", nil, "extra host names or IPs for the registry certificate (repeatable)")
+	cmd.Flags().BoolVar(&registryAnon, "registry-anonymous-pull", false, "let requests without a client certificate pull images (pushes stay admin-only)")
 	cmd.Flags().StringVar(&uiCert, "ui-cert", "", "certificate file for the portal (default: issued by the cluster CA)")
 	cmd.Flags().StringVar(&uiKey, "ui-key", "", "private key file for --ui-cert")
 	cmd.Flags().StringSliceVar(&uiNames, "ui-name", nil, "extra host names or IPs for the portal's certificate (repeatable)")
@@ -203,6 +219,41 @@ func portalHost(listen string, srv *server.Server) string {
 		}
 	}
 	return net.JoinHostPort(host, port)
+}
+
+// serveRegistry serves the embedded OCI registry over HTTPS until ctx is done.
+// The returned func stops it.
+func serveRegistry(ctx context.Context, srv *server.Server, log *slog.Logger, listen string, opts server.RegistryOptions, wg *sync.WaitGroup) (func(), error) {
+	tc, err := srv.RegistryTLS(opts.Names)
+	if err != nil {
+		return nil, err
+	}
+	h, err := srv.RegistryHandler(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	lis, err := net.Listen("tcp", listen)
+	if err != nil {
+		return nil, fmt.Errorf("registry: listen on %s: %w", listen, err)
+	}
+	hs := &http.Server{
+		Handler: h, TLSConfig: tc,
+		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute,
+		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelDebug),
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := hs.ServeTLS(lis, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("registry stopped", "err", err)
+		}
+	}()
+	log.Info("embedded registry listening", "addr", listen)
+	return func() {
+		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = hs.Shutdown(sctx)
+	}, nil
 }
 
 // localAgent prepares the in-process agent of `server --with-agent`. Its

@@ -33,7 +33,7 @@ func newRootCmd() *cobra.Command {
 		newServerCmd(c), newAgentCmd(c),
 		newApplyCmd(), newGetCmd(), newDescribeCmd(), newLogsCmd(), newRestartCmd(), newDeleteCmd(), newTokenCmd(), newUICmd(),
 		newClusterCmd(), newBackupCmd(), newLabelCmd(), newVolumeCmd(),
-		newDeployCmd(), newAppCmd(), newDBCmd(), newExplainCmd(), newSecretCmd(),
+		newDeployCmd(), newAppCmd(), newDBCmd(), newExplainCmd(), newSecretCmd(), newRegistryCmd(),
 		newDebugCmd(c), newInitCmd(), newUninstallCmd(), newVersionCmd(),
 	)
 	return root

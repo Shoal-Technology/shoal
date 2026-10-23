@@ -608,3 +608,13 @@ message JoinTokenSpec {
   int32 uses = 4;
   string description = 5;
 }
+
+// ImageTagSpec is one tag of the embedded registry: the manifest digest it
+// points to (ADR 0020). The server writes it on each tag push; it is not
+// applied by users.
+message ImageTagSpec {
+  string repository = 1;
+  string tag = 2;
+  string digest = 3;
+  string media_type = 4;
+}
