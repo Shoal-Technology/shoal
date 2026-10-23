@@ -183,6 +183,12 @@ func Inner(obj *v1alpha1.Object) proto.Message {
 		return k.ResourceQuota
 	case *v1alpha1.Object_Environment:
 		return k.Environment
+	case *v1alpha1.Object_Pipeline:
+		return k.Pipeline
+	case *v1alpha1.Object_PipelineRun:
+		return k.PipelineRun
+	case *v1alpha1.Object_Job:
+		return k.Job
 	}
 	return nil
 }
