@@ -18,7 +18,7 @@ run by hand.
 | staticcheck | No static analysis findings | `honnef.co/go/tools` v0.8.1, built with `golang.org/x/tools` v0.52.0 |
 | govulncheck | No known vulnerability is reachable from the code | `golang.org/x/vuln/cmd/govulncheck` v1.2.0 |
 
-The Go toolchain is set by `go` in `go.mod` (currently 1.27.2), so CI and the
+The Go toolchain is set by `go` in `go.mod` (currently 1.27.3), so CI and the
 VPS build with the same patched standard library.
 
 ### Why staticcheck is built the way it is
