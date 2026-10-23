@@ -58,8 +58,8 @@ Status is for `main`. The labels mean:
 | Init and the app format | Available | `shoal init` on a single node. `shoal deploy` for `shoal.yaml` | [ADR 0017](docs/decisions/0017-onboarding-init-app-spec.md) |
 | Observability | Alpha | Metrics and health endpoints. No alerts or webhooks yet | [ADR 0018](docs/decisions/0018-observability.md) |
 | Embedded OCI registry | Alpha | Off unless `--registry-listen` is set. Agents pull `shoal.local/<repo>:<tag>` | [ADR 0020](docs/decisions/0020-embedded-registry.md) |
-| Builds: BuildConfig, Build records, queue, CLI | In progress | On `main` there is no build executor yet, so a started build ends in phase `Error`. The BuildKit executor is the next pass | [ADR 0021](docs/decisions/0021-builds.md) |
-| Git webhooks and build-to-rollout | In progress | [PR #8](https://github.com/Shoal-Technology/shoal/pull/8) | [ADR 0021](docs/decisions/0021-builds.md) |
+| Builds: BuildConfig, Build records, queue, CLI | In progress | On `main` there is no build executor yet, so a started build ends in phase `Error`. The BuildKit executor is in [PR #9](https://github.com/Shoal-Technology/shoal/pull/9) | [ADR 0021](docs/decisions/0021-builds.md) |
+| Git webhooks and build-to-rollout | Alpha (merged, requires a builder; BuildKit executor in progress: [PR #9](https://github.com/Shoal-Technology/shoal/pull/9)) | Merged in [PR #8](https://github.com/Shoal-Technology/shoal/pull/8). Webhooks start Builds, which run only once an executor is on `main` | [ADR 0021](docs/decisions/0021-builds.md) |
 | Projects, RBAC and quotas | Planned | Tenancy and permissions | [parity matrix](docs/platform/parity-matrix.md) |
 | Jobs, CronJobs and node placement | Planned | | [parity matrix](docs/platform/parity-matrix.md) |
 | S3 export of backups | Planned | Backups stay on the local volume for now | [ADR 0016](docs/decisions/0016-volumes-managed-databases.md) |
@@ -645,8 +645,14 @@ output repository and tag template, and build arguments. Each run is a `Build`,
 with phases from `New` to `Complete`. A config runs one build at a time and
 keeps its last 10 finished runs. On `main` there is no build executor yet, so a
 started build ends in phase `Error`. The BuildKit executor is pass B of
-ADR 0021. Git webhooks and build-to-rollout are in
-[PR #8](https://github.com/Shoal-Technology/shoal/pull/8).
+ADR 0021, in [PR #9](https://github.com/Shoal-Technology/shoal/pull/9).
+
+Git webhooks and build-to-rollout are merged
+([PR #8](https://github.com/Shoal-Technology/shoal/pull/8)) and marked alpha.
+They need a builder to produce images. The webhook endpoint is
+`POST /hooks/v1/<config uid>` on the portal listener (`--ui-listen`, port
+7444 by default). The git host must be able to reach that port, and the
+portal certificate (`--ui-cert` and `--ui-key`) must be one that host trusts.
 
 ```sh
 shoal build create-config -f app-build.yaml   # a BuildConfig manifest
@@ -659,7 +665,7 @@ shoal build ls app                            # its runs
 Shoal is alpha. These are known gaps, stated plainly:
 
 - **Builds do not run yet.** `main` records builds and queues them, but has no
-  executor. The BuildKit executor is the next pass of ADR 0021.
+  executor. The BuildKit executor is in progress, in [PR #9](https://github.com/Shoal-Technology/shoal/pull/9).
 
 - **Multi-host is not verified end to end.** The WireGuard mesh, agent
   failover and scheduling across separate machines are covered by unit tests
