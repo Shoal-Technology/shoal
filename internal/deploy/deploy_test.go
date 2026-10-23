@@ -483,3 +483,19 @@ func TestSecretValueNotEchoedOnBadKey(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestSecretKeysAndEnvKeysRules(t *testing.T) {
+	v, err := ParseSecretAssignments([]string{"webhook-secret=hook-value", "a.b=x"}, nil)
+	if err != nil || v["webhook-secret"] != "hook-value" {
+		t.Fatalf("secret keys: %v, %v", v, err)
+	}
+	for _, a := range []string{"bad/key=hunter2", ".=hunter2", "..=hunter2", "=hunter2", "a b=hunter2"} {
+		if _, err := ParseSecretAssignments([]string{a}, nil); err == nil || strings.Contains(err.Error(), "hunter2") {
+			t.Errorf("ParseSecretAssignments(%q) err = %v", a, err)
+		}
+	}
+	// Keys that become environment variables keep the env-name rule.
+	if _, err := ParseAssignments([]string{"webhook-secret=hunter2"}, nil); err == nil || strings.Contains(err.Error(), "hunter2") {
+		t.Errorf("env path accepted a hyphenated key: %v", err)
+	}
+}

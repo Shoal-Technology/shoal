@@ -16,9 +16,16 @@ import (
 // nodes in every assignment snapshot.
 const MaxDataBytes = 256 << 10
 
-// dataKey is a valid key of a Secret or Config: usable as a file name and,
-// with a valueFrom reference, as a source of an environment variable.
-var dataKey = regexp.MustCompile(`^[-._a-zA-Z0-9]{1,253}$`)
+// dataKeyPattern is the Kubernetes rule for a key of a Secret or Config.
+var dataKeyPattern = regexp.MustCompile(`^[-._a-zA-Z0-9]{1,253}$`)
+
+// ValidDataKey reports whether k is a valid key of a Secret or Config. The
+// key is a file name in a volume and, with a valueFrom reference, the source
+// of an environment variable. The variable's own name is checked separately
+// where it is set. The CLI and the server both use this rule.
+func ValidDataKey(k string) bool {
+	return dataKeyPattern.MatchString(k) && k != "." && k != ".."
+}
 
 // Prepare defaults and validates an applied object. It returns the
 // object's kind, name and the spec to store. Labels in the metadata are
@@ -124,8 +131,8 @@ func validateData(name string, data map[string]string) error {
 	}
 	size := 0
 	for k, v := range data {
-		if !dataKey.MatchString(k) || k == "." || k == ".." {
-			errs = append(errs, fmt.Errorf("data: invalid key %q (letters, digits, '-', '_', '.')", k))
+		if !ValidDataKey(k) {
+			errs = append(errs, fmt.Errorf("data: invalid key %q (letters, digits, '-', '_', '.'; at most 253 characters; not '.' or '..')", k))
 		}
 		size += len(k) + len(v)
 	}
@@ -197,7 +204,7 @@ func validateEnvAndFiles(s *v1alpha1.WorkloadSpec, bad func(field, format string
 			bad(f+".valueFrom", "set exactly one of secret or config")
 		case !ValidName(ref.GetName(), 63):
 			bad(f+".valueFrom", "invalid name %q", ref.GetName())
-		case !dataKey.MatchString(ref.GetKey()):
+		case !ValidDataKey(ref.GetKey()):
 			bad(f+".valueFrom", "invalid key %q", ref.GetKey())
 		}
 	}

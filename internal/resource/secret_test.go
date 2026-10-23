@@ -148,3 +148,26 @@ func TestValidateWorkloadPullSecrets(t *testing.T) {
 		t.Fatalf("error %v, want a duplicate error", err)
 	}
 }
+
+func TestValidDataKey(t *testing.T) {
+	for _, k := range []string{"webhook-secret", "tls.crt", "a_b", "-", "x", strings.Repeat("k", 253)} {
+		if !ValidDataKey(k) {
+			t.Errorf("ValidDataKey(%q) = false, want true", k)
+		}
+	}
+	for _, k := range []string{"", ".", "..", "bad key", "a/b", "a=b", "a+b", strings.Repeat("k", 254)} {
+		if ValidDataKey(k) {
+			t.Errorf("ValidDataKey(%q) = true, want false", k)
+		}
+	}
+}
+
+// The server accepts the webhook Secret key that the README and the CLI use.
+func TestSecretHyphenatedKeyServerSide(t *testing.T) {
+	if err := validateData("hook-secret", map[string]string{"webhook-secret": "v"}); err != nil {
+		t.Fatalf("webhook-secret rejected: %v", err)
+	}
+	if err := validateData("hook-secret", map[string]string{"..": "v"}); err == nil {
+		t.Error(`key ".." accepted`)
+	}
+}

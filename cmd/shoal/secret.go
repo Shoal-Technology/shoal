@@ -103,7 +103,7 @@ func buildSecret(name string, f secretFlags, args []string, stdin io.Reader) (*v
 		if len(args) == 0 {
 			return nil, fmt.Errorf("an opaque Secret needs at least one KEY=VALUE")
 		}
-		data, err = deploy.ParseAssignments(args, stdin)
+		data, err = deploy.ParseSecretAssignments(args, stdin)
 	case "dockerconfigjson":
 		typ = resource.SecretTypeDockerConfigJSON
 		if len(args) > 0 || tlsFlags {

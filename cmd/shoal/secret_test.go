@@ -176,3 +176,17 @@ func TestSecretCreateFlagWiring(t *testing.T) {
 		t.Fatalf("Execute error %v, want the missing certificate file", err)
 	}
 }
+
+func TestBuildSecretHyphenatedKey(t *testing.T) {
+	obj, err := buildSecret("hook-secret", secretFlags{typ: "opaque"}, []string{"webhook-secret=hook-value", "SIGNING=-"}, strings.NewReader("sig\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := obj.GetSecret().GetSpec().GetData()
+	if data["webhook-secret"] != "hook-value" || data["SIGNING"] != "sig" {
+		t.Errorf("data = %v", data)
+	}
+	if _, err := buildSecret("hook-secret", secretFlags{typ: "opaque"}, []string{"bad/key=hunter2"}, nil); err == nil || strings.Contains(err.Error(), "hunter2") {
+		t.Errorf("bad key err = %v", err)
+	}
+}

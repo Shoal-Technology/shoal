@@ -128,16 +128,10 @@ pass "labelled $RUNNER"
 say "create the secrets: the pipeline token and the webhook secret"
 cc secret create pipeline-token "token=$TOKEN_VALUE" >"$RESULTS/secret-create.txt" 2>&1 ||
   fail "secret create pipeline-token refused"
-# The webhook key has a hyphen, which `shoal secret create` does not accept
-# (its key rule is stricter than the server's), so the Secret is applied.
-cat >"$WORK/hook-secret.yaml" <<EOF
-kind: Secret
-metadata: { name: hook-secret }
-spec:
-  data: { webhook-secret: "$HOOK_VALUE" }
-EOF
-cc apply -f "$WORK/hook-secret.yaml" >>"$RESULTS/secret-create.txt" 2>&1 ||
-  fail "apply hook-secret refused (see secret-create.txt)"
+# The webhook key is webhook-secret, the key the README and `shoal build
+# webhook-url` name, so the e2e creates it with that same command.
+cc secret create hook-secret "webhook-secret=$HOOK_VALUE" >>"$RESULTS/secret-create.txt" 2>&1 ||
+  fail "secret create hook-secret refused (see secret-create.txt)"
 pass "created pipeline-token and hook-secret"
 
 say "create the BuildConfig web (the build step of the pipeline) with a push webhook"
