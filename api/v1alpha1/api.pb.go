@@ -1960,6 +1960,430 @@ func (x *JoinResponse) GetCaCertificate() []byte {
 	return nil
 }
 
+type ClaimBuildRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClaimBuildRequest) Reset() {
+	*x = ClaimBuildRequest{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClaimBuildRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClaimBuildRequest) ProtoMessage() {}
+
+func (x *ClaimBuildRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClaimBuildRequest.ProtoReflect.Descriptor instead.
+func (*ClaimBuildRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{36}
+}
+
+type ClaimBuildResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Empty when there is no job for this node.
+	Build string `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	// The Build's source, with defaults applied.
+	Source      *BuildConfigSpec  `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	Credentials *BuildCredentials `protobuf:"bytes,3,opt,name=credentials,proto3" json:"credentials,omitempty"`
+	// Address of the embedded registry the image is pushed to.
+	RegistryAddress string `protobuf:"bytes,4,opt,name=registry_address,json=registryAddress,proto3" json:"registry_address,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ClaimBuildResponse) Reset() {
+	*x = ClaimBuildResponse{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClaimBuildResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClaimBuildResponse) ProtoMessage() {}
+
+func (x *ClaimBuildResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClaimBuildResponse.ProtoReflect.Descriptor instead.
+func (*ClaimBuildResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ClaimBuildResponse) GetBuild() string {
+	if x != nil {
+		return x.Build
+	}
+	return ""
+}
+
+func (x *ClaimBuildResponse) GetSource() *BuildConfigSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *ClaimBuildResponse) GetCredentials() *BuildCredentials {
+	if x != nil {
+		return x.Credentials
+	}
+	return nil
+}
+
+func (x *ClaimBuildResponse) GetRegistryAddress() string {
+	if x != nil {
+		return x.RegistryAddress
+	}
+	return ""
+}
+
+// BuildCredentials are the git credentials of a Build, from its Secret. The
+// values travel over the node's mTLS session only and are never logged.
+type BuildCredentials struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// kubernetes.io/basic-auth or kubernetes.io/ssh-auth; empty for a public
+	// repository.
+	Type          string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Username      string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Password      string `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	SshPrivateKey string `protobuf:"bytes,4,opt,name=ssh_private_key,json=sshPrivateKey,proto3" json:"ssh_private_key,omitempty"`
+	KnownHosts    string `protobuf:"bytes,5,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildCredentials) Reset() {
+	*x = BuildCredentials{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildCredentials) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildCredentials) ProtoMessage() {}
+
+func (x *BuildCredentials) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildCredentials.ProtoReflect.Descriptor instead.
+func (*BuildCredentials) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *BuildCredentials) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *BuildCredentials) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *BuildCredentials) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *BuildCredentials) GetSshPrivateKey() string {
+	if x != nil {
+		return x.SshPrivateKey
+	}
+	return ""
+}
+
+func (x *BuildCredentials) GetKnownHosts() string {
+	if x != nil {
+		return x.KnownHosts
+	}
+	return ""
+}
+
+type ReportBuildRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Build string                 `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	Lines []*LogLine             `protobuf:"bytes,2,rep,name=lines,proto3" json:"lines,omitempty"`
+	// Empty while the build runs. Otherwise Complete, Failed or Error.
+	Phase   string `protobuf:"bytes,3,opt,name=phase,proto3" json:"phase,omitempty"`
+	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// Set with phase Complete.
+	Commit        string `protobuf:"bytes,5,opt,name=commit,proto3" json:"commit,omitempty"`
+	Image         string `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
+	Digest        string `protobuf:"bytes,7,opt,name=digest,proto3" json:"digest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReportBuildRequest) Reset() {
+	*x = ReportBuildRequest{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportBuildRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportBuildRequest) ProtoMessage() {}
+
+func (x *ReportBuildRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportBuildRequest.ProtoReflect.Descriptor instead.
+func (*ReportBuildRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ReportBuildRequest) GetBuild() string {
+	if x != nil {
+		return x.Build
+	}
+	return ""
+}
+
+func (x *ReportBuildRequest) GetLines() []*LogLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+func (x *ReportBuildRequest) GetPhase() string {
+	if x != nil {
+		return x.Phase
+	}
+	return ""
+}
+
+func (x *ReportBuildRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ReportBuildRequest) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+func (x *ReportBuildRequest) GetImage() string {
+	if x != nil {
+		return x.Image
+	}
+	return ""
+}
+
+func (x *ReportBuildRequest) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+type ReportBuildResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Set once CancelBuild has been called for the Build.
+	Cancel        bool `protobuf:"varint,1,opt,name=cancel,proto3" json:"cancel,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReportBuildResponse) Reset() {
+	*x = ReportBuildResponse{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportBuildResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportBuildResponse) ProtoMessage() {}
+
+func (x *ReportBuildResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportBuildResponse.ProtoReflect.Descriptor instead.
+func (*ReportBuildResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ReportBuildResponse) GetCancel() bool {
+	if x != nil {
+		return x.Cancel
+	}
+	return false
+}
+
+type IssueBuildCertificateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Build string                 `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	// DER-encoded certificate request. Its subject is ignored.
+	Csr           []byte `protobuf:"bytes,2,opt,name=csr,proto3" json:"csr,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IssueBuildCertificateRequest) Reset() {
+	*x = IssueBuildCertificateRequest{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IssueBuildCertificateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IssueBuildCertificateRequest) ProtoMessage() {}
+
+func (x *IssueBuildCertificateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IssueBuildCertificateRequest.ProtoReflect.Descriptor instead.
+func (*IssueBuildCertificateRequest) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *IssueBuildCertificateRequest) GetBuild() string {
+	if x != nil {
+		return x.Build
+	}
+	return ""
+}
+
+func (x *IssueBuildCertificateRequest) GetCsr() []byte {
+	if x != nil {
+		return x.Csr
+	}
+	return nil
+}
+
+type IssueBuildCertificateResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DER-encoded certificate. Valid for BuildCertificateValidity.
+	Certificate   []byte `protobuf:"bytes,1,opt,name=certificate,proto3" json:"certificate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IssueBuildCertificateResponse) Reset() {
+	*x = IssueBuildCertificateResponse{}
+	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IssueBuildCertificateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IssueBuildCertificateResponse) ProtoMessage() {}
+
+func (x *IssueBuildCertificateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IssueBuildCertificateResponse.ProtoReflect.Descriptor instead.
+func (*IssueBuildCertificateResponse) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *IssueBuildCertificateResponse) GetCertificate() []byte {
+	if x != nil {
+		return x.Certificate
+	}
+	return nil
+}
+
 type NodeConfigRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1968,7 +2392,7 @@ type NodeConfigRequest struct {
 
 func (x *NodeConfigRequest) Reset() {
 	*x = NodeConfigRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1980,7 +2404,7 @@ func (x *NodeConfigRequest) String() string {
 func (*NodeConfigRequest) ProtoMessage() {}
 
 func (x *NodeConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[36]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1993,7 +2417,7 @@ func (x *NodeConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigRequest.ProtoReflect.Descriptor instead.
 func (*NodeConfigRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{36}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{43}
 }
 
 type NodeConfigResponse struct {
@@ -2014,7 +2438,7 @@ type NodeConfigResponse struct {
 
 func (x *NodeConfigResponse) Reset() {
 	*x = NodeConfigResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2026,7 +2450,7 @@ func (x *NodeConfigResponse) String() string {
 func (*NodeConfigResponse) ProtoMessage() {}
 
 func (x *NodeConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[37]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2039,7 +2463,7 @@ func (x *NodeConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigResponse.ProtoReflect.Descriptor instead.
 func (*NodeConfigResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{37}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *NodeConfigResponse) GetPodCidr() string {
@@ -2082,7 +2506,7 @@ type AgentMessage struct {
 
 func (x *AgentMessage) Reset() {
 	*x = AgentMessage{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2094,7 +2518,7 @@ func (x *AgentMessage) String() string {
 func (*AgentMessage) ProtoMessage() {}
 
 func (x *AgentMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[38]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2107,7 +2531,7 @@ func (x *AgentMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentMessage.ProtoReflect.Descriptor instead.
 func (*AgentMessage) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{38}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *AgentMessage) GetMsg() isAgentMessage_Msg {
@@ -2161,7 +2585,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2173,7 +2597,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[39]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2186,7 +2610,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{39}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *Heartbeat) GetCapacity() *NodeCapacity {
@@ -2269,7 +2693,7 @@ type ReplicaReport struct {
 
 func (x *ReplicaReport) Reset() {
 	*x = ReplicaReport{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2281,7 +2705,7 @@ func (x *ReplicaReport) String() string {
 func (*ReplicaReport) ProtoMessage() {}
 
 func (x *ReplicaReport) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[40]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2294,7 +2718,7 @@ func (x *ReplicaReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplicaReport.ProtoReflect.Descriptor instead.
 func (*ReplicaReport) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{40}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ReplicaReport) GetReplica() string {
@@ -2326,7 +2750,7 @@ type ServerMessage struct {
 
 func (x *ServerMessage) Reset() {
 	*x = ServerMessage{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2338,7 +2762,7 @@ func (x *ServerMessage) String() string {
 func (*ServerMessage) ProtoMessage() {}
 
 func (x *ServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[41]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2351,7 +2775,7 @@ func (x *ServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
 func (*ServerMessage) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{41}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ServerMessage) GetMsg() isServerMessage_Msg {
@@ -2450,7 +2874,7 @@ type RouteSnapshot struct {
 
 func (x *RouteSnapshot) Reset() {
 	*x = RouteSnapshot{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2462,7 +2886,7 @@ func (x *RouteSnapshot) String() string {
 func (*RouteSnapshot) ProtoMessage() {}
 
 func (x *RouteSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[42]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2475,7 +2899,7 @@ func (x *RouteSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteSnapshot.ProtoReflect.Descriptor instead.
 func (*RouteSnapshot) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{42}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RouteSnapshot) GetRevision() int64 {
@@ -2531,7 +2955,7 @@ type EdgeChallenge struct {
 
 func (x *EdgeChallenge) Reset() {
 	*x = EdgeChallenge{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2543,7 +2967,7 @@ func (x *EdgeChallenge) String() string {
 func (*EdgeChallenge) ProtoMessage() {}
 
 func (x *EdgeChallenge) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[43]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2556,7 +2980,7 @@ func (x *EdgeChallenge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeChallenge.ProtoReflect.Descriptor instead.
 func (*EdgeChallenge) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{43}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *EdgeChallenge) GetToken() string {
@@ -2585,7 +3009,7 @@ type EdgeCertificate struct {
 
 func (x *EdgeCertificate) Reset() {
 	*x = EdgeCertificate{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2597,7 +3021,7 @@ func (x *EdgeCertificate) String() string {
 func (*EdgeCertificate) ProtoMessage() {}
 
 func (x *EdgeCertificate) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[44]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2610,7 +3034,7 @@ func (x *EdgeCertificate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeCertificate.ProtoReflect.Descriptor instead.
 func (*EdgeCertificate) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{44}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *EdgeCertificate) GetHost() string {
@@ -2655,7 +3079,7 @@ type EdgeRoute struct {
 
 func (x *EdgeRoute) Reset() {
 	*x = EdgeRoute{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2667,7 +3091,7 @@ func (x *EdgeRoute) String() string {
 func (*EdgeRoute) ProtoMessage() {}
 
 func (x *EdgeRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[45]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2680,7 +3104,7 @@ func (x *EdgeRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeRoute.ProtoReflect.Descriptor instead.
 func (*EdgeRoute) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{45}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *EdgeRoute) GetName() string {
@@ -2752,7 +3176,7 @@ type SetNodeLabelsRequest struct {
 
 func (x *SetNodeLabelsRequest) Reset() {
 	*x = SetNodeLabelsRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2764,7 +3188,7 @@ func (x *SetNodeLabelsRequest) String() string {
 func (*SetNodeLabelsRequest) ProtoMessage() {}
 
 func (x *SetNodeLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[46]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2777,7 +3201,7 @@ func (x *SetNodeLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetNodeLabelsRequest.ProtoReflect.Descriptor instead.
 func (*SetNodeLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{46}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *SetNodeLabelsRequest) GetNode() string {
@@ -2811,7 +3235,7 @@ type SetNodeLabelsResponse struct {
 
 func (x *SetNodeLabelsResponse) Reset() {
 	*x = SetNodeLabelsResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2823,7 +3247,7 @@ func (x *SetNodeLabelsResponse) String() string {
 func (*SetNodeLabelsResponse) ProtoMessage() {}
 
 func (x *SetNodeLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[47]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2836,7 +3260,7 @@ func (x *SetNodeLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetNodeLabelsResponse.ProtoReflect.Descriptor instead.
 func (*SetNodeLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{47}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *SetNodeLabelsResponse) GetLabels() map[string]string {
@@ -2865,7 +3289,7 @@ type AssignmentSnapshot struct {
 
 func (x *AssignmentSnapshot) Reset() {
 	*x = AssignmentSnapshot{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2877,7 +3301,7 @@ func (x *AssignmentSnapshot) String() string {
 func (*AssignmentSnapshot) ProtoMessage() {}
 
 func (x *AssignmentSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[48]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2890,7 +3314,7 @@ func (x *AssignmentSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignmentSnapshot.ProtoReflect.Descriptor instead.
 func (*AssignmentSnapshot) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{48}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *AssignmentSnapshot) GetVersion() string {
@@ -2953,7 +3377,7 @@ type Assignment struct {
 
 func (x *Assignment) Reset() {
 	*x = Assignment{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2965,7 +3389,7 @@ func (x *Assignment) String() string {
 func (*Assignment) ProtoMessage() {}
 
 func (x *Assignment) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[49]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2978,7 +3402,7 @@ func (x *Assignment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Assignment.ProtoReflect.Descriptor instead.
 func (*Assignment) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{49}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *Assignment) GetReplica() string {
@@ -3056,7 +3480,7 @@ type ResolvedMount struct {
 
 func (x *ResolvedMount) Reset() {
 	*x = ResolvedMount{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3068,7 +3492,7 @@ func (x *ResolvedMount) String() string {
 func (*ResolvedMount) ProtoMessage() {}
 
 func (x *ResolvedMount) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[50]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3081,7 +3505,7 @@ func (x *ResolvedMount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolvedMount.ProtoReflect.Descriptor instead.
 func (*ResolvedMount) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{50}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ResolvedMount) GetPath() string {
@@ -3118,7 +3542,7 @@ type ServiceRoute struct {
 
 func (x *ServiceRoute) Reset() {
 	*x = ServiceRoute{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3130,7 +3554,7 @@ func (x *ServiceRoute) String() string {
 func (*ServiceRoute) ProtoMessage() {}
 
 func (x *ServiceRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[51]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3143,7 +3567,7 @@ func (x *ServiceRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceRoute.ProtoReflect.Descriptor instead.
 func (*ServiceRoute) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{51}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ServiceRoute) GetName() string {
@@ -3187,7 +3611,7 @@ type MeshPeer struct {
 
 func (x *MeshPeer) Reset() {
 	*x = MeshPeer{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[52]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3199,7 +3623,7 @@ func (x *MeshPeer) String() string {
 func (*MeshPeer) ProtoMessage() {}
 
 func (x *MeshPeer) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[52]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3212,7 +3636,7 @@ func (x *MeshPeer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeshPeer.ProtoReflect.Descriptor instead.
 func (*MeshPeer) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{52}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *MeshPeer) GetNode() string {
@@ -3258,7 +3682,7 @@ type LogRequest struct {
 
 func (x *LogRequest) Reset() {
 	*x = LogRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[53]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3270,7 +3694,7 @@ func (x *LogRequest) String() string {
 func (*LogRequest) ProtoMessage() {}
 
 func (x *LogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[53]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3283,7 +3707,7 @@ func (x *LogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
 func (*LogRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{53}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *LogRequest) GetRequestId() string {
@@ -3327,7 +3751,7 @@ type LogChunk struct {
 
 func (x *LogChunk) Reset() {
 	*x = LogChunk{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[54]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3339,7 +3763,7 @@ func (x *LogChunk) String() string {
 func (*LogChunk) ProtoMessage() {}
 
 func (x *LogChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[54]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3352,7 +3776,7 @@ func (x *LogChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogChunk.ProtoReflect.Descriptor instead.
 func (*LogChunk) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{54}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *LogChunk) GetRequestId() string {
@@ -3390,7 +3814,7 @@ type LogLine struct {
 
 func (x *LogLine) Reset() {
 	*x = LogLine{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[55]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3402,7 +3826,7 @@ func (x *LogLine) String() string {
 func (*LogLine) ProtoMessage() {}
 
 func (x *LogLine) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[55]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3415,7 +3839,7 @@ func (x *LogLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogLine.ProtoReflect.Descriptor instead.
 func (*LogLine) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{55}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *LogLine) GetTime() *timestamppb.Timestamp {
@@ -3454,7 +3878,7 @@ type UploadLogsResponse struct {
 
 func (x *UploadLogsResponse) Reset() {
 	*x = UploadLogsResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[56]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3466,7 +3890,7 @@ func (x *UploadLogsResponse) String() string {
 func (*UploadLogsResponse) ProtoMessage() {}
 
 func (x *UploadLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[56]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3479,7 +3903,7 @@ func (x *UploadLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadLogsResponse.ProtoReflect.Descriptor instead.
 func (*UploadLogsResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{56}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{63}
 }
 
 type SyncConfig struct {
@@ -3491,7 +3915,7 @@ type SyncConfig struct {
 
 func (x *SyncConfig) Reset() {
 	*x = SyncConfig{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[57]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3503,7 +3927,7 @@ func (x *SyncConfig) String() string {
 func (*SyncConfig) ProtoMessage() {}
 
 func (x *SyncConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[57]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3516,7 +3940,7 @@ func (x *SyncConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncConfig.ProtoReflect.Descriptor instead.
 func (*SyncConfig) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{57}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *SyncConfig) GetHeartbeatInterval() *durationpb.Duration {
@@ -3536,7 +3960,7 @@ type RenewCertificateRequest struct {
 
 func (x *RenewCertificateRequest) Reset() {
 	*x = RenewCertificateRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[58]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3548,7 +3972,7 @@ func (x *RenewCertificateRequest) String() string {
 func (*RenewCertificateRequest) ProtoMessage() {}
 
 func (x *RenewCertificateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[58]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3561,7 +3985,7 @@ func (x *RenewCertificateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewCertificateRequest.ProtoReflect.Descriptor instead.
 func (*RenewCertificateRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{58}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *RenewCertificateRequest) GetCsr() []byte {
@@ -3580,7 +4004,7 @@ type RenewCertificateResponse struct {
 
 func (x *RenewCertificateResponse) Reset() {
 	*x = RenewCertificateResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[59]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3592,7 +4016,7 @@ func (x *RenewCertificateResponse) String() string {
 func (*RenewCertificateResponse) ProtoMessage() {}
 
 func (x *RenewCertificateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[59]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3605,7 +4029,7 @@ func (x *RenewCertificateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewCertificateResponse.ProtoReflect.Descriptor instead.
 func (*RenewCertificateResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{59}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *RenewCertificateResponse) GetCertificate() []byte {
@@ -3623,7 +4047,7 @@ type BackupRequest struct {
 
 func (x *BackupRequest) Reset() {
 	*x = BackupRequest{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[60]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3635,7 +4059,7 @@ func (x *BackupRequest) String() string {
 func (*BackupRequest) ProtoMessage() {}
 
 func (x *BackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[60]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3648,7 +4072,7 @@ func (x *BackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupRequest.ProtoReflect.Descriptor instead.
 func (*BackupRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{60}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{67}
 }
 
 type BackupResponse struct {
@@ -3664,7 +4088,7 @@ type BackupResponse struct {
 
 func (x *BackupResponse) Reset() {
 	*x = BackupResponse{}
-	mi := &file_api_v1alpha1_api_proto_msgTypes[61]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3676,7 +4100,7 @@ func (x *BackupResponse) String() string {
 func (*BackupResponse) ProtoMessage() {}
 
 func (x *BackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_api_proto_msgTypes[61]
+	mi := &file_api_v1alpha1_api_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3689,7 +4113,7 @@ func (x *BackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupResponse.ProtoReflect.Descriptor instead.
 func (*BackupResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{61}
+	return file_api_v1alpha1_api_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *BackupResponse) GetBackup() []byte {
@@ -3822,6 +4246,34 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\fJoinResponse\x12 \n" +
 	"\vcertificate\x18\x01 \x01(\fR\vcertificate\x12%\n" +
 	"\x0eca_certificate\x18\x02 \x01(\fR\rcaCertificate\"\x13\n" +
+	"\x11ClaimBuildRequest\"\xd2\x01\n" +
+	"\x12ClaimBuildResponse\x12\x14\n" +
+	"\x05build\x18\x01 \x01(\tR\x05build\x127\n" +
+	"\x06source\x18\x02 \x01(\v2\x1f.shoal.v1alpha1.BuildConfigSpecR\x06source\x12B\n" +
+	"\vcredentials\x18\x03 \x01(\v2 .shoal.v1alpha1.BuildCredentialsR\vcredentials\x12)\n" +
+	"\x10registry_address\x18\x04 \x01(\tR\x0fregistryAddress\"\xa7\x01\n" +
+	"\x10BuildCredentials\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12&\n" +
+	"\x0fssh_private_key\x18\x04 \x01(\tR\rsshPrivateKey\x12\x1f\n" +
+	"\vknown_hosts\x18\x05 \x01(\tR\n" +
+	"knownHosts\"\xcf\x01\n" +
+	"\x12ReportBuildRequest\x12\x14\n" +
+	"\x05build\x18\x01 \x01(\tR\x05build\x12-\n" +
+	"\x05lines\x18\x02 \x03(\v2\x17.shoal.v1alpha1.LogLineR\x05lines\x12\x14\n" +
+	"\x05phase\x18\x03 \x01(\tR\x05phase\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12\x16\n" +
+	"\x06commit\x18\x05 \x01(\tR\x06commit\x12\x14\n" +
+	"\x05image\x18\x06 \x01(\tR\x05image\x12\x16\n" +
+	"\x06digest\x18\a \x01(\tR\x06digest\"-\n" +
+	"\x13ReportBuildResponse\x12\x16\n" +
+	"\x06cancel\x18\x01 \x01(\bR\x06cancel\"F\n" +
+	"\x1cIssueBuildCertificateRequest\x12\x14\n" +
+	"\x05build\x18\x01 \x01(\tR\x05build\x12\x10\n" +
+	"\x03csr\x18\x02 \x01(\fR\x03csr\"A\n" +
+	"\x1dIssueBuildCertificateResponse\x12 \n" +
+	"\vcertificate\x18\x01 \x01(\fR\vcertificate\"\x13\n" +
 	"\x11NodeConfigRequest\"\x9c\x01\n" +
 	"\x12NodeConfigResponse\x12\x19\n" +
 	"\bpod_cidr\x18\x01 \x01(\tR\apodCidr\x12!\n" +
@@ -3981,14 +4433,18 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\vCancelBuild\x12\".shoal.v1alpha1.CancelBuildRequest\x1a#.shoal.v1alpha1.CancelBuildResponse\x12P\n" +
 	"\tBuildLogs\x12 .shoal.v1alpha1.BuildLogsRequest\x1a!.shoal.v1alpha1.BuildLogsResponse2I\n" +
 	"\x04Join\x12A\n" +
-	"\x04Join\x12\x1b.shoal.v1alpha1.JoinRequest\x1a\x1c.shoal.v1alpha1.JoinResponse2\xda\x02\n" +
+	"\x04Join\x12\x1b.shoal.v1alpha1.JoinRequest\x1a\x1c.shoal.v1alpha1.JoinResponse2\xfd\x04\n" +
 	"\x05Agent\x12G\n" +
 	"\x04Sync\x12\x1c.shoal.v1alpha1.AgentMessage\x1a\x1d.shoal.v1alpha1.ServerMessage(\x010\x01\x12e\n" +
 	"\x10RenewCertificate\x12'.shoal.v1alpha1.RenewCertificateRequest\x1a(.shoal.v1alpha1.RenewCertificateResponse\x12L\n" +
 	"\n" +
 	"UploadLogs\x12\x18.shoal.v1alpha1.LogChunk\x1a\".shoal.v1alpha1.UploadLogsResponse(\x01\x12S\n" +
 	"\n" +
-	"NodeConfig\x12!.shoal.v1alpha1.NodeConfigRequest\x1a\".shoal.v1alpha1.NodeConfigResponseB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"NodeConfig\x12!.shoal.v1alpha1.NodeConfigRequest\x1a\".shoal.v1alpha1.NodeConfigResponse\x12S\n" +
+	"\n" +
+	"ClaimBuild\x12!.shoal.v1alpha1.ClaimBuildRequest\x1a\".shoal.v1alpha1.ClaimBuildResponse\x12V\n" +
+	"\vReportBuild\x12\".shoal.v1alpha1.ReportBuildRequest\x1a#.shoal.v1alpha1.ReportBuildResponse\x12t\n" +
+	"\x15IssueBuildCertificate\x12,.shoal.v1alpha1.IssueBuildCertificateRequest\x1a-.shoal.v1alpha1.IssueBuildCertificateResponseB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_api_proto_rawDescOnce sync.Once
@@ -4002,196 +4458,213 @@ func file_api_v1alpha1_api_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_api_proto_rawDescData
 }
 
-var file_api_v1alpha1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 65)
+var file_api_v1alpha1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_api_v1alpha1_api_proto_goTypes = []any{
-	(*Object)(nil),                   // 0: shoal.v1alpha1.Object
-	(*StartBuildRequest)(nil),        // 1: shoal.v1alpha1.StartBuildRequest
-	(*StartBuildResponse)(nil),       // 2: shoal.v1alpha1.StartBuildResponse
-	(*CancelBuildRequest)(nil),       // 3: shoal.v1alpha1.CancelBuildRequest
-	(*CancelBuildResponse)(nil),      // 4: shoal.v1alpha1.CancelBuildResponse
-	(*BuildLogsRequest)(nil),         // 5: shoal.v1alpha1.BuildLogsRequest
-	(*BuildLogsResponse)(nil),        // 6: shoal.v1alpha1.BuildLogsResponse
-	(*DatabaseBackupsRequest)(nil),   // 7: shoal.v1alpha1.DatabaseBackupsRequest
-	(*DatabaseBackupsResponse)(nil),  // 8: shoal.v1alpha1.DatabaseBackupsResponse
-	(*BackupDatabaseRequest)(nil),    // 9: shoal.v1alpha1.BackupDatabaseRequest
-	(*BackupDatabaseResponse)(nil),   // 10: shoal.v1alpha1.BackupDatabaseResponse
-	(*ClusterStatusRequest)(nil),     // 11: shoal.v1alpha1.ClusterStatusRequest
-	(*ClusterStatusResponse)(nil),    // 12: shoal.v1alpha1.ClusterStatusResponse
-	(*ClusterMember)(nil),            // 13: shoal.v1alpha1.ClusterMember
-	(*RemoveServerRequest)(nil),      // 14: shoal.v1alpha1.RemoveServerRequest
-	(*RemoveServerResponse)(nil),     // 15: shoal.v1alpha1.RemoveServerResponse
-	(*JoinBundleRequest)(nil),        // 16: shoal.v1alpha1.JoinBundleRequest
-	(*JoinBundleResponse)(nil),       // 17: shoal.v1alpha1.JoinBundleResponse
-	(*JoinClusterRequest)(nil),       // 18: shoal.v1alpha1.JoinClusterRequest
-	(*JoinClusterResponse)(nil),      // 19: shoal.v1alpha1.JoinClusterResponse
-	(*RestartWorkloadRequest)(nil),   // 20: shoal.v1alpha1.RestartWorkloadRequest
-	(*ResetUIPasswordRequest)(nil),   // 21: shoal.v1alpha1.ResetUIPasswordRequest
-	(*ResetUIPasswordResponse)(nil),  // 22: shoal.v1alpha1.ResetUIPasswordResponse
-	(*LogsRequest)(nil),              // 23: shoal.v1alpha1.LogsRequest
-	(*ApplyRequest)(nil),             // 24: shoal.v1alpha1.ApplyRequest
-	(*ApplyResponse)(nil),            // 25: shoal.v1alpha1.ApplyResponse
-	(*ApplyResult)(nil),              // 26: shoal.v1alpha1.ApplyResult
-	(*GetRequest)(nil),               // 27: shoal.v1alpha1.GetRequest
-	(*ListRequest)(nil),              // 28: shoal.v1alpha1.ListRequest
-	(*ListResponse)(nil),             // 29: shoal.v1alpha1.ListResponse
-	(*DeleteRequest)(nil),            // 30: shoal.v1alpha1.DeleteRequest
-	(*DeleteResponse)(nil),           // 31: shoal.v1alpha1.DeleteResponse
-	(*CreateJoinTokenRequest)(nil),   // 32: shoal.v1alpha1.CreateJoinTokenRequest
-	(*CreateJoinTokenResponse)(nil),  // 33: shoal.v1alpha1.CreateJoinTokenResponse
-	(*JoinRequest)(nil),              // 34: shoal.v1alpha1.JoinRequest
-	(*JoinResponse)(nil),             // 35: shoal.v1alpha1.JoinResponse
-	(*NodeConfigRequest)(nil),        // 36: shoal.v1alpha1.NodeConfigRequest
-	(*NodeConfigResponse)(nil),       // 37: shoal.v1alpha1.NodeConfigResponse
-	(*AgentMessage)(nil),             // 38: shoal.v1alpha1.AgentMessage
-	(*Heartbeat)(nil),                // 39: shoal.v1alpha1.Heartbeat
-	(*ReplicaReport)(nil),            // 40: shoal.v1alpha1.ReplicaReport
-	(*ServerMessage)(nil),            // 41: shoal.v1alpha1.ServerMessage
-	(*RouteSnapshot)(nil),            // 42: shoal.v1alpha1.RouteSnapshot
-	(*EdgeChallenge)(nil),            // 43: shoal.v1alpha1.EdgeChallenge
-	(*EdgeCertificate)(nil),          // 44: shoal.v1alpha1.EdgeCertificate
-	(*EdgeRoute)(nil),                // 45: shoal.v1alpha1.EdgeRoute
-	(*SetNodeLabelsRequest)(nil),     // 46: shoal.v1alpha1.SetNodeLabelsRequest
-	(*SetNodeLabelsResponse)(nil),    // 47: shoal.v1alpha1.SetNodeLabelsResponse
-	(*AssignmentSnapshot)(nil),       // 48: shoal.v1alpha1.AssignmentSnapshot
-	(*Assignment)(nil),               // 49: shoal.v1alpha1.Assignment
-	(*ResolvedMount)(nil),            // 50: shoal.v1alpha1.ResolvedMount
-	(*ServiceRoute)(nil),             // 51: shoal.v1alpha1.ServiceRoute
-	(*MeshPeer)(nil),                 // 52: shoal.v1alpha1.MeshPeer
-	(*LogRequest)(nil),               // 53: shoal.v1alpha1.LogRequest
-	(*LogChunk)(nil),                 // 54: shoal.v1alpha1.LogChunk
-	(*LogLine)(nil),                  // 55: shoal.v1alpha1.LogLine
-	(*UploadLogsResponse)(nil),       // 56: shoal.v1alpha1.UploadLogsResponse
-	(*SyncConfig)(nil),               // 57: shoal.v1alpha1.SyncConfig
-	(*RenewCertificateRequest)(nil),  // 58: shoal.v1alpha1.RenewCertificateRequest
-	(*RenewCertificateResponse)(nil), // 59: shoal.v1alpha1.RenewCertificateResponse
-	(*BackupRequest)(nil),            // 60: shoal.v1alpha1.BackupRequest
-	(*BackupResponse)(nil),           // 61: shoal.v1alpha1.BackupResponse
-	nil,                              // 62: shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
-	nil,                              // 63: shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
-	nil,                              // 64: shoal.v1alpha1.ResolvedMount.FilesEntry
-	(*Workload)(nil),                 // 65: shoal.v1alpha1.Workload
-	(*Node)(nil),                     // 66: shoal.v1alpha1.Node
-	(*Replica)(nil),                  // 67: shoal.v1alpha1.Replica
-	(*Secret)(nil),                   // 68: shoal.v1alpha1.Secret
-	(*Config)(nil),                   // 69: shoal.v1alpha1.Config
-	(*Service)(nil),                  // 70: shoal.v1alpha1.Service
-	(*Route)(nil),                    // 71: shoal.v1alpha1.Route
-	(*Volume)(nil),                   // 72: shoal.v1alpha1.Volume
-	(*Database)(nil),                 // 73: shoal.v1alpha1.Database
-	(*BuildConfig)(nil),              // 74: shoal.v1alpha1.BuildConfig
-	(*Build)(nil),                    // 75: shoal.v1alpha1.Build
-	(*DatabaseBackupRecord)(nil),     // 76: shoal.v1alpha1.DatabaseBackupRecord
-	(*durationpb.Duration)(nil),      // 77: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),    // 78: google.protobuf.Timestamp
-	(*NodeCapacity)(nil),             // 79: shoal.v1alpha1.NodeCapacity
-	(*ReplicaStatus)(nil),            // 80: shoal.v1alpha1.ReplicaStatus
-	(*WorkloadSpec)(nil),             // 81: shoal.v1alpha1.WorkloadSpec
-	(*EnvVar)(nil),                   // 82: shoal.v1alpha1.EnvVar
-	(*DatabaseJob)(nil),              // 83: shoal.v1alpha1.DatabaseJob
-	(*RegistryCredential)(nil),       // 84: shoal.v1alpha1.RegistryCredential
-	(*ServicePort)(nil),              // 85: shoal.v1alpha1.ServicePort
+	(*Object)(nil),                        // 0: shoal.v1alpha1.Object
+	(*StartBuildRequest)(nil),             // 1: shoal.v1alpha1.StartBuildRequest
+	(*StartBuildResponse)(nil),            // 2: shoal.v1alpha1.StartBuildResponse
+	(*CancelBuildRequest)(nil),            // 3: shoal.v1alpha1.CancelBuildRequest
+	(*CancelBuildResponse)(nil),           // 4: shoal.v1alpha1.CancelBuildResponse
+	(*BuildLogsRequest)(nil),              // 5: shoal.v1alpha1.BuildLogsRequest
+	(*BuildLogsResponse)(nil),             // 6: shoal.v1alpha1.BuildLogsResponse
+	(*DatabaseBackupsRequest)(nil),        // 7: shoal.v1alpha1.DatabaseBackupsRequest
+	(*DatabaseBackupsResponse)(nil),       // 8: shoal.v1alpha1.DatabaseBackupsResponse
+	(*BackupDatabaseRequest)(nil),         // 9: shoal.v1alpha1.BackupDatabaseRequest
+	(*BackupDatabaseResponse)(nil),        // 10: shoal.v1alpha1.BackupDatabaseResponse
+	(*ClusterStatusRequest)(nil),          // 11: shoal.v1alpha1.ClusterStatusRequest
+	(*ClusterStatusResponse)(nil),         // 12: shoal.v1alpha1.ClusterStatusResponse
+	(*ClusterMember)(nil),                 // 13: shoal.v1alpha1.ClusterMember
+	(*RemoveServerRequest)(nil),           // 14: shoal.v1alpha1.RemoveServerRequest
+	(*RemoveServerResponse)(nil),          // 15: shoal.v1alpha1.RemoveServerResponse
+	(*JoinBundleRequest)(nil),             // 16: shoal.v1alpha1.JoinBundleRequest
+	(*JoinBundleResponse)(nil),            // 17: shoal.v1alpha1.JoinBundleResponse
+	(*JoinClusterRequest)(nil),            // 18: shoal.v1alpha1.JoinClusterRequest
+	(*JoinClusterResponse)(nil),           // 19: shoal.v1alpha1.JoinClusterResponse
+	(*RestartWorkloadRequest)(nil),        // 20: shoal.v1alpha1.RestartWorkloadRequest
+	(*ResetUIPasswordRequest)(nil),        // 21: shoal.v1alpha1.ResetUIPasswordRequest
+	(*ResetUIPasswordResponse)(nil),       // 22: shoal.v1alpha1.ResetUIPasswordResponse
+	(*LogsRequest)(nil),                   // 23: shoal.v1alpha1.LogsRequest
+	(*ApplyRequest)(nil),                  // 24: shoal.v1alpha1.ApplyRequest
+	(*ApplyResponse)(nil),                 // 25: shoal.v1alpha1.ApplyResponse
+	(*ApplyResult)(nil),                   // 26: shoal.v1alpha1.ApplyResult
+	(*GetRequest)(nil),                    // 27: shoal.v1alpha1.GetRequest
+	(*ListRequest)(nil),                   // 28: shoal.v1alpha1.ListRequest
+	(*ListResponse)(nil),                  // 29: shoal.v1alpha1.ListResponse
+	(*DeleteRequest)(nil),                 // 30: shoal.v1alpha1.DeleteRequest
+	(*DeleteResponse)(nil),                // 31: shoal.v1alpha1.DeleteResponse
+	(*CreateJoinTokenRequest)(nil),        // 32: shoal.v1alpha1.CreateJoinTokenRequest
+	(*CreateJoinTokenResponse)(nil),       // 33: shoal.v1alpha1.CreateJoinTokenResponse
+	(*JoinRequest)(nil),                   // 34: shoal.v1alpha1.JoinRequest
+	(*JoinResponse)(nil),                  // 35: shoal.v1alpha1.JoinResponse
+	(*ClaimBuildRequest)(nil),             // 36: shoal.v1alpha1.ClaimBuildRequest
+	(*ClaimBuildResponse)(nil),            // 37: shoal.v1alpha1.ClaimBuildResponse
+	(*BuildCredentials)(nil),              // 38: shoal.v1alpha1.BuildCredentials
+	(*ReportBuildRequest)(nil),            // 39: shoal.v1alpha1.ReportBuildRequest
+	(*ReportBuildResponse)(nil),           // 40: shoal.v1alpha1.ReportBuildResponse
+	(*IssueBuildCertificateRequest)(nil),  // 41: shoal.v1alpha1.IssueBuildCertificateRequest
+	(*IssueBuildCertificateResponse)(nil), // 42: shoal.v1alpha1.IssueBuildCertificateResponse
+	(*NodeConfigRequest)(nil),             // 43: shoal.v1alpha1.NodeConfigRequest
+	(*NodeConfigResponse)(nil),            // 44: shoal.v1alpha1.NodeConfigResponse
+	(*AgentMessage)(nil),                  // 45: shoal.v1alpha1.AgentMessage
+	(*Heartbeat)(nil),                     // 46: shoal.v1alpha1.Heartbeat
+	(*ReplicaReport)(nil),                 // 47: shoal.v1alpha1.ReplicaReport
+	(*ServerMessage)(nil),                 // 48: shoal.v1alpha1.ServerMessage
+	(*RouteSnapshot)(nil),                 // 49: shoal.v1alpha1.RouteSnapshot
+	(*EdgeChallenge)(nil),                 // 50: shoal.v1alpha1.EdgeChallenge
+	(*EdgeCertificate)(nil),               // 51: shoal.v1alpha1.EdgeCertificate
+	(*EdgeRoute)(nil),                     // 52: shoal.v1alpha1.EdgeRoute
+	(*SetNodeLabelsRequest)(nil),          // 53: shoal.v1alpha1.SetNodeLabelsRequest
+	(*SetNodeLabelsResponse)(nil),         // 54: shoal.v1alpha1.SetNodeLabelsResponse
+	(*AssignmentSnapshot)(nil),            // 55: shoal.v1alpha1.AssignmentSnapshot
+	(*Assignment)(nil),                    // 56: shoal.v1alpha1.Assignment
+	(*ResolvedMount)(nil),                 // 57: shoal.v1alpha1.ResolvedMount
+	(*ServiceRoute)(nil),                  // 58: shoal.v1alpha1.ServiceRoute
+	(*MeshPeer)(nil),                      // 59: shoal.v1alpha1.MeshPeer
+	(*LogRequest)(nil),                    // 60: shoal.v1alpha1.LogRequest
+	(*LogChunk)(nil),                      // 61: shoal.v1alpha1.LogChunk
+	(*LogLine)(nil),                       // 62: shoal.v1alpha1.LogLine
+	(*UploadLogsResponse)(nil),            // 63: shoal.v1alpha1.UploadLogsResponse
+	(*SyncConfig)(nil),                    // 64: shoal.v1alpha1.SyncConfig
+	(*RenewCertificateRequest)(nil),       // 65: shoal.v1alpha1.RenewCertificateRequest
+	(*RenewCertificateResponse)(nil),      // 66: shoal.v1alpha1.RenewCertificateResponse
+	(*BackupRequest)(nil),                 // 67: shoal.v1alpha1.BackupRequest
+	(*BackupResponse)(nil),                // 68: shoal.v1alpha1.BackupResponse
+	nil,                                   // 69: shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
+	nil,                                   // 70: shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
+	nil,                                   // 71: shoal.v1alpha1.ResolvedMount.FilesEntry
+	(*Workload)(nil),                      // 72: shoal.v1alpha1.Workload
+	(*Node)(nil),                          // 73: shoal.v1alpha1.Node
+	(*Replica)(nil),                       // 74: shoal.v1alpha1.Replica
+	(*Secret)(nil),                        // 75: shoal.v1alpha1.Secret
+	(*Config)(nil),                        // 76: shoal.v1alpha1.Config
+	(*Service)(nil),                       // 77: shoal.v1alpha1.Service
+	(*Route)(nil),                         // 78: shoal.v1alpha1.Route
+	(*Volume)(nil),                        // 79: shoal.v1alpha1.Volume
+	(*Database)(nil),                      // 80: shoal.v1alpha1.Database
+	(*BuildConfig)(nil),                   // 81: shoal.v1alpha1.BuildConfig
+	(*Build)(nil),                         // 82: shoal.v1alpha1.Build
+	(*DatabaseBackupRecord)(nil),          // 83: shoal.v1alpha1.DatabaseBackupRecord
+	(*durationpb.Duration)(nil),           // 84: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),         // 85: google.protobuf.Timestamp
+	(*BuildConfigSpec)(nil),               // 86: shoal.v1alpha1.BuildConfigSpec
+	(*NodeCapacity)(nil),                  // 87: shoal.v1alpha1.NodeCapacity
+	(*ReplicaStatus)(nil),                 // 88: shoal.v1alpha1.ReplicaStatus
+	(*WorkloadSpec)(nil),                  // 89: shoal.v1alpha1.WorkloadSpec
+	(*EnvVar)(nil),                        // 90: shoal.v1alpha1.EnvVar
+	(*DatabaseJob)(nil),                   // 91: shoal.v1alpha1.DatabaseJob
+	(*RegistryCredential)(nil),            // 92: shoal.v1alpha1.RegistryCredential
+	(*ServicePort)(nil),                   // 93: shoal.v1alpha1.ServicePort
 }
 var file_api_v1alpha1_api_proto_depIdxs = []int32{
-	65, // 0: shoal.v1alpha1.Object.workload:type_name -> shoal.v1alpha1.Workload
-	66, // 1: shoal.v1alpha1.Object.node:type_name -> shoal.v1alpha1.Node
-	67, // 2: shoal.v1alpha1.Object.replica:type_name -> shoal.v1alpha1.Replica
-	68, // 3: shoal.v1alpha1.Object.secret:type_name -> shoal.v1alpha1.Secret
-	69, // 4: shoal.v1alpha1.Object.config:type_name -> shoal.v1alpha1.Config
-	70, // 5: shoal.v1alpha1.Object.service:type_name -> shoal.v1alpha1.Service
-	71, // 6: shoal.v1alpha1.Object.route:type_name -> shoal.v1alpha1.Route
-	72, // 7: shoal.v1alpha1.Object.volume:type_name -> shoal.v1alpha1.Volume
-	73, // 8: shoal.v1alpha1.Object.database:type_name -> shoal.v1alpha1.Database
-	74, // 9: shoal.v1alpha1.Object.build_config:type_name -> shoal.v1alpha1.BuildConfig
-	75, // 10: shoal.v1alpha1.Object.build:type_name -> shoal.v1alpha1.Build
-	55, // 11: shoal.v1alpha1.BuildLogsResponse.lines:type_name -> shoal.v1alpha1.LogLine
-	76, // 12: shoal.v1alpha1.DatabaseBackupsResponse.backups:type_name -> shoal.v1alpha1.DatabaseBackupRecord
-	76, // 13: shoal.v1alpha1.BackupDatabaseResponse.backup:type_name -> shoal.v1alpha1.DatabaseBackupRecord
+	72, // 0: shoal.v1alpha1.Object.workload:type_name -> shoal.v1alpha1.Workload
+	73, // 1: shoal.v1alpha1.Object.node:type_name -> shoal.v1alpha1.Node
+	74, // 2: shoal.v1alpha1.Object.replica:type_name -> shoal.v1alpha1.Replica
+	75, // 3: shoal.v1alpha1.Object.secret:type_name -> shoal.v1alpha1.Secret
+	76, // 4: shoal.v1alpha1.Object.config:type_name -> shoal.v1alpha1.Config
+	77, // 5: shoal.v1alpha1.Object.service:type_name -> shoal.v1alpha1.Service
+	78, // 6: shoal.v1alpha1.Object.route:type_name -> shoal.v1alpha1.Route
+	79, // 7: shoal.v1alpha1.Object.volume:type_name -> shoal.v1alpha1.Volume
+	80, // 8: shoal.v1alpha1.Object.database:type_name -> shoal.v1alpha1.Database
+	81, // 9: shoal.v1alpha1.Object.build_config:type_name -> shoal.v1alpha1.BuildConfig
+	82, // 10: shoal.v1alpha1.Object.build:type_name -> shoal.v1alpha1.Build
+	62, // 11: shoal.v1alpha1.BuildLogsResponse.lines:type_name -> shoal.v1alpha1.LogLine
+	83, // 12: shoal.v1alpha1.DatabaseBackupsResponse.backups:type_name -> shoal.v1alpha1.DatabaseBackupRecord
+	83, // 13: shoal.v1alpha1.BackupDatabaseResponse.backup:type_name -> shoal.v1alpha1.DatabaseBackupRecord
 	13, // 14: shoal.v1alpha1.ClusterStatusResponse.members:type_name -> shoal.v1alpha1.ClusterMember
 	0,  // 15: shoal.v1alpha1.ApplyRequest.objects:type_name -> shoal.v1alpha1.Object
 	26, // 16: shoal.v1alpha1.ApplyResponse.results:type_name -> shoal.v1alpha1.ApplyResult
 	0,  // 17: shoal.v1alpha1.ListResponse.items:type_name -> shoal.v1alpha1.Object
-	77, // 18: shoal.v1alpha1.CreateJoinTokenRequest.ttl:type_name -> google.protobuf.Duration
-	78, // 19: shoal.v1alpha1.CreateJoinTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
-	39, // 20: shoal.v1alpha1.AgentMessage.heartbeat:type_name -> shoal.v1alpha1.Heartbeat
-	79, // 21: shoal.v1alpha1.Heartbeat.capacity:type_name -> shoal.v1alpha1.NodeCapacity
-	40, // 22: shoal.v1alpha1.Heartbeat.replicas:type_name -> shoal.v1alpha1.ReplicaReport
-	80, // 23: shoal.v1alpha1.ReplicaReport.status:type_name -> shoal.v1alpha1.ReplicaStatus
-	57, // 24: shoal.v1alpha1.ServerMessage.config:type_name -> shoal.v1alpha1.SyncConfig
-	48, // 25: shoal.v1alpha1.ServerMessage.assignments:type_name -> shoal.v1alpha1.AssignmentSnapshot
-	53, // 26: shoal.v1alpha1.ServerMessage.logs:type_name -> shoal.v1alpha1.LogRequest
-	42, // 27: shoal.v1alpha1.ServerMessage.routes:type_name -> shoal.v1alpha1.RouteSnapshot
-	45, // 28: shoal.v1alpha1.RouteSnapshot.routes:type_name -> shoal.v1alpha1.EdgeRoute
-	43, // 29: shoal.v1alpha1.RouteSnapshot.challenges:type_name -> shoal.v1alpha1.EdgeChallenge
-	44, // 30: shoal.v1alpha1.RouteSnapshot.certificates:type_name -> shoal.v1alpha1.EdgeCertificate
-	62, // 31: shoal.v1alpha1.SetNodeLabelsRequest.set:type_name -> shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
-	63, // 32: shoal.v1alpha1.SetNodeLabelsResponse.labels:type_name -> shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
-	49, // 33: shoal.v1alpha1.AssignmentSnapshot.assignments:type_name -> shoal.v1alpha1.Assignment
-	51, // 34: shoal.v1alpha1.AssignmentSnapshot.services:type_name -> shoal.v1alpha1.ServiceRoute
-	52, // 35: shoal.v1alpha1.AssignmentSnapshot.peers:type_name -> shoal.v1alpha1.MeshPeer
-	72, // 36: shoal.v1alpha1.AssignmentSnapshot.volumes:type_name -> shoal.v1alpha1.Volume
-	81, // 37: shoal.v1alpha1.Assignment.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	82, // 38: shoal.v1alpha1.Assignment.env:type_name -> shoal.v1alpha1.EnvVar
-	50, // 39: shoal.v1alpha1.Assignment.mounts:type_name -> shoal.v1alpha1.ResolvedMount
-	83, // 40: shoal.v1alpha1.Assignment.job:type_name -> shoal.v1alpha1.DatabaseJob
-	84, // 41: shoal.v1alpha1.Assignment.registry_credentials:type_name -> shoal.v1alpha1.RegistryCredential
-	64, // 42: shoal.v1alpha1.ResolvedMount.files:type_name -> shoal.v1alpha1.ResolvedMount.FilesEntry
-	85, // 43: shoal.v1alpha1.ServiceRoute.ports:type_name -> shoal.v1alpha1.ServicePort
-	55, // 44: shoal.v1alpha1.LogChunk.lines:type_name -> shoal.v1alpha1.LogLine
-	78, // 45: shoal.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
-	77, // 46: shoal.v1alpha1.SyncConfig.heartbeat_interval:type_name -> google.protobuf.Duration
-	24, // 47: shoal.v1alpha1.Control.Apply:input_type -> shoal.v1alpha1.ApplyRequest
-	27, // 48: shoal.v1alpha1.Control.Get:input_type -> shoal.v1alpha1.GetRequest
-	28, // 49: shoal.v1alpha1.Control.List:input_type -> shoal.v1alpha1.ListRequest
-	30, // 50: shoal.v1alpha1.Control.Delete:input_type -> shoal.v1alpha1.DeleteRequest
-	46, // 51: shoal.v1alpha1.Control.SetNodeLabels:input_type -> shoal.v1alpha1.SetNodeLabelsRequest
-	32, // 52: shoal.v1alpha1.Control.CreateJoinToken:input_type -> shoal.v1alpha1.CreateJoinTokenRequest
-	23, // 53: shoal.v1alpha1.Control.Logs:input_type -> shoal.v1alpha1.LogsRequest
-	20, // 54: shoal.v1alpha1.Control.RestartWorkload:input_type -> shoal.v1alpha1.RestartWorkloadRequest
-	21, // 55: shoal.v1alpha1.Control.ResetUIPassword:input_type -> shoal.v1alpha1.ResetUIPasswordRequest
-	18, // 56: shoal.v1alpha1.Control.JoinCluster:input_type -> shoal.v1alpha1.JoinClusterRequest
-	11, // 57: shoal.v1alpha1.Control.ClusterStatus:input_type -> shoal.v1alpha1.ClusterStatusRequest
-	14, // 58: shoal.v1alpha1.Control.RemoveServer:input_type -> shoal.v1alpha1.RemoveServerRequest
-	16, // 59: shoal.v1alpha1.Control.JoinBundle:input_type -> shoal.v1alpha1.JoinBundleRequest
-	60, // 60: shoal.v1alpha1.Control.Backup:input_type -> shoal.v1alpha1.BackupRequest
-	7,  // 61: shoal.v1alpha1.Control.DatabaseBackups:input_type -> shoal.v1alpha1.DatabaseBackupsRequest
-	9,  // 62: shoal.v1alpha1.Control.BackupDatabase:input_type -> shoal.v1alpha1.BackupDatabaseRequest
-	1,  // 63: shoal.v1alpha1.Control.StartBuild:input_type -> shoal.v1alpha1.StartBuildRequest
-	3,  // 64: shoal.v1alpha1.Control.CancelBuild:input_type -> shoal.v1alpha1.CancelBuildRequest
-	5,  // 65: shoal.v1alpha1.Control.BuildLogs:input_type -> shoal.v1alpha1.BuildLogsRequest
-	34, // 66: shoal.v1alpha1.Join.Join:input_type -> shoal.v1alpha1.JoinRequest
-	38, // 67: shoal.v1alpha1.Agent.Sync:input_type -> shoal.v1alpha1.AgentMessage
-	58, // 68: shoal.v1alpha1.Agent.RenewCertificate:input_type -> shoal.v1alpha1.RenewCertificateRequest
-	54, // 69: shoal.v1alpha1.Agent.UploadLogs:input_type -> shoal.v1alpha1.LogChunk
-	36, // 70: shoal.v1alpha1.Agent.NodeConfig:input_type -> shoal.v1alpha1.NodeConfigRequest
-	25, // 71: shoal.v1alpha1.Control.Apply:output_type -> shoal.v1alpha1.ApplyResponse
-	0,  // 72: shoal.v1alpha1.Control.Get:output_type -> shoal.v1alpha1.Object
-	29, // 73: shoal.v1alpha1.Control.List:output_type -> shoal.v1alpha1.ListResponse
-	31, // 74: shoal.v1alpha1.Control.Delete:output_type -> shoal.v1alpha1.DeleteResponse
-	47, // 75: shoal.v1alpha1.Control.SetNodeLabels:output_type -> shoal.v1alpha1.SetNodeLabelsResponse
-	33, // 76: shoal.v1alpha1.Control.CreateJoinToken:output_type -> shoal.v1alpha1.CreateJoinTokenResponse
-	55, // 77: shoal.v1alpha1.Control.Logs:output_type -> shoal.v1alpha1.LogLine
-	26, // 78: shoal.v1alpha1.Control.RestartWorkload:output_type -> shoal.v1alpha1.ApplyResult
-	22, // 79: shoal.v1alpha1.Control.ResetUIPassword:output_type -> shoal.v1alpha1.ResetUIPasswordResponse
-	19, // 80: shoal.v1alpha1.Control.JoinCluster:output_type -> shoal.v1alpha1.JoinClusterResponse
-	12, // 81: shoal.v1alpha1.Control.ClusterStatus:output_type -> shoal.v1alpha1.ClusterStatusResponse
-	15, // 82: shoal.v1alpha1.Control.RemoveServer:output_type -> shoal.v1alpha1.RemoveServerResponse
-	17, // 83: shoal.v1alpha1.Control.JoinBundle:output_type -> shoal.v1alpha1.JoinBundleResponse
-	61, // 84: shoal.v1alpha1.Control.Backup:output_type -> shoal.v1alpha1.BackupResponse
-	8,  // 85: shoal.v1alpha1.Control.DatabaseBackups:output_type -> shoal.v1alpha1.DatabaseBackupsResponse
-	10, // 86: shoal.v1alpha1.Control.BackupDatabase:output_type -> shoal.v1alpha1.BackupDatabaseResponse
-	2,  // 87: shoal.v1alpha1.Control.StartBuild:output_type -> shoal.v1alpha1.StartBuildResponse
-	4,  // 88: shoal.v1alpha1.Control.CancelBuild:output_type -> shoal.v1alpha1.CancelBuildResponse
-	6,  // 89: shoal.v1alpha1.Control.BuildLogs:output_type -> shoal.v1alpha1.BuildLogsResponse
-	35, // 90: shoal.v1alpha1.Join.Join:output_type -> shoal.v1alpha1.JoinResponse
-	41, // 91: shoal.v1alpha1.Agent.Sync:output_type -> shoal.v1alpha1.ServerMessage
-	59, // 92: shoal.v1alpha1.Agent.RenewCertificate:output_type -> shoal.v1alpha1.RenewCertificateResponse
-	56, // 93: shoal.v1alpha1.Agent.UploadLogs:output_type -> shoal.v1alpha1.UploadLogsResponse
-	37, // 94: shoal.v1alpha1.Agent.NodeConfig:output_type -> shoal.v1alpha1.NodeConfigResponse
-	71, // [71:95] is the sub-list for method output_type
-	47, // [47:71] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	84, // 18: shoal.v1alpha1.CreateJoinTokenRequest.ttl:type_name -> google.protobuf.Duration
+	85, // 19: shoal.v1alpha1.CreateJoinTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	86, // 20: shoal.v1alpha1.ClaimBuildResponse.source:type_name -> shoal.v1alpha1.BuildConfigSpec
+	38, // 21: shoal.v1alpha1.ClaimBuildResponse.credentials:type_name -> shoal.v1alpha1.BuildCredentials
+	62, // 22: shoal.v1alpha1.ReportBuildRequest.lines:type_name -> shoal.v1alpha1.LogLine
+	46, // 23: shoal.v1alpha1.AgentMessage.heartbeat:type_name -> shoal.v1alpha1.Heartbeat
+	87, // 24: shoal.v1alpha1.Heartbeat.capacity:type_name -> shoal.v1alpha1.NodeCapacity
+	47, // 25: shoal.v1alpha1.Heartbeat.replicas:type_name -> shoal.v1alpha1.ReplicaReport
+	88, // 26: shoal.v1alpha1.ReplicaReport.status:type_name -> shoal.v1alpha1.ReplicaStatus
+	64, // 27: shoal.v1alpha1.ServerMessage.config:type_name -> shoal.v1alpha1.SyncConfig
+	55, // 28: shoal.v1alpha1.ServerMessage.assignments:type_name -> shoal.v1alpha1.AssignmentSnapshot
+	60, // 29: shoal.v1alpha1.ServerMessage.logs:type_name -> shoal.v1alpha1.LogRequest
+	49, // 30: shoal.v1alpha1.ServerMessage.routes:type_name -> shoal.v1alpha1.RouteSnapshot
+	52, // 31: shoal.v1alpha1.RouteSnapshot.routes:type_name -> shoal.v1alpha1.EdgeRoute
+	50, // 32: shoal.v1alpha1.RouteSnapshot.challenges:type_name -> shoal.v1alpha1.EdgeChallenge
+	51, // 33: shoal.v1alpha1.RouteSnapshot.certificates:type_name -> shoal.v1alpha1.EdgeCertificate
+	69, // 34: shoal.v1alpha1.SetNodeLabelsRequest.set:type_name -> shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
+	70, // 35: shoal.v1alpha1.SetNodeLabelsResponse.labels:type_name -> shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
+	56, // 36: shoal.v1alpha1.AssignmentSnapshot.assignments:type_name -> shoal.v1alpha1.Assignment
+	58, // 37: shoal.v1alpha1.AssignmentSnapshot.services:type_name -> shoal.v1alpha1.ServiceRoute
+	59, // 38: shoal.v1alpha1.AssignmentSnapshot.peers:type_name -> shoal.v1alpha1.MeshPeer
+	79, // 39: shoal.v1alpha1.AssignmentSnapshot.volumes:type_name -> shoal.v1alpha1.Volume
+	89, // 40: shoal.v1alpha1.Assignment.template:type_name -> shoal.v1alpha1.WorkloadSpec
+	90, // 41: shoal.v1alpha1.Assignment.env:type_name -> shoal.v1alpha1.EnvVar
+	57, // 42: shoal.v1alpha1.Assignment.mounts:type_name -> shoal.v1alpha1.ResolvedMount
+	91, // 43: shoal.v1alpha1.Assignment.job:type_name -> shoal.v1alpha1.DatabaseJob
+	92, // 44: shoal.v1alpha1.Assignment.registry_credentials:type_name -> shoal.v1alpha1.RegistryCredential
+	71, // 45: shoal.v1alpha1.ResolvedMount.files:type_name -> shoal.v1alpha1.ResolvedMount.FilesEntry
+	93, // 46: shoal.v1alpha1.ServiceRoute.ports:type_name -> shoal.v1alpha1.ServicePort
+	62, // 47: shoal.v1alpha1.LogChunk.lines:type_name -> shoal.v1alpha1.LogLine
+	85, // 48: shoal.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
+	84, // 49: shoal.v1alpha1.SyncConfig.heartbeat_interval:type_name -> google.protobuf.Duration
+	24, // 50: shoal.v1alpha1.Control.Apply:input_type -> shoal.v1alpha1.ApplyRequest
+	27, // 51: shoal.v1alpha1.Control.Get:input_type -> shoal.v1alpha1.GetRequest
+	28, // 52: shoal.v1alpha1.Control.List:input_type -> shoal.v1alpha1.ListRequest
+	30, // 53: shoal.v1alpha1.Control.Delete:input_type -> shoal.v1alpha1.DeleteRequest
+	53, // 54: shoal.v1alpha1.Control.SetNodeLabels:input_type -> shoal.v1alpha1.SetNodeLabelsRequest
+	32, // 55: shoal.v1alpha1.Control.CreateJoinToken:input_type -> shoal.v1alpha1.CreateJoinTokenRequest
+	23, // 56: shoal.v1alpha1.Control.Logs:input_type -> shoal.v1alpha1.LogsRequest
+	20, // 57: shoal.v1alpha1.Control.RestartWorkload:input_type -> shoal.v1alpha1.RestartWorkloadRequest
+	21, // 58: shoal.v1alpha1.Control.ResetUIPassword:input_type -> shoal.v1alpha1.ResetUIPasswordRequest
+	18, // 59: shoal.v1alpha1.Control.JoinCluster:input_type -> shoal.v1alpha1.JoinClusterRequest
+	11, // 60: shoal.v1alpha1.Control.ClusterStatus:input_type -> shoal.v1alpha1.ClusterStatusRequest
+	14, // 61: shoal.v1alpha1.Control.RemoveServer:input_type -> shoal.v1alpha1.RemoveServerRequest
+	16, // 62: shoal.v1alpha1.Control.JoinBundle:input_type -> shoal.v1alpha1.JoinBundleRequest
+	67, // 63: shoal.v1alpha1.Control.Backup:input_type -> shoal.v1alpha1.BackupRequest
+	7,  // 64: shoal.v1alpha1.Control.DatabaseBackups:input_type -> shoal.v1alpha1.DatabaseBackupsRequest
+	9,  // 65: shoal.v1alpha1.Control.BackupDatabase:input_type -> shoal.v1alpha1.BackupDatabaseRequest
+	1,  // 66: shoal.v1alpha1.Control.StartBuild:input_type -> shoal.v1alpha1.StartBuildRequest
+	3,  // 67: shoal.v1alpha1.Control.CancelBuild:input_type -> shoal.v1alpha1.CancelBuildRequest
+	5,  // 68: shoal.v1alpha1.Control.BuildLogs:input_type -> shoal.v1alpha1.BuildLogsRequest
+	34, // 69: shoal.v1alpha1.Join.Join:input_type -> shoal.v1alpha1.JoinRequest
+	45, // 70: shoal.v1alpha1.Agent.Sync:input_type -> shoal.v1alpha1.AgentMessage
+	65, // 71: shoal.v1alpha1.Agent.RenewCertificate:input_type -> shoal.v1alpha1.RenewCertificateRequest
+	61, // 72: shoal.v1alpha1.Agent.UploadLogs:input_type -> shoal.v1alpha1.LogChunk
+	43, // 73: shoal.v1alpha1.Agent.NodeConfig:input_type -> shoal.v1alpha1.NodeConfigRequest
+	36, // 74: shoal.v1alpha1.Agent.ClaimBuild:input_type -> shoal.v1alpha1.ClaimBuildRequest
+	39, // 75: shoal.v1alpha1.Agent.ReportBuild:input_type -> shoal.v1alpha1.ReportBuildRequest
+	41, // 76: shoal.v1alpha1.Agent.IssueBuildCertificate:input_type -> shoal.v1alpha1.IssueBuildCertificateRequest
+	25, // 77: shoal.v1alpha1.Control.Apply:output_type -> shoal.v1alpha1.ApplyResponse
+	0,  // 78: shoal.v1alpha1.Control.Get:output_type -> shoal.v1alpha1.Object
+	29, // 79: shoal.v1alpha1.Control.List:output_type -> shoal.v1alpha1.ListResponse
+	31, // 80: shoal.v1alpha1.Control.Delete:output_type -> shoal.v1alpha1.DeleteResponse
+	54, // 81: shoal.v1alpha1.Control.SetNodeLabels:output_type -> shoal.v1alpha1.SetNodeLabelsResponse
+	33, // 82: shoal.v1alpha1.Control.CreateJoinToken:output_type -> shoal.v1alpha1.CreateJoinTokenResponse
+	62, // 83: shoal.v1alpha1.Control.Logs:output_type -> shoal.v1alpha1.LogLine
+	26, // 84: shoal.v1alpha1.Control.RestartWorkload:output_type -> shoal.v1alpha1.ApplyResult
+	22, // 85: shoal.v1alpha1.Control.ResetUIPassword:output_type -> shoal.v1alpha1.ResetUIPasswordResponse
+	19, // 86: shoal.v1alpha1.Control.JoinCluster:output_type -> shoal.v1alpha1.JoinClusterResponse
+	12, // 87: shoal.v1alpha1.Control.ClusterStatus:output_type -> shoal.v1alpha1.ClusterStatusResponse
+	15, // 88: shoal.v1alpha1.Control.RemoveServer:output_type -> shoal.v1alpha1.RemoveServerResponse
+	17, // 89: shoal.v1alpha1.Control.JoinBundle:output_type -> shoal.v1alpha1.JoinBundleResponse
+	68, // 90: shoal.v1alpha1.Control.Backup:output_type -> shoal.v1alpha1.BackupResponse
+	8,  // 91: shoal.v1alpha1.Control.DatabaseBackups:output_type -> shoal.v1alpha1.DatabaseBackupsResponse
+	10, // 92: shoal.v1alpha1.Control.BackupDatabase:output_type -> shoal.v1alpha1.BackupDatabaseResponse
+	2,  // 93: shoal.v1alpha1.Control.StartBuild:output_type -> shoal.v1alpha1.StartBuildResponse
+	4,  // 94: shoal.v1alpha1.Control.CancelBuild:output_type -> shoal.v1alpha1.CancelBuildResponse
+	6,  // 95: shoal.v1alpha1.Control.BuildLogs:output_type -> shoal.v1alpha1.BuildLogsResponse
+	35, // 96: shoal.v1alpha1.Join.Join:output_type -> shoal.v1alpha1.JoinResponse
+	48, // 97: shoal.v1alpha1.Agent.Sync:output_type -> shoal.v1alpha1.ServerMessage
+	66, // 98: shoal.v1alpha1.Agent.RenewCertificate:output_type -> shoal.v1alpha1.RenewCertificateResponse
+	63, // 99: shoal.v1alpha1.Agent.UploadLogs:output_type -> shoal.v1alpha1.UploadLogsResponse
+	44, // 100: shoal.v1alpha1.Agent.NodeConfig:output_type -> shoal.v1alpha1.NodeConfigResponse
+	37, // 101: shoal.v1alpha1.Agent.ClaimBuild:output_type -> shoal.v1alpha1.ClaimBuildResponse
+	40, // 102: shoal.v1alpha1.Agent.ReportBuild:output_type -> shoal.v1alpha1.ReportBuildResponse
+	42, // 103: shoal.v1alpha1.Agent.IssueBuildCertificate:output_type -> shoal.v1alpha1.IssueBuildCertificateResponse
+	77, // [77:104] is the sub-list for method output_type
+	50, // [50:77] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_api_proto_init() }
@@ -4213,10 +4686,10 @@ func file_api_v1alpha1_api_proto_init() {
 		(*Object_BuildConfig)(nil),
 		(*Object_Build)(nil),
 	}
-	file_api_v1alpha1_api_proto_msgTypes[38].OneofWrappers = []any{
+	file_api_v1alpha1_api_proto_msgTypes[45].OneofWrappers = []any{
 		(*AgentMessage_Heartbeat)(nil),
 	}
-	file_api_v1alpha1_api_proto_msgTypes[41].OneofWrappers = []any{
+	file_api_v1alpha1_api_proto_msgTypes[48].OneofWrappers = []any{
 		(*ServerMessage_Config)(nil),
 		(*ServerMessage_Assignments)(nil),
 		(*ServerMessage_Logs)(nil),
@@ -4228,7 +4701,7 @@ func file_api_v1alpha1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_api_proto_rawDesc), len(file_api_v1alpha1_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   65,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

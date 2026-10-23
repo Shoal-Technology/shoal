@@ -34,8 +34,16 @@ type env struct {
 
 	mu         sync.Mutex
 	nodes      map[string]bool
+	builds     map[string]buildScope
 	tags       []Tag
 	failRecord bool
+}
+
+// buildScope is what the server knows of a Build: its repository and whether
+// it is still running.
+type buildScope struct {
+	repo   string
+	active bool
 }
 
 func newEnv(t *testing.T) *env {
@@ -58,6 +66,7 @@ func newEnv(t *testing.T) *env {
 		node:     issueClient(t, ca, security.Identity{Role: security.RoleNode, Name: "node-1"}),
 		stranger: issueClient(t, other, security.Identity{Role: security.RoleAdmin, Name: "admin"}),
 		nodes:    map[string]bool{"node-1": true},
+		builds:   map[string]buildScope{},
 	}
 }
 
@@ -84,6 +93,12 @@ func (e *env) serve(dir string, anonPull bool) *httptest.Server {
 			e.mu.Lock()
 			defer e.mu.Unlock()
 			return e.nodes[name], nil
+		},
+		BuildScope: func(_ context.Context, name string) (string, bool, error) {
+			e.mu.Lock()
+			defer e.mu.Unlock()
+			b := e.builds[name]
+			return b.repo, b.active, nil
 		},
 		RecordTag: func(_ context.Context, tag Tag) error {
 			e.mu.Lock()

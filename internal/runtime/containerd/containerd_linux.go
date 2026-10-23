@@ -212,6 +212,7 @@ func (r *containerdRuntime) Create(ctx context.Context, spec runtime.ContainerSp
 	if spec.CPUMillis > 0 {
 		specOpts = append(specOpts, oci.WithCPUCFS(spec.CPUMillis*cpuPeriod/1000, cpuPeriod))
 	}
+	specOpts = append(specOpts, privilegeOpts(spec)...)
 
 	ports, err := json.Marshal(spec.Ports)
 	if err != nil {
@@ -426,6 +427,20 @@ func useNetNS(ctx context.Context, c client.Container, path string) error {
 	if err != nil {
 		return fmt.Errorf("load spec: %w", err)
 	}
+	if !setNetNS(spec, path) {
+		return nil
+	}
+	if err := c.Update(ctx, client.UpdateContainerOpts(client.WithSpec(spec))); err != nil {
+		return fmt.Errorf("set network namespace: %w", err)
+	}
+	return nil
+}
+
+// setNetNS makes the spec's network namespace the one at path, which is a
+// namespace of the container and never the host's: a spec without a network
+// namespace entry runs in the host's (ADR 0021). It reports whether the spec
+// changed.
+func setNetNS(spec *specs.Spec, path string) bool {
 	if spec.Linux == nil {
 		spec.Linux = &specs.Linux{}
 	}
@@ -433,7 +448,7 @@ func useNetNS(ctx context.Context, c client.Container, path string) error {
 	for i, ns := range spec.Linux.Namespaces {
 		if ns.Type == specs.NetworkNamespace {
 			if ns.Path == path {
-				return nil
+				return false
 			}
 			spec.Linux.Namespaces[i].Path, found = path, true
 		}
@@ -441,10 +456,7 @@ func useNetNS(ctx context.Context, c client.Container, path string) error {
 	if !found {
 		spec.Linux.Namespaces = append(spec.Linux.Namespaces, specs.LinuxNamespace{Type: specs.NetworkNamespace, Path: path})
 	}
-	if err := c.Update(ctx, client.UpdateContainerOpts(client.WithSpec(spec))); err != nil {
-		return fmt.Errorf("set network namespace: %w", err)
-	}
-	return nil
+	return true
 }
 
 func (r *containerdRuntime) Stop(ctx context.Context, id string, timeout time.Duration) error {
@@ -542,6 +554,35 @@ func (r *containerdRuntime) removeFiles(id string) error {
 		return fmt.Errorf("remove %s logs: %w", id, err)
 	}
 	return nil
+}
+
+// privilegeOpts returns the spec changes that let a container gain privileges
+// through setuid binaries and file capabilities. Only a container that asks for
+// AllowPrivilegeEscalation gets them; every other container keeps containerd's
+// default of no_new_privs (ADR 0021).
+func privilegeOpts(spec runtime.ContainerSpec) []oci.SpecOpts {
+	if !spec.AllowPrivilegeEscalation {
+		return nil
+	}
+	return []oci.SpecOpts{oci.WithNewPrivileges}
+}
+
+// NetNSPath returns the pinned network namespace of a container, which exists
+// once the container has been started (ensureNetwork). The builder applies its
+// firewall there (ADR 0021).
+func (r *containerdRuntime) NetNSPath(ctx context.Context, id string) (string, error) {
+	c, err := r.load(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	labels, err := c.Labels(ctx)
+	if err != nil {
+		return "", err
+	}
+	if labels[labelNetNS] == "" {
+		return "", fmt.Errorf("container %s has no network namespace yet", id)
+	}
+	return labels[labelNetNS], nil
 }
 
 func (r *containerdRuntime) Status(ctx context.Context, id string) (runtime.ContainerStatus, error) {

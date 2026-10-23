@@ -57,6 +57,8 @@ The design has to match the existing patterns:
 | Admin certificate (`shoal:admin`) | yes | yes | yes |
 | Node certificate (`shoal:node`), Node object exists | yes | no | no |
 | Node certificate, Node object deleted | no | no | no |
+| Builder certificate (`shoal:builder`), its Build claimed and running, scope = the Build's repository (ADR 0021, pass B) | that repository only | that repository only | no |
+| Builder certificate, Build finished, cancelled or unknown | no | no | no |
 | No certificate | only if `--registry-anonymous-pull` (default off) | no | no |
 
 - The policy is `allowed` in `internal/registry/registry.go`. A denied request
@@ -147,6 +149,10 @@ never delete a digest that a tag still points to.
 - `go.mod` upgrades OpenTelemetry, yaml and genproto packages that the
   registry's module requires. These are minimum-version upgrades, not
   behavioural changes of Shoal.
+- Builders push with their own certificate, which the registry honours only
+  for one Build and one repository (ADR 0021, pass B). It is valid for two
+  hours, and it stops working as soon as the Build ends. Image pushes by people
+  still need an admin certificate.
 - Admin certificate holders can push any repository. A stolen node
   certificate can read all images until its Node is deleted (at most 30 days
   of exposure from expiry, as in ADR 0007).

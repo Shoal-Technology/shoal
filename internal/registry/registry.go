@@ -31,8 +31,9 @@ const TagsPath = "/shoal/v1/tags"
 
 // Roles a request can have. The empty role is an anonymous request.
 const (
-	RoleAdmin = security.RoleAdmin
-	RoleNode  = security.RoleNode
+	RoleAdmin   = security.RoleAdmin
+	RoleNode    = security.RoleNode
+	RoleBuilder = security.RoleBuilder
 )
 
 const authName = "shoal"
@@ -45,8 +46,10 @@ var manifestPath = regexp.MustCompile(`^/v2/(.+)/manifests/([^/]+)$`)
 
 // Principal is the caller of one request.
 type Principal struct {
-	Role string // RoleAdmin, RoleNode, or "" for a request without a client certificate
+	Role string // RoleAdmin, RoleNode, RoleBuilder, or "" for a request without a client certificate
 	Name string
+	// Scope is the one repository a builder may use (RoleBuilder only).
+	Scope string
 }
 
 // Tag is one tag in the store: the manifest digest it points to.
@@ -67,6 +70,11 @@ type Config struct {
 	// NodeExists reports whether a Node object with this name exists. A
 	// node certificate whose Node was deleted is refused (ADR 0007).
 	NodeExists func(ctx context.Context, name string) (bool, error)
+	// BuildScope returns the repository of a Build and whether the Build is
+	// still running. A builder certificate whose Build has finished, or is
+	// unknown, is refused (ADR 0021, pass B). The repository is the scope of
+	// the certificate, which must match.
+	BuildScope func(ctx context.Context, build string) (repository string, active bool, err error)
 	// RecordTag stores a tag once its manifest has been accepted. If it
 	// fails the push returns 500 and the client retries.
 	RecordTag func(ctx context.Context, t Tag) error
@@ -80,8 +88,8 @@ func New(ctx context.Context, cfg Config) (http.Handler, error) {
 	switch {
 	case cfg.Dir == "":
 		return nil, errors.New("registry: Dir is required")
-	case cfg.NodeExists == nil || cfg.RecordTag == nil || cfg.ListTags == nil:
-		return nil, errors.New("registry: NodeExists, RecordTag and ListTags are required")
+	case cfg.NodeExists == nil || cfg.BuildScope == nil || cfg.RecordTag == nil || cfg.ListTags == nil:
+		return nil, errors.New("registry: NodeExists, BuildScope, RecordTag and ListTags are required")
 	}
 	secret, err := randomHex(32)
 	if err != nil {
@@ -133,6 +141,15 @@ func (h *handler) principal(r *http.Request) (Principal, error) {
 			return Principal{}, fmt.Errorf("node %q no longer exists", id.Name)
 		}
 		return Principal{Role: RoleNode, Name: id.Name}, nil
+	case RoleBuilder:
+		repo, active, err := h.cfg.BuildScope(r.Context(), id.Name)
+		if err != nil {
+			return Principal{}, err
+		}
+		if !active || repo != id.Scope {
+			return Principal{}, fmt.Errorf("build %q is not running in repository %q", id.Name, id.Scope)
+		}
+		return Principal{Role: RoleBuilder, Name: id.Name, Scope: repo}, nil
 	}
 	return Principal{}, fmt.Errorf("unknown role %q", id.Role)
 }
@@ -250,6 +267,10 @@ func (c *controller) Authorized(r *http.Request, access ...auth.Access) (*auth.G
 func allowed(p Principal, anonPull bool, a auth.Access) bool {
 	switch a.Type {
 	case "repository":
+		// A builder pulls and pushes its own repository, and no other.
+		if p.Role == RoleBuilder {
+			return p.Scope != "" && a.Name == p.Scope && (a.Action == "pull" || a.Action == "push" || a.Action == "*")
+		}
 		switch a.Action {
 		case "pull":
 			return p.Role == RoleAdmin || p.Role == RoleNode || (p.Role == "" && anonPull)

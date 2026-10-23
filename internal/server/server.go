@@ -178,6 +178,9 @@ type Server struct {
 	cidrs  *cidrAllocator
 	portal *portal
 	grpc   *grpc.Server
+	// builds queues Builds for builder nodes and holds their state (ADR
+	// 0021, pass B). It is the controller's executor.
+	builds *buildDispatch
 
 	// raft is the raft store (StoreRaft only), nil otherwise.
 	raft *raftstore.Store
@@ -320,6 +323,10 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		return nil, err
 	}
 
+	// The address builders push to. Empty when the registry is off, and then
+	// no Build can be started (see buildDispatch.Start).
+	regAddr, _ := registryAddress(cfg.AdvertiseAddress, cfg.RegistryListen)
+	builds := newBuildDispatch(st, cfg.Log, cfg.DataDir, cfg.Now, regAddr)
 	s := &Server{
 		cidrs:    cidrs,
 		cfg:      cfg,
@@ -330,9 +337,10 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		gate:     cfg.leaderGate,
 		ca:       ca,
 		nodes:    newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
+		builds:   builds,
 		ctrl: controller.New(controller.Config{
 			Store: st, Log: cfg.Log, Now: cfg.Now, EvictAfter: cfg.EvictAfter, Interval: cfg.ControllerInterval,
-			ServiceCIDR: cidrs.services,
+			ServiceCIDR: cidrs.services, Executor: builds,
 		}),
 		logs:       newLogBroker(),
 		leadership: leadership,

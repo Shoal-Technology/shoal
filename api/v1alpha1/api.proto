@@ -282,6 +282,68 @@ service Agent {
   // subnet on first use). The agent needs them before it can run
   // containers.
   rpc NodeConfig(NodeConfigRequest) returns (NodeConfigResponse);
+  // ClaimBuild hands the next queued Build to a builder node (ADR 0021,
+  // pass B). The response has no build when none is waiting or the node is
+  // not labelled shoal.dev/builder=true.
+  rpc ClaimBuild(ClaimBuildRequest) returns (ClaimBuildResponse);
+  // ReportBuild carries a builder's log lines and, when phase is terminal,
+  // the result of the Build. The response says whether it was cancelled.
+  rpc ReportBuild(ReportBuildRequest) returns (ReportBuildResponse);
+  // IssueBuildCertificate signs a builder's request for the push
+  // certificate of a Build it claimed (ADR 0020 section 3, ADR 0021 pass B).
+  rpc IssueBuildCertificate(IssueBuildCertificateRequest) returns (IssueBuildCertificateResponse);
+}
+
+message ClaimBuildRequest {}
+
+message ClaimBuildResponse {
+  // Empty when there is no job for this node.
+  string build = 1;
+  // The Build's source, with defaults applied.
+  BuildConfigSpec source = 2;
+  BuildCredentials credentials = 3;
+  // Address of the embedded registry the image is pushed to.
+  string registry_address = 4;
+}
+
+// BuildCredentials are the git credentials of a Build, from its Secret. The
+// values travel over the node's mTLS session only and are never logged.
+message BuildCredentials {
+  // kubernetes.io/basic-auth or kubernetes.io/ssh-auth; empty for a public
+  // repository.
+  string type = 1;
+  string username = 2;
+  string password = 3;
+  string ssh_private_key = 4;
+  string known_hosts = 5;
+}
+
+message ReportBuildRequest {
+  string build = 1;
+  repeated LogLine lines = 2;
+  // Empty while the build runs. Otherwise Complete, Failed or Error.
+  string phase = 3;
+  string message = 4;
+  // Set with phase Complete.
+  string commit = 5;
+  string image = 6;
+  string digest = 7;
+}
+
+message ReportBuildResponse {
+  // Set once CancelBuild has been called for the Build.
+  bool cancel = 1;
+}
+
+message IssueBuildCertificateRequest {
+  string build = 1;
+  // DER-encoded certificate request. Its subject is ignored.
+  bytes csr = 2;
+}
+
+message IssueBuildCertificateResponse {
+  // DER-encoded certificate. Valid for BuildCertificateValidity.
+  bytes certificate = 1;
 }
 
 message NodeConfigRequest {}
