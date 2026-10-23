@@ -231,7 +231,7 @@ func (s *Server) quotasByProject(ctx context.Context) (map[string][]quotaLimit, 
 			return nil, fmt.Errorf("quota %q: %w", r.Name, err)
 		}
 		p := tenancy.ProjectOf(r.Labels)
-		out[p] = append(out[p], quotaLimit{name: r.Name, limits: lim})
+		out[p] = append(out[p], quotaLimit{name: tenancy.Bare(r.Name, p), limits: lim})
 	}
 	return out, nil
 }

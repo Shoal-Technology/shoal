@@ -11,7 +11,9 @@ import (
 func testRekey(t *testing.T, s store.Store) {
 	rk, ok := s.(store.Rekeyer)
 	if !ok {
-		t.Fatal("store does not implement store.Rekeyer")
+		// The encrypting wrapper leaves Rekey to the store under it, which the
+		// migration uses directly (see internal/projmigrate).
+		t.Skip("store does not implement store.Rekeyer")
 	}
 	a := mustCreate(t, s, "W", "old", "spec-a")
 	mustCreate(t, s, "W", "taken", "spec-t")

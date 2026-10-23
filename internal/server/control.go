@@ -524,25 +524,28 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
-	found, err := c.s.findObject(ctx, req.GetKind(), req.GetName(), req.GetProject())
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return nil, apiError(err)
-	}
-	// key is the stored key of the object, and name its bare name.
-	key := req.GetName()
-	if err == nil {
-		key = found.Name
-	}
-	project := keyProject(found)
-	if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Project: project, Name: req.GetName()}); err != nil {
-		return nil, err
-	}
 	if req.GetKind() == v1alpha1.KindProject {
+		if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Name: req.GetName()}); err != nil {
+			return nil, err
+		}
 		if err := c.s.deleteProject(ctx, req.GetName()); err != nil {
 			return nil, err
 		}
 		c.s.log.Info("object deleted", "kind", req.GetKind(), "name", req.GetName())
 		return &v1alpha1.DeleteResponse{}, nil
+	}
+	// The object is found in the request's project, or in the one project
+	// that holds the name. A name that is absent fails here, before any write:
+	// it must never fall through to a same-named object in another project.
+	found, err := c.s.findObject(ctx, req.GetKind(), req.GetName(), req.GetProject())
+	if err != nil {
+		return nil, apiError(err)
+	}
+	// key is the stored key of the object, and name its bare name.
+	key := found.Name
+	project := keyProject(found)
+	if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Project: project, Name: req.GetName()}); err != nil {
+		return nil, err
 	}
 	if owner, err := c.s.ownerOf(ctx, req.GetKind(), key); err != nil {
 		return nil, apiError(err)

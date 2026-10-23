@@ -102,7 +102,7 @@ func TestScopedRPCsResolveTheProject(t *testing.T) {
 	if err == nil {
 		_, err = stream.Recv()
 	}
-	projWantStatus(t, err, codes.NotFound, "not found in project")
+	projWantStatus(t, err, codes.NotFound, `workload "web" has no replicas`)
 
 	// BuildLogs and CancelBuild: a Build in team-a is reached only through team-a.
 	mustCreateIn(t, ts, v1alpha1.KindBuild, "ci-x", "team-a", &v1alpha1.BuildSpec{Config: "ci"}, &v1alpha1.BuildStatus{Phase: resource.BuildNew})

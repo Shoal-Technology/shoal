@@ -167,6 +167,9 @@ func (c *controlService) Logs(req *v1alpha1.LogsRequest, stream v1alpha1.Control
 		return status.Error(codes.InvalidArgument, "workload is required")
 	}
 	wrec, err := c.s.findObject(ctx, v1alpha1.KindWorkload, req.GetWorkload(), req.GetProject())
+	if errors.Is(err, store.ErrNotFound) {
+		return status.Errorf(codes.NotFound, "workload %q has no replicas", req.GetWorkload())
+	}
 	if err != nil {
 		return apiError(err)
 	}
