@@ -229,7 +229,7 @@ Source: `gitlab-org/gitlab` `app/assets/javascripts/editor/schema/ci.json` (top-
 |---|---|---|---|---|---|
 | **GL-01** Git hosting: repositories, branches, tags, issues, wiki (docs knowledge; not in ci.json) | Git server and project UI | None | No git hosting | Skip. Integrate GitHub, GitLab and Gitea (GL-02) | P3 |
 | **GL-02** Git provider integration: webhooks, clone credentials (docs knowledge) | Trigger pipelines and builds from pushes | None | No external git integration | Integrate: webhook receiver with signature check, clone with a deploy token from a Secret. GitHub and GitLab first. Gitea later | P0 |
-| **GL-03** Pipeline file `.gitlab-ci.yml` (top-level keys in ci.json, listed above) | Declarative pipeline in the repository | Appspec `shoal.yaml` describes an app, not a pipeline (ADR 0017) | No pipeline file | Build `shoal-ci.yml`: a subset. Stages, jobs with image and script, rules limited to branch, tag, event and changes, artifacts, cache, variables, environment, timeout. Not GitLab-compatible; no `include` or `extends` in v1 | P1 |
+| **GL-03** Pipeline file `.gitlab-ci.yml` (top-level keys in ci.json, listed above) | Declarative pipeline in the repository | Appspec `shoal.yaml` describes an app, not a pipeline (ADR 0017) | No pipeline file | Build `shoal-ci.yml` (ADR 0022): a subset. Stages, jobs with image and script, rules limited to branch, tag, event and changes, artifacts, cache, variables, environment, timeout. Not GitLab-compatible; no `include` or `extends` in v1 | P1 |
 | **GL-04** `stages` (default build, test, deploy) | Sequential groups of jobs | None | None | Build: sequential stages only, same as the GitLab default | P1 |
 | **GL-05** Job `script`, `before_script`, `after_script` | Commands run in the job image | None. `Workload.command` replaces an image entrypoint with an argv; it is not a script (`resources.proto`) | No job execution | Build on K-06: run a shell script in a container; logs over OB-20 | P1 |
 | **GL-06** Job `image` (and top-level `image`) | Container image a job runs in | `WorkloadSpec.image` | Only for Workloads | Build on K-06 | P1 |
@@ -269,9 +269,9 @@ Source: `gitlab-org/gitlab` `app/assets/javascripts/editor/schema/ci.json` (top-
 | **GL-30** Plain variables (top-level and job `variables`) | Environment for a pipeline or job | `Config` (plain) and literal `EnvVar.value` (`resources.proto`) | No pipeline-scoped variables | Build: Project-scoped Config and job env | P1 |
 | **GL-31** Masked and protected variables (docs knowledge; `secrets` in job_template) | Hide values in logs; limit to protected refs | `Secret`: encrypted at rest, values never returned (ADR 0011) | No log masking; no ref scope | Build: Project-scoped Secret; redact Secret values from job and build logs *(inferred)* | P1 |
 | **GL-32** Job `id_tokens`, `identity` (OIDC tokens) | Short-lived tokens to clouds and registries | None | None | Build with K-42 | P2 |
-| **GL-33** Job `environment` (name, url, action, deployment_tier, auto_stop_in) | Named deploy target with history | None | None | Build: an Environment record in a Project, linking Workloads and Routes *(inferred)* | P2 |
-| **GL-34** Review apps and dynamic environments (docs knowledge) | Per-branch deploy with its own URL | None | Route host must be fixed (ADR 0015 rejects wildcards) | Skip for v1 | P3 |
-| **GL-35** Job `resource_group` | Serialize jobs that deploy to one target | None | None | Build: a deploy lock per Environment *(inferred)* | P2 |
+| **GL-33** Job `environment` (name, url, action, deployment_tier, auto_stop_in) | Named deploy target with history | None | None | Build (ADR 0022 pass C): an Environment record in a Project, linking Workloads and Routes *(inferred)* | P2 |
+| **GL-34** Review apps and dynamic environments (docs knowledge) | Per-branch deploy with its own URL | None | Route host must be fixed (ADR 0015 rejects wildcards). ADR 0015 Amendment 2026-10-23 allows explicit per-PR hostnames under a base domain | Build for same-repo pull requests only, in pass D of ADR 0022 (ADR 0019 Amendment 2026-10-23). Fork pull requests are skipped by design | P2 |
+| **GL-35** Job `resource_group` | Serialize jobs that deploy to one target | None | None | Build (ADR 0022 pass C): a deploy lock per Environment *(inferred)* | P2 |
 | **GL-36** Pipeline schedules (docs knowledge) | Run pipelines on a cron | Interval-only backup schedule (ADR 0016) | No cron | Build with K-07 | P2 |
 | **GL-37** Pipeline run on demand (API and UI) | Start a pipeline manually | Control API (`api.proto`); no pipeline object | No pipeline object | Build with the pipeline kind | P1 |
 | **GL-38** Pipeline and job UI: runs, logs, status, retry | View and act on runs | Web portal for workloads and logs (ADR 0013) | No pipeline view | Build in the portal | P1 |
@@ -308,9 +308,9 @@ Source: `gitlab-org/gitlab` `app/assets/javascripts/editor/schema/ci.json` (top-
 |---|---|---|---|---|---|---|
 | Kubernetes (2a to 2c) | 51 | 5 | 3 | 9 | 13 | 21 |
 | OpenShift (3a to 3e) | 53 | 3 | 10 | 14 | 9 | 17 |
-| GitLab (4a to 4d) | 45 | 0 | 2 | 14 | 15 | 14 |
+| GitLab (4a to 4d) | 45 | 0 | 2 | 14 | 16 | 13 |
 | Cross-cutting (5) | 9 | 1 | 2 | 1 | 4 | 1 |
-| **Total** | **158** | **9** | **17** | **38** | **41** | **53** |
+| **Total** | **158** | **9** | **17** | **38** | **42** | **52** |
 
 Row counts above were computed from the tables in this file by counting each row's priority cell. Shoal parity today: 9 of 158 rows are marked "have". This is a tally of named concepts, not of the work involved.
 

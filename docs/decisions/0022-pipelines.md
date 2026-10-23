@@ -1,10 +1,12 @@
 # 0022: Pipelines (shoal-ci.yml)
 
-Status: Proposed under ADR 0019 (Phase 2, items GL-03 to GL-06, GL-08, GL-11,
+Status: Accepted under ADR 0019 (Phase 2, items GL-03 to GL-06, GL-08, GL-11,
 GL-15, GL-27, GL-29, GL-33, GL-37, GL-38, GL-42, GL-43 of the parity matrix).
 Builds (ADR 0021) are the prerequisite: a pipeline job that builds an image
 starts a Build and never runs a builder itself. Nothing in this ADR is
 implemented yet.
+
+Accepted 2026-10-23 by the project owner.
 
 ## Context
 
@@ -327,21 +329,23 @@ not change the run's result.
 - `resource_group` (GL-35) is a per-Environment lock: one deploy at a time. A
   second deploy waits in Pending.
 
-### 11. Review apps (pass D, needs an ADR 0019 amendment)
+### 11. Review apps (pass D)
 
-ADR 0019 lists review apps as out of scope, decided and not deferred. This
-ADR proposes to reverse that for one narrow case: a pull request from a
-`same-repo` branch gets a Workload and an Environment named
-`review/<branch-slug>`, and the Environment stops after a set time or when the
-pull request closes. Two things must be decided first, and this ADR does not
-decide them:
+Review apps are in scope for pass D, for pull requests from a branch in the
+same repository only. ADR 0019 listed them as out of scope. The owner moved
+them in scope on 2026-10-23 (ADR 0019 Amendment 2026-10-23), and accepted the
+per-PR hostname rule in ADR 0015 (Amendment 2026-10-23).
 
-- The Route host. ADR 0015 rejects wildcards, so each review app needs a fixed
-  generated host such as `pr-<n>.<base-domain>`, added through a new ADR 0015
-  rule.
+- A same-repo pull request gets one Workload and one Environment named
+  `review/<branch-slug>`. The Environment stops after a set time, or when the
+  pull request closes.
+- Each review app gets a generated hostname under an owner-configured
+  review-app base domain, such as `pr-<n>.<base-domain>`. Each hostname is an
+  explicit Route record. There is no wildcard Route and no wildcard certificate
+  (ADR 0015).
+- The record scheme, hostname naming, per-host certificate issuance and rate
+  limits are decided in pass D design, not here.
 - Forks never get review apps (section 7).
-
-If ADR 0019 is not amended, pass D ships status reporting only.
 
 ### 12. API and CLI
 
@@ -443,7 +447,7 @@ Negative and risks:
 - The file format is a Shoal format. Users who already have GitLab files must
   rewrite them. The lint command (section 12) reports every unsupported key
   with its reason, so the rewrite is mechanical for the supported subset.
-- Review apps need an ADR 0015 change and an ADR 0019 amendment (section 11).
+- Review apps depend on the ADR 0015 and ADR 0019 amendments of 2026-10-23 (section 11).
 
 ## Implementation plan
 
@@ -526,7 +530,7 @@ Acceptance criteria:
 ### Pass D: commit status and review apps
 
 Scope: commit statuses to GitHub and GitLab (section 9). Review apps (section
-11), only after the ADR 0015 and ADR 0019 amendments are merged. Free-form
+11), with the ADR 0015 and ADR 0019 amendments of 2026-10-23 in place. Free-form
 `needs` (GL-10) and cache key templates are candidates for this pass or later.
 
 Acceptance criteria:
@@ -537,7 +541,7 @@ Acceptance criteria:
   external).
 - A failed status post is retried and does not change the run's result (test
   with a fake host that fails twice).
-- Review apps (only if the amendments are merged): a same-repo pull request gets
+- Review apps: a same-repo pull request gets
   one Environment and one Workload, which stop after the set time or when the
   pull request closes (test). A fork pull request gets none (test).
 
@@ -555,8 +559,8 @@ Acceptance criteria:
 
 ## Follow-ups
 
-- ADR 0019 amendment (section 11), needed before review apps.
-- ADR 0015 rule for generated per-PR hosts, needed before review apps.
+- Done with this change: ADR 0019 Amendment 2026-10-23 and ADR 0015 Amendment
+  2026-10-23 (review apps and per-PR hostnames).
 - K-06 (Job) backoff, deadline and TTL reuse the Job kind from section 4.
 - GL-16 (`parallel`), GL-18 (`trigger`) and GL-17 (`include`) are candidates
   for a later ADR once v1 is used on real repositories.

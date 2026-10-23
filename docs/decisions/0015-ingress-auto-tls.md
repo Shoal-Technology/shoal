@@ -551,3 +551,25 @@ Taken when the ADR was accepted. Each one answers an open question below.
 - Exact Let's Encrypt limits and their current values (verify in pass C).
 - How the edge reports certificate expiry to operators: a status field on
   Route, a portal view, or both.
+
+## Amendment 2026-10-23
+
+Accepted 2026-10-23 by the project owner.
+
+Generated per-PR hostnames are allowed for review apps (ADR 0022 pass D, and
+ADR 0019 Amendment 2026-10-23), under a review-app base domain that the owner
+configures on the server.
+
+- Each review app host is an explicit Route record, such as
+  `pr-<n>.<base-domain>`, created and removed by the review-app lifecycle. It is
+  the same kind of Route as today, with the same validation, except that the
+  host must be under the configured base domain.
+- Routing stays explicit. There is no wildcard Route, no wildcard host in
+  routing, and no wildcard certificate. Wildcard hosts stay rejected (the Pass A
+  rules for Route, and section 3 above).
+- Each generated host gets its own certificate through the existing HTTP-01
+  path (pass C1). Let's Encrypt rate limits apply per host and per domain, so
+  the pass D design must say how many review apps a base domain may have open at
+  once.
+- The naming scheme, the record lifecycle, cleanup on pull request close, and
+  the limits are deferred to pass D design and are not decided here.

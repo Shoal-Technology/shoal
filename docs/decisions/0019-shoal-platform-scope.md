@@ -245,3 +245,20 @@ K-44, K-45, GL-32, GL-36.
    iptables rules or by a separate component. Decide in Phase 3.
 3. Whether `shoal-ci.yml` should read `.gitlab-ci.yml` as an import format.
    Decide after Phase 2 is used on real repositories.
+
+## Amendment 2026-10-23
+
+Accepted 2026-10-23 by the project owner.
+
+- Review apps move in scope, for pull requests from a branch in the same
+  repository only. Fork pull requests never get a review app.
+- The work is pass D of ADR 0022: a same-repo pull request gets one Workload
+  and one Environment named `review/<branch-slug>`, which stop after a set time
+  or when the pull request closes.
+- The per-PR hostnames are allowed by ADR 0015 Amendment 2026-10-23, under an
+  owner-configured base domain. Routing stays explicit, with no wildcard routes.
+- In the Decision section, review apps are removed from the out-of-scope list.
+  The rest of that list is unchanged, including fork review apps.
+- The parity matrix rows GL-34 (review apps) and GL-33 and GL-35 (environments)
+  are updated to match. GL-34 moves from P3 and Skip to P2 and Build, for
+  same-repo pull requests only.
