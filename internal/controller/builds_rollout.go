@@ -48,7 +48,7 @@ func (c *Controller) rollOutNewest(ctx context.Context, bs []*queuedBuild) error
 		return c.writeBuildStatus(ctx, newest, done)
 	}
 	image := runtime.RegistryAlias + "/" + src.GetOutput().GetRepository() + "@" + st.GetDigest()
-	err := c.setWorkloadImage(ctx, tenancy.Key(newest.obj.GetMetadata().GetProject(), target), image)
+	_, err := c.setWorkloadImage(ctx, tenancy.Key(newest.obj.GetMetadata().GetProject(), target), image)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		done.Message = fmt.Sprintf("workload %q not found: its image was not set", target)
@@ -62,28 +62,30 @@ func (c *Controller) rollOutNewest(ctx context.Context, bs []*queuedBuild) error
 
 // setWorkloadImage replaces the image of a Workload's spec, through the store's
 // compare-and-swap, so the generation moves and the rollout starts. An image
-// that is already set is left alone.
-func (c *Controller) setWorkloadImage(ctx context.Context, name, image string) error {
+// that is already set is left alone. It returns the Workload's generation
+// after the call: the generation a rollout of this image reaches.
+func (c *Controller) setWorkloadImage(ctx context.Context, name, image string) (int64, error) {
 	rec, err := c.st.Get(ctx, v1alpha1.KindWorkload, name)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	w, err := objects.Workload(rec)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if w.GetSpec().GetImage() == image {
-		return nil
+		return rec.Generation, nil
 	}
 	spec := proto.CloneOf(w.GetSpec())
 	spec.Image = image
 	enc, err := objects.Encode(spec)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	if _, err := c.st.Update(ctx, v1alpha1.KindWorkload, name, enc, rec.Generation); err != nil {
-		return fmt.Errorf("update workload %s: %w", name, err)
+	upd, err := c.st.Update(ctx, v1alpha1.KindWorkload, name, enc, rec.Generation)
+	if err != nil {
+		return 0, fmt.Errorf("update workload %s: %w", name, err)
 	}
 	c.log.Info("workload image set from build", "workload", name, "image", image)
-	return nil
+	return upd.Generation, nil
 }

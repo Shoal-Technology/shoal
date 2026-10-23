@@ -36,6 +36,9 @@ type pipelineRun struct {
 type pipelineJob struct {
 	rec store.Record
 	obj *v1alpha1.Job
+	// approved is set by decideApprovals when the job's gate has enough
+	// approvals for this pass (ADR 0022, section 10).
+	approved bool
 }
 
 func (j *pipelineJob) phase() string { return j.obj.GetStatus().GetPhase() }
@@ -84,14 +87,16 @@ func (c *Controller) syncPipelines(ctx context.Context) []error {
 		run.jobs = append(run.jobs, &pipelineJob{rec: r, obj: obj})
 	}
 	now := c.cfg.Now()
+	busy := runningDeploys(runs)
 	for _, name := range slices.Sorted(maps.Keys(runs)) {
-		errs = append(errs, c.syncRun(ctx, runs[name], now)...)
+		errs = append(errs, c.syncRun(ctx, runs[name], now, busy)...)
 	}
 	return append(errs, c.syncPipelineStatus(ctx, precs, runs)...)
 }
 
-// syncRun advances one run by one pass.
-func (c *Controller) syncRun(ctx context.Context, run *pipelineRun, now time.Time) []error {
+// syncRun advances one run by one pass. busy maps each environment to the
+// running deploy job that holds its lock (resource_group, GL-35).
+func (c *Controller) syncRun(ctx context.Context, run *pipelineRun, now time.Time, busy map[string]string) []error {
 	phase := run.obj.GetStatus().GetPhase()
 	if resource.PipelineRunTerminal(phase) {
 		return nil
@@ -108,10 +113,12 @@ func (c *Controller) syncRun(ctx context.Context, run *pipelineRun, now time.Tim
 			errs = append(errs, err)
 		}
 	}
+	errs = append(errs, c.recordOutputs(ctx, run)...)
 	if run.obj.GetSpec().GetCancelRequested() {
 		return append(errs, c.cancelRun(ctx, run, now)...)
 	}
-	errs = append(errs, c.advanceJobs(ctx, run, now)...)
+	errs = append(errs, c.decideApprovals(ctx, run, now)...)
+	errs = append(errs, c.advanceJobs(ctx, run, now, busy)...)
 	return append(errs, c.writeRunProgress(ctx, run, now)...)
 }
 
@@ -120,6 +127,7 @@ func (c *Controller) syncRun(ctx context.Context, run *pipelineRun, now time.Tim
 // that failed part way) is kept, so a retried expansion does not duplicate it.
 func (c *Controller) expandRun(ctx context.Context, run *pipelineRun, now time.Time) []error {
 	src := run.obj.GetSpec().GetSource()
+	protected := run.obj.GetSpec().GetTrust() == resource.TrustProtected
 	rctx := runContext(run.obj.GetSpec())
 	existing := map[string]bool{}
 	for _, j := range run.jobs {
@@ -143,6 +151,11 @@ func (c *Controller) expandRun(ctx context.Context, run *pipelineRun, now time.T
 			phase, msg = resource.PhaseSkipped, "when: never"
 		case pipeline.WhenManual:
 			phase, msg = resource.PhaseManual, "waiting for play"
+		}
+		// A deploy step and an environment run only in a protected run (ADR
+		// 0022, section 7). The job is created Skipped, so the run goes on.
+		if !protected && (job.GetDeploy() != nil || job.GetEnvironment() != nil) {
+			phase, msg = resource.PhaseSkipped, "a deploy step and an environment run only in a protected run"
 		}
 		specB, err := objects.Encode(&v1alpha1.JobSpec{
 			PipelineRun: run.rec.Name, Job: job, When: when,
@@ -194,6 +207,9 @@ func runContext(spec *v1alpha1.PipelineRunSpec) pipeline.Context {
 // checkJob reads the runner's state for a running job and records what it
 // found: success, failure, a retry for an infrastructure error, or a timeout.
 func (c *Controller) checkJob(ctx context.Context, run *pipelineRun, j *pipelineJob, now time.Time) error {
+	if j.obj.GetSpec().GetJob().GetDeploy() != nil {
+		return c.checkDeploy(ctx, run, j, now)
+	}
 	if c.cfg.Runner == nil {
 		return c.setJobPhase(ctx, j, resource.PhaseError, noRunnerMessage, now)
 	}
@@ -255,14 +271,14 @@ func (c *Controller) retryJob(ctx context.Context, run *pipelineRun, j *pipeline
 
 // advanceJobs starts the jobs whose stages and needs are done, and skips the
 // ones an earlier failure or a failed need blocks.
-func (c *Controller) advanceJobs(ctx context.Context, run *pipelineRun, now time.Time) []error {
+func (c *Controller) advanceJobs(ctx context.Context, run *pipelineRun, now time.Time, busy map[string]string) []error {
 	plan := make([]planJob, 0, len(run.jobs))
 	for _, j := range run.jobs {
 		job := j.obj.GetSpec().GetJob()
 		plan = append(plan, planJob{
 			Name: job.GetName(), Stage: job.GetStage(), Needs: job.GetNeeds(),
 			Phase: j.phase(), When: j.obj.GetSpec().GetWhen(), AllowFailure: j.obj.GetSpec().GetAllowFailure(),
-			PlayRequested: j.obj.GetSpec().GetPlayRequested(),
+			PlayRequested: j.obj.GetSpec().GetPlayRequested(), Approved: j.approved,
 		})
 	}
 	decisions := decide(run.obj.GetSpec().GetSource().GetStages(), plan)
@@ -270,7 +286,7 @@ func (c *Controller) advanceJobs(ctx context.Context, run *pipelineRun, now time
 	for _, j := range run.jobs {
 		switch d := decisions[j.logicalName()]; d.action {
 		case actionStart:
-			if err := c.startJob(ctx, run, j, now); err != nil {
+			if err := c.startJob(ctx, run, j, busy, now); err != nil {
 				errs = append(errs, err)
 			}
 		case actionSkip:
@@ -284,7 +300,29 @@ func (c *Controller) advanceJobs(ctx context.Context, run *pipelineRun, now time
 
 // startJob starts a waiting job through the runner. A start that fails leaves
 // the job in Error.
-func (c *Controller) startJob(ctx context.Context, run *pipelineRun, j *pipelineJob, now time.Time) error {
+func (c *Controller) startJob(ctx context.Context, run *pipelineRun, j *pipelineJob, busy map[string]string, now time.Time) error {
+	job := j.obj.GetSpec().GetJob()
+	envName := job.GetEnvironment().GetName()
+	var env *v1alpha1.EnvironmentSpec
+	if envName != "" {
+		e, err := c.loadEnvironment(ctx, envName)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			return c.setJobPhase(ctx, j, resource.PhaseError, fmt.Sprintf("environment %s does not exist", envName), now)
+		case err != nil:
+			return err
+		}
+		env = e.GetSpec()
+		// The approval gate (ADR 0022, section 10): wait until enough approvals
+		// are recorded. decideApprovals sets j.approved once they are.
+		need := resource.ApprovalsNeeded(resource.JobGated(job, env), env)
+		if have := len(resource.ApprovedBy(j.obj.GetSpec().GetApprovals())); need > have {
+			return c.waitForApproval(ctx, j, have, need, now)
+		}
+	}
+	if job.GetDeploy() != nil {
+		return c.startDeploy(ctx, run, j, env, busy, now)
+	}
 	if c.cfg.Runner == nil {
 		return c.setJobPhase(ctx, j, resource.PhaseError, noRunnerMessage, now)
 	}
@@ -297,6 +335,7 @@ func (c *Controller) startJob(ctx context.Context, run *pipelineRun, j *pipeline
 	st.StartedAt = timestamppb.New(now)
 	st.Attempt = max(st.Attempt, 1)
 	st.LogRef = j.rec.Name
+	st.WaitingSince, st.Approvals = nil, j.obj.GetSpec().GetApprovals()
 	return c.writeJobStatus(ctx, j, st)
 }
 
@@ -407,6 +446,9 @@ func (c *Controller) finishJob(ctx context.Context, j *pipelineJob, phase, msg s
 		s.Node = st.Node
 	}
 	s.ExitCode = int32(st.ExitCode)
+	if st.Build != "" {
+		s.Build, s.Image, s.Digest = st.Build, st.Image, st.Digest
+	}
 	c.log.Info("pipeline job finished", "job", j.rec.Name, "phase", phase)
 	return c.writeJobStatus(ctx, j, s)
 }
@@ -459,6 +501,9 @@ func (c *Controller) writePipelineRunStatus(ctx context.Context, run *pipelineRu
 		return []error{fmt.Errorf("update status of pipeline run %s: %w", run.rec.Name, err)}
 	}
 	run.rec, run.obj.Status = rec, st
+	if resource.PipelineRunTerminal(st.GetPhase()) {
+		return c.revokeRunTokens(ctx, run)
+	}
 	return nil
 }
 
@@ -525,10 +570,18 @@ func (c *Controller) JobLogs(ctx context.Context, name string) ([]pipeline.Line,
 
 const noRunnerMessage = "no pipeline runner is configured on this server"
 
+// pipelineRequestOf is what the runner gets for a job. The run's outputs (the
+// digests of build steps that completed) come first, so a job's own variables
+// win over them.
 func pipelineRequestOf(run *pipelineRun, j *pipelineJob) pipeline.Request {
+	env := maps.Clone(run.obj.GetStatus().GetOutputs())
+	if env == nil {
+		env = map[string]string{}
+	}
+	maps.Copy(env, j.obj.GetSpec().GetEnv())
 	return pipeline.Request{
 		Name: j.rec.Name, Run: run.rec.Name,
-		Job: j.obj.GetSpec().GetJob(), Env: j.obj.GetSpec().GetEnv(),
+		Job: j.obj.GetSpec().GetJob(), Env: env,
 	}
 }
 
@@ -569,6 +622,8 @@ type planJob struct {
 	When          string
 	AllowFailure  bool
 	PlayRequested bool
+	// Approved is set when a gated job has its approvals (ADR 0022, section 10).
+	Approved bool
 }
 
 // blockingPhase reports whether a job that ended this way stops the stages
@@ -579,13 +634,13 @@ func blockingPhase(phase string) bool {
 }
 
 // waiting reports whether a job is one the pass decides about: New or Pending,
-// or a manual job that was played.
+// a manual job that was played, or a gated job whose approvals are in.
 func waiting(j planJob, phase string) bool {
 	switch phase {
 	case resource.PhaseNew, resource.PhasePending:
 		return true
 	case resource.PhaseManual:
-		return j.PlayRequested
+		return j.PlayRequested || j.Approved
 	}
 	return false
 }

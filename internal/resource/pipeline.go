@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 )
@@ -76,6 +77,9 @@ func DefaultPipeline(s *v1alpha1.PipelineSpec) {
 	if s.Path == "" {
 		s.Path = DefaultPipelinePath
 	}
+	if len(s.ProtectedBranches) == 0 {
+		s.ProtectedBranches = slices.Clone(DefaultProtectedBranches)
+	}
 }
 
 // ValidatePipeline checks a defaulted Pipeline spec and reports every problem,
@@ -100,6 +104,11 @@ func ValidatePipeline(name string, s *v1alpha1.PipelineSpec) error {
 	}
 	if c := s.GetCredentialsSecret(); c != "" && !ValidName(c, 63) {
 		bad("spec.credentialsSecret", "invalid Secret name %q", c)
+	}
+	for _, b := range s.GetProtectedBranches() {
+		if !validGitRef(b) {
+			bad("spec.protectedBranches", "%q is not a branch name", b)
+		}
 	}
 	return errors.Join(errs...)
 }

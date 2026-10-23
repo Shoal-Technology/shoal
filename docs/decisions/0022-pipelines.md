@@ -3,8 +3,8 @@
 Status: Accepted under ADR 0019 (Phase 2, items GL-03 to GL-06, GL-08, GL-11,
 GL-15, GL-27, GL-29, GL-33, GL-37, GL-38, GL-42, GL-43 of the parity matrix).
 Builds (ADR 0021) are the prerequisite: a pipeline job that builds an image
-starts a Build and never runs a builder itself. Passes A and B are implemented
-(see their implementation notes); passes C and D are not started.
+starts a Build and never runs a builder itself. Passes A, B and C are
+implemented (see their implementation notes); pass D is not started.
 
 Accepted 2026-10-23 by the project owner.
 
@@ -644,6 +644,93 @@ Acceptance criteria:
   created (test).
 - The job token can perform the deploy action on the named Workload only, and
   is refused for any other action or Workload (test).
+
+Implementation notes (pass C, as built):
+
+- Code. `internal/controller/pipelines.go` (the approval wait, the lock, the
+  gate in `startJob`, the outputs), `internal/controller/pipelinedeploy.go` (the
+  deploy step, the approvals, the environment history, the job token),
+  `internal/resource/environment.go` (the Environment rules, the approval
+  count, the build output names), `internal/server/pipelines.go` (`ApproveJob`,
+  `RejectJob`, the environment check of a run), `cmd/shoal/pipeline.go`
+  (`shoal pipeline approve` and `reject`). The kinds and RPCs are in
+  `resources.proto` and `api.proto`. Field numbers of existing messages are
+  unchanged.
+- Environment (section 10). `Environment` is applied with `shoal apply`. Its
+  spec holds `url`, `protected`, `requiredApprovals` (zero means one for a
+  protected environment) and the `workloads` a deploy may set. Its status holds
+  the current `digest`, the `previousDigest` for a rollback, and the last ten
+  `deployments` (run, job, workload, image, digest, phase, approvers, time). An
+  environment is not created by its first deploy job; that path is not built.
+- Gate (section 10). A job with `environment.approval: required`, or whose
+  environment is protected, waits in Manual with the message `waiting for
+  approval (N of M)`. The phase is Manual, as section 4 says, not a new phase.
+  `ApproveJob` and `RejectJob` write a decision to the Job's spec with the
+  caller's name and time. The controller reads the decisions and moves the job:
+  M approvals start it, a rejection ends it Cancelled, and a wait longer than
+  `resource.ApprovalTimeout` (24 hours, chosen here; the ADR gives none) ends it
+  Failed with `approval timed out`. A repeat approval by the same caller is a
+  no-op. An approval after a rejection is refused. Only a job that is waiting
+  (Manual) can be decided, and a job that waits to be played must be played
+  first.
+- Deploy (section 10). A deploy job runs in the controller and starts no
+  container. It sets the Workload's image to `shoal.local/<repository>@<digest>`,
+  the digest its build step pushed, through `setWorkloadImage`, which is the
+  rollout path of ADR 0010. It ends Complete when the Workload's rollout is
+  Complete at the generation the deploy set, and Failed when the rollout is
+  RolledBack or Failed at that generation, when the Workload changes again
+  first, or when the job's timeout (default one hour) passes. A failed rollout
+  leaves the environment at its previous digest. A deploy names a Workload that
+  its environment lists; any other name fails the job.
+- Lock (resource_group, GL-35). One deploy runs per environment. A second deploy
+  waits in Pending with `waiting for environment X: job Y is deploying`.
+- Outputs (section 4). When a build step completes, the run's outputs get
+  `SHOAL_BUILD_<JOB>_IMAGE` and `SHOAL_BUILD_<JOB>_DIGEST`, where `<JOB>` is the
+  build job's name in upper case with dashes as underscores (for example
+  `SHOAL_BUILD_BUILD_WEB_DIGEST` for a job named `build-web`). Jobs that start
+  later get them as variables; a job's own variables win over them. A deploy's
+  `from` reads the digest of its build job from the job's status, and the build
+  job must be one of its `needs`.
+- Protected runs (section 7). A deploy or environment job in a `same-repo` or
+  `fork` run is created Skipped with the reason, so the rest of the run still
+  runs (for example, the tests on a feature branch). `StartPipelineRun` refuses a
+  file whose deploy names no existing environment, or a Workload that environment
+  does not list. The push trigger does the same check for the run it would
+  start.
+- Protected branches. A Pipeline names its `protectedBranches`. The default is
+  `main` (`resource.DefaultProtectedBranches`). A push to one starts a protected
+  run.
+- Job token (section 5, deferred from pass B). The deploy step has a
+  run-scoped token. The controller makes it at random, keeps only its SHA-256
+  hash in the job's status, and checks it before it sets the Workload. The
+  check requires the token, the action `deploy`, the job's own run, a run that
+  has not ended, and the Workload the job deploys. The token is cleared when its
+  job ends, and every token of a run is cleared when the run ends. Deviation:
+  the token is not written into any job container. A job container has no route
+  to the control API (section 5 isolation: the only egress is the registry and
+  the internet), so a container could not use it. The job's own containers never
+  get the admin key, and no token is in any container's environment.
+- Open question 4 is decided: the grace period is zero. The token stops when its
+  job or its run ends.
+- Not in pass C, or not met:
+  - Environments are not Project-scoped. The Environment key is the name, as
+    other kinds were before ADR 0023 B1. B1 changes the key when it lands.
+  - Approver identity is the caller's certificate name. With the admin key alone,
+    the approvers are one name, so an environment that needs two approvals can
+    only get them from two identities. That needs the project roles of ADR 0023
+    B2; the hook is `decideJob` in `internal/server/pipelines.go`.
+  - Cancelling a run while a deploy runs stops the job, but it does not roll the
+    Workload back: the rollout continues to its own end.
+  - The rollout behaviour of a deploy (a failed health check rolls back) is the
+    existing rollout code (ADR 0010), tested there. The controller tests set the
+    Workload's rollout status directly, the same way the rollout code records it.
+  - The e2e (`hack/pipeline-e2e.sh`, the deploy section) runs on a GitHub runner
+    with containerd. It is the only check of a real rollout onto a node.
+- Tests. `internal/controller/pipelinedeploy_test.go` (deploy digest, rollback,
+  the lock, the workload list, protected runs, the approval gate with approve,
+  reject, timeout and two approvers, token scope and revocation, outputs,
+  history), `internal/resource/environment_test.go`,
+  `internal/server/pipelinegate_test.go` (the RPCs and the environment check).
 
 ### Pass D: commit status and review apps
 

@@ -27,6 +27,7 @@ message Object {
     Job job = 14;
     Project project = 15;
     ResourceQuota resource_quota = 16;
+    Environment environment = 17;
   }
 }
 
@@ -92,6 +93,13 @@ service Control {
   rpc CancelPipelineRun(CancelPipelineRunRequest) returns (CancelPipelineRunResponse);
   // PlayJob starts a manual job. Any other job is refused.
   rpc PlayJob(PlayJobRequest) returns (PlayJobResponse);
+  // ApproveJob records an approval of a job that waits at an environment's
+  // approval gate (ADR 0022, section 10). The controller starts the job once
+  // enough approvals are recorded.
+  rpc ApproveJob(ApproveJobRequest) returns (ApproveJobResponse);
+  // RejectJob records a rejection of a job at an approval gate. The job ends
+  // Cancelled.
+  rpc RejectJob(RejectJobRequest) returns (RejectJobResponse);
   // JobLogs returns the output of a job, oldest line first.
   rpc JobLogs(JobLogsRequest) returns (JobLogsResponse);
 }
@@ -132,6 +140,20 @@ message PlayJobRequest {
 }
 
 message PlayJobResponse {}
+
+message ApproveJobRequest {
+  // The Job's record name: the run name and the job name joined by a dash.
+  string job = 1;
+  // Free text shown with the decision. At most 500 bytes.
+  string comment = 2;
+}
+message ApproveJobResponse {}
+
+message RejectJobRequest {
+  string job = 1;
+  string comment = 2;
+}
+message RejectJobResponse {}
 
 message JobLogsRequest {
   string job = 1;

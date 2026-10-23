@@ -744,6 +744,12 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 			return nil, err
 		}
 		return &v1alpha1.Object{Kind: &v1alpha1.Object_Job{Job: j}}, nil
+	case v1alpha1.KindEnvironment:
+		e, err := objects.Environment(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Environment{Environment: e}}, nil
 	case v1alpha1.KindProject:
 		p, err := objects.Project(r)
 		if err != nil {
@@ -766,10 +772,10 @@ func checkKind(kind string) error {
 	switch kind {
 	case v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica,
 		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume, v1alpha1.KindDatabase, v1alpha1.KindBuildConfig, v1alpha1.KindBuild, v1alpha1.KindPipeline, v1alpha1.KindPipelineRun, v1alpha1.KindJob,
-		v1alpha1.KindProject, v1alpha1.KindResourceQuota:
+		v1alpha1.KindProject, v1alpha1.KindResourceQuota, v1alpha1.KindEnvironment:
 		return nil
 	}
-	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, BuildConfig, Build, Pipeline, PipelineRun, Job, Secret, Config, Project or ResourceQuota)", kind)
+	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, BuildConfig, Build, Pipeline, PipelineRun, Job, Environment, Secret, Config, Project or ResourceQuota)", kind)
 }
 
 // RestartWorkload sets spec.restartedAt, which changes the template and so

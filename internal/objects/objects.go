@@ -238,6 +238,15 @@ func PipelineRun(r store.Record) (*v1alpha1.PipelineRun, error) {
 	return p, decode(r, p.Spec, p.Status)
 }
 
+// Environment decodes an Environment record.
+func Environment(r store.Record) (*v1alpha1.Environment, error) {
+	e := &v1alpha1.Environment{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindEnvironment, Metadata: Meta(r),
+		Spec: &v1alpha1.EnvironmentSpec{}, Status: &v1alpha1.EnvironmentStatus{},
+	}
+	return e, decode(r, e.Spec, e.Status)
+}
+
 // Job decodes a Job record.
 func Job(r store.Record) (*v1alpha1.Job, error) {
 	j := &v1alpha1.Job{

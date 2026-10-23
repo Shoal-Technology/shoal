@@ -23,6 +23,7 @@ const (
 	KindPipeline    = "Pipeline"    // ADR 0022
 	KindPipelineRun = "PipelineRun" // ADR 0022
 	KindJob         = "Job"         // ADR 0022, K-06 subset
+	KindEnvironment = "Environment" // ADR 0022, pass C
 	KindJoinToken   = "JoinToken"   // internal
 	KindUIAuth      = "UIAuth"      // internal
 	// KindProject and KindResourceQuota are the tenancy kinds (ADR 0023).

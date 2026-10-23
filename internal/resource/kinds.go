@@ -98,6 +98,14 @@ func prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err e
 		}
 		DefaultPipeline(s)
 		return v1alpha1.KindPipeline, name, s, ValidatePipeline(name, s)
+	case *v1alpha1.Object_Environment:
+		name := k.Environment.GetMetadata().GetName()
+		s := proto.CloneOf(k.Environment.GetSpec())
+		if s == nil {
+			s = &v1alpha1.EnvironmentSpec{}
+		}
+		DefaultEnvironment(s)
+		return v1alpha1.KindEnvironment, name, s, ValidateEnvironment(name, s)
 	case *v1alpha1.Object_Volume:
 		name := k.Volume.GetMetadata().GetName()
 		s := proto.CloneOf(k.Volume.GetSpec())

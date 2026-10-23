@@ -61,6 +61,9 @@ func (c *controlService) StartPipelineRun(ctx context.Context, req *v1alpha1.Sta
 	if err := c.s.checkPipelineSecrets(ctx, project, src); err != nil {
 		return nil, err
 	}
+	if err := c.s.checkPipelineEnvironments(ctx, src, resource.TrustProtected); err != nil {
+		return nil, err
+	}
 	ref := req.GetRef()
 	if ref == "" {
 		ref = p.GetSpec().GetRef()
@@ -138,6 +141,124 @@ func (s *Server) checkPipelineSecrets(ctx context.Context, project string, src *
 		return status.Error(codes.FailedPrecondition, errors.Join(errs...).Error())
 	}
 	return nil
+}
+
+// checkPipelineEnvironments checks the environments a file's jobs name, for a
+// run of trust. A deploy step names a Workload that its environment lists (ADR
+// 0022, section 10). Only a protected run needs the check: any other run creates
+// these jobs Skipped (the controller does that).
+func (s *Server) checkPipelineEnvironments(ctx context.Context, src *v1alpha1.PipelineSource, trust string) error {
+	if trust != resource.TrustProtected {
+		return nil
+	}
+	var errs []error
+	for _, job := range src.GetJobs() {
+		d, envName := job.GetDeploy(), job.GetEnvironment().GetName()
+		if d != nil && envName == "" {
+			errs = append(errs, fmt.Errorf("job %s: a deploy step needs an environment", job.GetName()))
+			continue
+		}
+		if envName == "" {
+			continue
+		}
+		rec, err := s.store.Get(ctx, v1alpha1.KindEnvironment, envName)
+		if errors.Is(err, store.ErrNotFound) {
+			errs = append(errs, fmt.Errorf("job %s: environment %q does not exist", job.GetName(), envName))
+			continue
+		}
+		if err != nil {
+			return apiError(err)
+		}
+		e, err := objects.Environment(rec)
+		if err != nil {
+			return apiError(err)
+		}
+		if d != nil && !slices.Contains(e.GetSpec().GetWorkloads(), d.GetWorkload()) {
+			errs = append(errs, fmt.Errorf("job %s: workload %q is not one of the workloads of environment %q", job.GetName(), d.GetWorkload(), envName))
+		}
+	}
+	if len(errs) > 0 {
+		return status.Error(codes.FailedPrecondition, errors.Join(errs...).Error())
+	}
+	return nil
+}
+
+// maxApprovalComment bounds the comment of an approval or rejection.
+const maxApprovalComment = 500
+
+// ApproveJob records an approval of a job that waits at an environment's gate
+// (ADR 0022, section 10). The approver is the caller. The controller starts the
+// job once the environment's approvals are recorded.
+func (c *controlService) ApproveJob(ctx context.Context, req *v1alpha1.ApproveJobRequest) (*v1alpha1.ApproveJobResponse, error) {
+	if err := c.decideJob(ctx, req.GetJob(), resource.DecisionApproved, req.GetComment()); err != nil {
+		return nil, err
+	}
+	return &v1alpha1.ApproveJobResponse{}, nil
+}
+
+// RejectJob records a rejection of a job at an environment's gate. The job ends
+// Cancelled.
+func (c *controlService) RejectJob(ctx context.Context, req *v1alpha1.RejectJobRequest) (*v1alpha1.RejectJobResponse, error) {
+	if err := c.decideJob(ctx, req.GetJob(), resource.DecisionRejected, req.GetComment()); err != nil {
+		return nil, err
+	}
+	return &v1alpha1.RejectJobResponse{}, nil
+}
+
+// decideJob records an approval or a rejection of a gated job. Only the caller
+// that the job is asked of may decide; with the admin key that is the admin
+// (ADR 0023 B2 adds the project role check here).
+func (c *controlService) decideJob(ctx context.Context, name, decision, comment string) error {
+	if name == "" {
+		return status.Error(codes.InvalidArgument, "job is required")
+	}
+	if len(comment) > maxApprovalComment {
+		return status.Errorf(codes.InvalidArgument, "comment is at most %d bytes", maxApprovalComment)
+	}
+	rec, err := c.s.store.Get(ctx, v1alpha1.KindJob, name)
+	if err != nil {
+		return apiError(err)
+	}
+	j, err := objects.Job(rec)
+	if err != nil {
+		return apiError(err)
+	}
+	if j.GetSpec().GetJob().GetEnvironment() == nil {
+		return status.Errorf(codes.FailedPrecondition, "job %s has no environment, so there is no approval to give", name)
+	}
+	if phase := j.GetStatus().GetPhase(); phase != resource.PhaseManual {
+		return status.Errorf(codes.FailedPrecondition, "job %s is %s: only a job waiting at an approval gate can be decided", name, phase)
+	}
+	if j.GetSpec().GetWhen() == pipeline.WhenManual && !j.GetSpec().GetPlayRequested() {
+		return status.Errorf(codes.FailedPrecondition, "job %s waits to be played: play it before it is approved", name)
+	}
+	by := callerName(ctx)
+	approvals := j.GetSpec().GetApprovals()
+	if rej := resource.Rejection(approvals); rej != nil {
+		return status.Errorf(codes.FailedPrecondition, "job %s was rejected by %s and cannot be decided again", name, rej.GetBy())
+	}
+	if decision == resource.DecisionApproved && slices.ContainsFunc(approvals, func(a *v1alpha1.JobApproval) bool {
+		return a.GetBy() == by && a.GetDecision() == resource.DecisionApproved
+	}) {
+		return nil // this caller already approved it
+	}
+	j.Spec.Approvals = append(approvals, &v1alpha1.JobApproval{
+		Decision: decision, By: by, At: timestamppb.New(c.s.now()), Comment: comment,
+	})
+	if err := c.updateSpec(ctx, v1alpha1.KindJob, name, j.Spec, rec.Generation); err != nil {
+		return err
+	}
+	c.s.log.Info("pipeline job decided", "job", name, "decision", decision, "by", by)
+	return nil
+}
+
+// callerName is the name of the authenticated caller, for the record of a
+// decision.
+func callerName(ctx context.Context) string {
+	if c, ok := callerFrom(ctx); ok && c.id.Name != "" {
+		return c.id.Name
+	}
+	return "unknown"
 }
 
 // CancelPipelineRun asks a run that has not finished to stop. The controller

@@ -754,6 +754,9 @@ message PipelineSpec {
   string path = 3;
   // Name of a Secret for the clone, as in ADR 0021.
   string credentials_secret = 4;
+  // Branches whose pushes start protected runs (ADR 0022, section 7). Empty
+  // means the default, main. Set by the server when the Pipeline is applied.
+  repeated string protected_branches = 5;
 }
 
 message PipelineStatus {
@@ -798,6 +801,11 @@ message PipelineRunStatus {
   string message = 2;
   google.protobuf.Timestamp started_at = 3;
   google.protobuf.Timestamp finished_at = 4;
+  // Variables the run's jobs see, set by build steps once they complete (ADR
+  // 0022, section 4). Keys are SHOAL_BUILD_<JOB>_IMAGE and
+  // SHOAL_BUILD_<JOB>_DIGEST, where JOB is the build job's name in upper case
+  // with dashes as underscores. Values are set by the controller only.
+  map<string, string> outputs = 5;
 }
 
 // PipelineSource is a parsed shoal-ci.yml.
@@ -903,6 +911,19 @@ message JobSpec {
   map<string, string> env = 5;
   // Set by PlayJob. The controller starts a manual job that was asked to run.
   bool play_requested = 6;
+  // Approvals and rejections asked of this job at its environment's gate, in
+  // the order the server recorded them. Written by ApproveJob and RejectJob.
+  repeated JobApproval approvals = 7;
+}
+
+// JobApproval is one decision on a job at an approval gate (ADR 0022, section
+// 10). The approver is the caller's identity, never a value from the file.
+message JobApproval {
+  // approved or rejected.
+  string decision = 1;
+  string by = 2;
+  google.protobuf.Timestamp at = 3;
+  string comment = 4;
 }
 
 message JobStatus {
@@ -919,6 +940,22 @@ message JobStatus {
   int32 attempt = 7;
   // Name of the log stream the runner writes.
   string log_ref = 8;
+  // Build step: the Build it started.
+  string build = 9;
+  // Build step: the repository:tag and digest the Build pushed. Deploy step:
+  // the image and digest it set the Workload to.
+  string image = 10;
+  string digest = 11;
+  // Approvals recorded at the environment gate, as the controller saw them.
+  repeated JobApproval approvals = 12;
+  // When the job began to wait for approval. The wait times out (ADR 0022).
+  google.protobuf.Timestamp waiting_since = 13;
+  // Deploy step: the workload generation the deploy set. The rollout is
+  // complete when the Workload's rollout reaches this generation.
+  int64 workload_generation = 14;
+  // Deploy step: sha256 (hex) of the run-scoped deploy token, present while the
+  // deploy runs. The token itself is never stored (ADR 0022, section 5).
+  string token_hash = 15;
 }
 // Project scopes names, quotas and, later, roles (ADR 0023). It is
 // cluster-scoped. The "default" project always exists.
@@ -955,4 +992,50 @@ message ResourceQuotaSpec {
   optional int32 workloads = 3;
   // Sum of Volume sizes, e.g. "100Gi".
   string storage = 4;
+}
+
+// Environment is a named deploy target (ADR 0022, section 10). A deploy job
+// names one and sets one of its Workloads. The controller owns its status. The
+// project label records the owning project (ADR 0023).
+message Environment {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  EnvironmentSpec spec = 4;
+  EnvironmentStatus status = 5;
+}
+
+message EnvironmentSpec {
+  // Shown in the portal. Only http and https URLs.
+  string url = 1;
+  // A protected environment's deploys wait for approval.
+  bool protected = 2;
+  // Approvals a gated job needs. Zero means 1 (ADR 0022, section 10).
+  int32 required_approvals = 3;
+  // The Workloads a deploy job of this environment may set.
+  repeated string workloads = 4;
+}
+
+message EnvironmentStatus {
+  // The digest the last successful deploy set, and the one before it. The
+  // previous digest is the rollback target for an operator (ADR 0022).
+  string digest = 1;
+  string previous_digest = 2;
+  // The last deploys, newest first. At most 10 are kept.
+  repeated EnvironmentDeployment deployments = 3;
+}
+
+// EnvironmentDeployment is one deploy job's result in an environment.
+message EnvironmentDeployment {
+  string run = 1;
+  string job = 2;
+  string workload = 3;
+  string image = 4;
+  string digest = 5;
+  // Phase of the deploy job when it ended: Complete or Failed.
+  string phase = 6;
+  string message = 7;
+  // The approvals the job had when it deployed, as "name" entries.
+  repeated string approved_by = 8;
+  google.protobuf.Timestamp at = 9;
 }
