@@ -242,6 +242,10 @@ One webhook per config. A tag push never starts a Build.
   then `429` with `Retry-After`.
 - An unknown uid, or a config without a webhook, is `404`.
 
+The git host must reach the portal listener (`--ui-listen`, port 7444 by
+default) over HTTPS, with a certificate it trusts. Otherwise no webhook
+arrives. Shoal does not check the host's address.
+
 Known limits: the signatures carry no timestamp, so a valid push that is
 replayed is accepted again and starts another Build of the same commit. The
 same happens when a host redelivers a push. Deduplicating those is a follow-up.
