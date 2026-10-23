@@ -662,10 +662,12 @@ func (*PlayJobResponse) Descriptor() ([]byte, []int) {
 
 type ApproveJobRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The Job's record name: the run name and the job name joined by a dash.
+	// The Job's name: the run name and the job name joined by a dash.
 	Job string `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	// Free text shown with the decision. At most 500 bytes.
-	Comment       string `protobuf:"bytes,2,opt,name=comment,proto3" json:"comment,omitempty"`
+	Comment string `protobuf:"bytes,2,opt,name=comment,proto3" json:"comment,omitempty"`
+	// Project of the Job (ADR 0023, pass B1). Empty finds it in any project.
+	Project       string `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -714,6 +716,13 @@ func (x *ApproveJobRequest) GetComment() string {
 	return ""
 }
 
+func (x *ApproveJobRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
 type ApproveJobResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -754,6 +763,7 @@ type RejectJobRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Job           string                 `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	Comment       string                 `protobuf:"bytes,2,opt,name=comment,proto3" json:"comment,omitempty"`
+	Project       string                 `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -798,6 +808,13 @@ func (x *RejectJobRequest) GetJob() string {
 func (x *RejectJobRequest) GetComment() string {
 	if x != nil {
 		return x.Comment
+	}
+	return ""
+}
+
+func (x *RejectJobRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -5284,14 +5301,16 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\x0ePlayJobRequest\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\x12\x18\n" +
 	"\aproject\x18\x02 \x01(\tR\aproject\"\x11\n" +
-	"\x0fPlayJobResponse\"?\n" +
+	"\x0fPlayJobResponse\"Y\n" +
 	"\x11ApproveJobRequest\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\x12\x18\n" +
-	"\acomment\x18\x02 \x01(\tR\acomment\"\x14\n" +
-	"\x12ApproveJobResponse\">\n" +
+	"\acomment\x18\x02 \x01(\tR\acomment\x12\x18\n" +
+	"\aproject\x18\x03 \x01(\tR\aproject\"\x14\n" +
+	"\x12ApproveJobResponse\"X\n" +
 	"\x10RejectJobRequest\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\x12\x18\n" +
-	"\acomment\x18\x02 \x01(\tR\acomment\"\x13\n" +
+	"\acomment\x18\x02 \x01(\tR\acomment\x12\x18\n" +
+	"\aproject\x18\x03 \x01(\tR\aproject\"\x13\n" +
 	"\x11RejectJobResponse\"<\n" +
 	"\x0eJobLogsRequest\x12\x10\n" +
 	"\x03job\x18\x01 \x01(\tR\x03job\x12\x18\n" +
