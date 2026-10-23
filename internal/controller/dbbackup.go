@@ -15,6 +15,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/database"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Logical backups and restores of Databases (ADR 0016, sections 3.4, 3.7 and
@@ -436,7 +437,7 @@ func (c *Controller) newDatabaseCredentials(ctx context.Context, name, dbName st
 	if source == nil {
 		return newCredentials(name, dbName)
 	}
-	sec, err := c.st.Get(ctx, v1alpha1.KindSecret, source.GetDatabase()+dbCredsSuffix)
+	sec, err := c.st.Get(ctx, v1alpha1.KindSecret, tenancy.Key(tenancy.KeyProject(source.GetDatabase()), tenancy.KeyName(source.GetDatabase())+dbCredsSuffix))
 	if err != nil {
 		return nil, fmt.Errorf("restore: read the credentials of %s: %w", source.GetDatabase(), err)
 	}

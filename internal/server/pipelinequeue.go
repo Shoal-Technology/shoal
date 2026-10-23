@@ -22,6 +22,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/pipeline"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // pipelineDispatch is the server's runner for pipeline jobs (ADR 0022, pass B).
@@ -281,7 +282,7 @@ func (d *pipelineDispatch) prepare(ctx context.Context, j *pipeJob) (*v1alpha1.C
 	if err != nil {
 		return nil, err
 	}
-	pipeRec, err := d.st.Get(ctx, v1alpha1.KindPipeline, run.GetSpec().GetPipeline())
+	pipeRec, err := d.st.Get(ctx, v1alpha1.KindPipeline, tenancy.Key(tenancy.KeyProject(j.run), run.GetSpec().GetPipeline()))
 	if err != nil {
 		return nil, fmt.Errorf("pipeline %s: %w", run.GetSpec().GetPipeline(), err)
 	}
@@ -300,7 +301,7 @@ func (d *pipelineDispatch) prepare(ctx context.Context, j *pipeJob) (*v1alpha1.C
 	}
 	for _, envName := range names {
 		ref := j.job.GetSecrets()[envName]
-		rec, err := d.st.Get(ctx, v1alpha1.KindSecret, ref.GetSecret())
+		rec, err := d.st.Get(ctx, v1alpha1.KindSecret, tenancy.Key(tenancy.KeyProject(j.run), ref.GetSecret()))
 		if err != nil {
 			return nil, fmt.Errorf("secret %q: %w", ref.GetSecret(), err)
 		}
@@ -315,7 +316,7 @@ func (d *pipelineDispatch) prepare(ctx context.Context, j *pipeJob) (*v1alpha1.C
 		env[envName] = v
 		redact = append(redact, v)
 	}
-	creds, err := gitCredentials(ctx, d.st, pipe.GetSpec().GetCredentialsSecret())
+	creds, err := gitCredentials(ctx, d.st, tenancy.KeyProject(j.run), pipe.GetSpec().GetCredentialsSecret())
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +384,7 @@ func (d *pipelineDispatch) startBuildStep(ctx context.Context, req pipeline.Requ
 	if err != nil {
 		return err
 	}
-	cfgRec, err := d.st.Get(ctx, v1alpha1.KindBuildConfig, req.Job.GetBuild())
+	cfgRec, err := d.st.Get(ctx, v1alpha1.KindBuildConfig, tenancy.Key(tenancy.KeyProject(req.Run), req.Job.GetBuild()))
 	if err != nil {
 		return fmt.Errorf("build step %s: BuildConfig %q: %w", req.Job.GetName(), req.Job.GetBuild(), err)
 	}
@@ -396,7 +397,7 @@ func (d *pipelineDispatch) startBuildStep(ctx context.Context, req pipeline.Requ
 		return fmt.Errorf("BuildConfig %q has no git source", req.Job.GetBuild())
 	}
 	src.Git.Ref = run.GetSpec().GetCommit()
-	bname, err := d.srv.createBuild(ctx, req.Job.GetBuild(), src, resource.BuildTriggerPipeline)
+	bname, err := d.srv.createBuild(ctx, tenancy.KeyProject(req.Run), req.Job.GetBuild(), src, resource.BuildTriggerPipeline)
 	if err != nil {
 		return err
 	}
@@ -450,11 +451,11 @@ func (d *pipelineDispatch) hasRunner(ctx context.Context, tags []string) (bool, 
 
 // gitCredentials reads the git credentials of a pipeline from its Secret. The
 // values go to the runner only. An empty secret name means a public repository.
-func gitCredentials(ctx context.Context, st store.Store, secret string) (*v1alpha1.BuildCredentials, error) {
+func gitCredentials(ctx context.Context, st store.Store, project, secret string) (*v1alpha1.BuildCredentials, error) {
 	if secret == "" {
 		return &v1alpha1.BuildCredentials{}, nil
 	}
-	rec, err := st.Get(ctx, v1alpha1.KindSecret, secret)
+	rec, err := st.Get(ctx, v1alpha1.KindSecret, tenancy.Key(project, secret))
 	if err != nil {
 		return nil, fmt.Errorf("secret %q: %w", secret, err)
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/pipeline"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Config configures the controller. Zero values get defaults.
@@ -296,7 +297,7 @@ func (c *Controller) deleteReplica(ctx context.Context, s *state, r *replica, re
 // syncWorkload brings the workload's replicas to the desired count and,
 // with a rolling update, to the target template (see planRollout).
 func (c *Controller) syncWorkload(ctx context.Context, s *state, w *v1alpha1.Workload, now time.Time) []error {
-	name := w.Metadata.GetName()
+	name := objects.KeyOf(w.Metadata)
 	p := c.planRollout(s, w, now)
 	s.plans[name] = p
 	errs := c.rollReplicas(ctx, s, w, p, now)
@@ -353,7 +354,7 @@ func (c *Controller) scaleDownOrder(s *state, reps []*replica, target *v1alpha1.
 
 func (c *Controller) createReplica(ctx context.Context, s *state, w *v1alpha1.Workload, p plan, now time.Time) error {
 	spec := &v1alpha1.ReplicaSpec{
-		Workload: w.Metadata.GetName(), Template: p.target, TemplateGeneration: p.targetGen,
+		Workload: objects.KeyOf(w.Metadata), Template: p.target, TemplateGeneration: p.targetGen,
 		TemplateUpdatedAt: timestamppb.New(now),
 	}
 	specBytes, err := objects.Encode(spec)
@@ -366,19 +367,19 @@ func (c *Controller) createReplica(ctx context.Context, s *state, w *v1alpha1.Wo
 		return err
 	}
 	for range 5 {
-		name := w.Metadata.GetName() + "-" + randomSuffix()
+		name := tenancy.Key(w.Metadata.GetProject(), w.Metadata.GetName()+"-"+randomSuffix())
 		rec, err := c.st.Create(ctx, store.Record{Kind: v1alpha1.KindReplica, Name: name, Spec: specBytes, Status: statusBytes})
 		if errors.Is(err, store.ErrExists) {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("create replica of %s: %w", w.Metadata.GetName(), err)
+			return fmt.Errorf("create replica of %s: %w", objects.KeyOf(w.Metadata), err)
 		}
 		s.replicas[name] = &replica{rec: rec, obj: &v1alpha1.Replica{Metadata: objects.Meta(rec), Spec: spec, Status: status}}
-		c.log.Info("replica created", "replica", name, "workload", w.Metadata.GetName())
+		c.log.Info("replica created", "replica", name, "workload", objects.KeyOf(w.Metadata))
 		return nil
 	}
-	return fmt.Errorf("create replica of %s: no free name", w.Metadata.GetName())
+	return fmt.Errorf("create replica of %s: no free name", objects.KeyOf(w.Metadata))
 }
 
 func (c *Controller) updateReplicaSpec(ctx context.Context, r *replica, spec *v1alpha1.ReplicaSpec) error {
@@ -411,12 +412,12 @@ func (c *Controller) setReplicaStatus(ctx context.Context, r *replica, st *v1alp
 }
 
 func (c *Controller) updateWorkloadStatus(ctx context.Context, s *state, w *v1alpha1.Workload) error {
-	p, ok := s.plans[w.Metadata.GetName()]
+	p, ok := s.plans[objects.KeyOf(w.Metadata)]
 	if !ok {
 		return nil // syncWorkload didn't run for it this pass
 	}
 	st := &v1alpha1.WorkloadStatus{ObservedGeneration: w.Metadata.GetGeneration(), Rollout: p.rollout}
-	for _, r := range s.replicasOf(w.Metadata.GetName()) {
+	for _, r := range s.replicasOf(objects.KeyOf(w.Metadata)) {
 		st.Replicas++
 		if available(r) {
 			st.ReadyReplicas++
@@ -432,8 +433,8 @@ func (c *Controller) updateWorkloadStatus(ctx context.Context, s *state, w *v1al
 	if err != nil {
 		return err
 	}
-	if _, err := c.st.UpdateStatus(ctx, v1alpha1.KindWorkload, w.Metadata.GetName(), b); err != nil && !errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("update status of workload %s: %w", w.Metadata.GetName(), err)
+	if _, err := c.st.UpdateStatus(ctx, v1alpha1.KindWorkload, objects.KeyOf(w.Metadata), b); err != nil && !errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("update status of workload %s: %w", objects.KeyOf(w.Metadata), err)
 	}
 	w.Status = st
 	return nil

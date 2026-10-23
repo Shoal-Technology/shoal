@@ -28,7 +28,7 @@ func Encode(m proto.Message) ([]byte, error) {
 // Meta returns the API metadata of a record.
 func Meta(r store.Record) *v1alpha1.ObjectMeta {
 	return &v1alpha1.ObjectMeta{
-		Name:       r.Name,
+		Name:       name(r),
 		Uid:        r.UID,
 		Generation: r.Generation,
 		Revision:   r.Revision,
@@ -37,6 +37,15 @@ func Meta(r store.Record) *v1alpha1.ObjectMeta {
 		Labels:     tenancy.WithoutProject(r.Labels),
 		Project:    project(r),
 	}
+}
+
+// name returns the object name of a record: its key without the project
+// suffix. Cluster-wide kinds are keyed by their name.
+func name(r store.Record) string {
+	if !tenancy.ProjectScoped(r.Kind) {
+		return r.Name
+	}
+	return tenancy.Bare(r.Name, tenancy.ProjectOf(r.Labels))
 }
 
 // project returns the project a record belongs to, or "" for a cluster-wide
@@ -236,4 +245,11 @@ func Job(r store.Record) (*v1alpha1.Job, error) {
 		Spec: &v1alpha1.JobSpec{}, Status: &v1alpha1.JobStatus{},
 	}
 	return j, decode(r, j.Spec, j.Status)
+}
+
+// KeyOf returns the store key of the object whose metadata is m: its name in
+// its project (ADR 0023, pass B1). Use it wherever an object's name is used
+// as a store key or as an identity; m.Name alone is the bare name.
+func KeyOf(m *v1alpha1.ObjectMeta) string {
+	return tenancy.Key(m.GetProject(), m.GetName())
 }

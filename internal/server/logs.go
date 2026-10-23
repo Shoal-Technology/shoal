@@ -166,6 +166,10 @@ func (c *controlService) Logs(req *v1alpha1.LogsRequest, stream v1alpha1.Control
 	if req.GetWorkload() == "" {
 		return status.Error(codes.InvalidArgument, "workload is required")
 	}
+	wrec, err := c.s.findObject(ctx, v1alpha1.KindWorkload, req.GetWorkload(), req.GetProject())
+	if err != nil {
+		return apiError(err)
+	}
 	recs, err := c.s.store.List(ctx, v1alpha1.KindReplica)
 	if err != nil {
 		return apiError(err)
@@ -176,7 +180,7 @@ func (c *controlService) Logs(req *v1alpha1.LogsRequest, stream v1alpha1.Control
 		if err != nil {
 			return apiError(err)
 		}
-		if rp.Spec.GetWorkload() == req.GetWorkload() && (req.GetReplica() == "" || r.Name == req.GetReplica()) {
+		if rp.Spec.GetWorkload() == wrec.Name && (req.GetReplica() == "" || r.Name == req.GetReplica()) {
 			replicas = append(replicas, rp)
 		}
 	}

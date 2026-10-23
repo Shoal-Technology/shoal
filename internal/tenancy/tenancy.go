@@ -129,3 +129,20 @@ func CheckName(name string) error {
 	}
 	return nil
 }
+
+// KeyName returns the object name in a store key of a project-scoped kind.
+// Object names and project names are DNS labels, so a key has at most one
+// dot, and the name is the part before it.
+func KeyName(key string) string {
+	name, _, _ := strings.Cut(key, keySep)
+	return name
+}
+
+// KeyProject returns the project in a store key of a project-scoped kind:
+// the part after the dot, or the default project for a bare key.
+func KeyProject(key string) string {
+	if _, project, ok := strings.Cut(key, keySep); ok {
+		return project
+	}
+	return DefaultProject
+}

@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
@@ -24,35 +25,44 @@ import (
 const buildSuffixAlphabet = "bcdfghjklmnpqrstvwxz2456789"
 
 // StartBuild creates a Build of a BuildConfig. The Build copies the config's
-// spec, so a later edit of the config does not change the run.
+// spec, so a later edit of the config does not change the run. The config is
+// found in the request's project, or in any project when it names none.
 func (c *controlService) StartBuild(ctx context.Context, req *v1alpha1.StartBuildRequest) (*v1alpha1.StartBuildResponse, error) {
 	name := req.GetConfig()
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "config is required")
 	}
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindBuildConfig, name)
+	rec, err := c.s.findObject(ctx, v1alpha1.KindBuildConfig, name, req.GetProject())
 	if err != nil {
 		return nil, apiError(err)
 	}
+	project := keyProject(rec)
 	cfg, err := objects.BuildConfig(rec)
 	if err != nil {
 		return nil, apiError(err)
 	}
 	if secret := cfg.GetSpec().GetCredentialsSecret(); secret != "" {
-		if err := c.s.checkBuildCredentials(ctx, cfg.GetSpec().GetGit().GetUrl(), secret); err != nil {
+		if err := c.s.checkBuildCredentials(ctx, project, cfg.GetSpec().GetGit().GetUrl(), secret); err != nil {
 			return nil, err
 		}
 	}
-	bname, err := c.s.createBuild(ctx, name, cfg.GetSpec(), resource.BuildTriggerManual)
+	key, err := c.s.createBuild(ctx, project, name, cfg.GetSpec(), resource.BuildTriggerManual)
 	if err != nil {
 		return nil, err
 	}
-	return &v1alpha1.StartBuildResponse{Build: bname}, nil
+	return &v1alpha1.StartBuildResponse{Build: tenancy.KeyName(key)}, nil
 }
 
-// createBuild stores a new Build of config with the given spec and trigger,
-// and returns its name. The controller starts it.
-func (s *Server) createBuild(ctx context.Context, config string, source *v1alpha1.BuildConfigSpec, trigger string) (string, error) {
+// createBuild stores a new Build of config (a bare BuildConfig name in
+// project) with the given spec and trigger. It returns the Build's store key,
+// which is its name in project (ADR 0023, pass B1). The controller starts it.
+func (s *Server) createBuild(ctx context.Context, project, config string, source *v1alpha1.BuildConfigSpec, trigger string) (string, error) {
+	// Images of a non-default project are pushed under its name, so projects
+	// do not share repositories (ADR 0020, ADR 0021, ADR 0023 pass B1).
+	if project != tenancy.DefaultProject && source.GetOutput().GetRepository() != "" {
+		source = proto.CloneOf(source)
+		source.Output.Repository = project + "/" + source.Output.Repository
+	}
 	specB, err := objects.Encode(&v1alpha1.BuildSpec{Config: config, Source: source, Trigger: trigger})
 	if err != nil {
 		return "", apiError(err)
@@ -62,23 +72,19 @@ func (s *Server) createBuild(ctx context.Context, config string, source *v1alpha
 		return "", apiError(err)
 	}
 	// A Build is in the project of its BuildConfig (ADR 0023, section 2).
-	var labels map[string]string
-	if bc, err := s.store.Get(ctx, v1alpha1.KindBuildConfig, config); err == nil {
-		labels = tenancy.WithProject(nil, tenancy.ProjectOf(bc.Labels))
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return "", apiError(err)
-	}
+	labels := tenancy.WithProject(nil, project)
 	for range 5 {
 		bname := resource.BuildName(config, randomBuildSuffix())
-		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindBuild, Name: bname, Spec: specB, Status: statusB, Labels: labels})
+		key := tenancy.Key(project, bname)
+		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindBuild, Name: key, Spec: specB, Status: statusB, Labels: labels})
 		if errors.Is(err, store.ErrExists) {
 			continue
 		}
 		if err != nil {
 			return "", apiError(err)
 		}
-		s.log.Info("build requested", "build", bname, "config", config, "trigger", trigger)
-		return bname, nil
+		s.log.Info("build requested", "build", bname, "config", config, "project", project, "trigger", trigger)
+		return key, nil
 	}
 	return "", status.Error(codes.Internal, "no free build name")
 }
@@ -90,7 +96,7 @@ func (c *controlService) CancelBuild(ctx context.Context, req *v1alpha1.CancelBu
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "build is required")
 	}
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindBuild, name)
+	rec, err := c.s.findObject(ctx, v1alpha1.KindBuild, name, req.GetProject())
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -109,10 +115,10 @@ func (c *controlService) CancelBuild(ctx context.Context, req *v1alpha1.CancelBu
 	if err != nil {
 		return nil, apiError(err)
 	}
-	if _, err := c.s.store.Update(ctx, v1alpha1.KindBuild, name, enc, rec.Generation); err != nil {
+	if _, err := c.s.store.Update(ctx, v1alpha1.KindBuild, rec.Name, enc, rec.Generation); err != nil {
 		return nil, apiError(err)
 	}
-	c.s.log.Info("build cancel requested", "build", name)
+	c.s.log.Info("build cancel requested", "build", name, "project", keyProject(rec))
 	return &v1alpha1.CancelBuildResponse{}, nil
 }
 
@@ -123,10 +129,11 @@ func (c *controlService) BuildLogs(ctx context.Context, req *v1alpha1.BuildLogsR
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "build is required")
 	}
-	if _, err := c.s.store.Get(ctx, v1alpha1.KindBuild, name); err != nil {
+	rec, err := c.s.findObject(ctx, v1alpha1.KindBuild, name, req.GetProject())
+	if err != nil {
 		return nil, apiError(err)
 	}
-	lines, err := c.s.ctrl.BuildLogs(ctx, name)
+	lines, err := c.s.ctrl.BuildLogs(ctx, rec.Name)
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -139,8 +146,8 @@ func (c *controlService) BuildLogs(ctx context.Context, req *v1alpha1.BuildLogsR
 
 // checkBuildCredentials checks that the Secret of a build exists and has the
 // type the URL needs. The data is not read here.
-func (s *Server) checkBuildCredentials(ctx context.Context, gitURL, secret string) error {
-	rec, err := s.store.Get(ctx, v1alpha1.KindSecret, secret)
+func (s *Server) checkBuildCredentials(ctx context.Context, project, gitURL, secret string) error {
+	rec, err := s.store.Get(ctx, v1alpha1.KindSecret, tenancy.Key(project, secret))
 	if errors.Is(err, store.ErrNotFound) {
 		return status.Errorf(codes.FailedPrecondition, "credentialsSecret %q: no such Secret", secret)
 	}

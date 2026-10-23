@@ -13,6 +13,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/runtime"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // digestRef matches an OCI digest such as sha256:<hex>. The digest goes into
@@ -47,7 +48,7 @@ func (c *Controller) rollOutNewest(ctx context.Context, bs []*queuedBuild) error
 		return c.writeBuildStatus(ctx, newest, done)
 	}
 	image := runtime.RegistryAlias + "/" + src.GetOutput().GetRepository() + "@" + st.GetDigest()
-	err := c.setWorkloadImage(ctx, target, image)
+	err := c.setWorkloadImage(ctx, tenancy.Key(newest.obj.GetMetadata().GetProject(), target), image)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		done.Message = fmt.Sprintf("workload %q not found: its image was not set", target)

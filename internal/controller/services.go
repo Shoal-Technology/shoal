@@ -10,6 +10,7 @@ import (
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // syncServices gives every Service a virtual IP from the service CIDR and
@@ -38,7 +39,7 @@ func (c *Controller) syncServices(ctx context.Context, s *state) []error {
 			c.log.Info("service IP assigned", "service", name, "ip", st.ClusterIp)
 		}
 		st.Endpoints = nil
-		for _, r := range s.replicasOf(svc.Spec.GetSelector()) {
+		for _, r := range s.replicasOf(tenancy.Key(svc.GetMetadata().GetProject(), svc.Spec.GetSelector())) {
 			if available(r) && r.obj.Status.GetIp() != "" &&
 				s.nodes[r.obj.Spec.GetNode()].GetStatus().GetPhase() == v1alpha1.NodeReady {
 				st.Endpoints = append(st.Endpoints, r.obj.Status.GetIp())

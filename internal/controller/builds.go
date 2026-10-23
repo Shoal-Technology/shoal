@@ -16,6 +16,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Builds (ADR 0021, pass A). A Build is one run of a BuildConfig. Per config,
@@ -66,7 +67,7 @@ func (c *Controller) syncBuilds(ctx context.Context) []error {
 			errs = append(errs, err)
 			continue
 		}
-		name := b.GetSpec().GetConfig()
+		name := tenancy.Key(b.GetMetadata().GetProject(), b.GetSpec().GetConfig())
 		qb := &queuedBuild{rec: r, obj: b}
 		if _, ok := configs[name]; !ok {
 			if err := c.removeOrphanBuild(ctx, qb); err != nil {

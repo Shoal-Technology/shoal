@@ -10,6 +10,7 @@ import (
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Route certificate states (RouteStatus.cert_state).
@@ -81,8 +82,8 @@ func (c *Controller) syncRouteStatus(ctx context.Context) []error {
 			errs = append(errs, err)
 			continue
 		}
-		data, found := secrets[rt.Spec.GetTlsSecret()]
-		state, msg := resource.RouteStatusFor(rt, svcs[rt.Spec.GetService()], data, found)
+		data, found := secrets[tenancy.Key(rt.GetMetadata().GetProject(), rt.Spec.GetTlsSecret())]
+		state, msg := resource.RouteStatusFor(rt, svcs[tenancy.Key(rt.GetMetadata().GetProject(), rt.Spec.GetService())], data, found)
 		if owner, held := claims[resource.RouteKey(rt.Spec)]; held && owner != r.Name {
 			state, msg = resource.RouteConflict, fmt.Sprintf("host and pathPrefix are already used by route %q", owner)
 		}

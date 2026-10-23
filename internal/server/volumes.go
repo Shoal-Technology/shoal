@@ -11,6 +11,7 @@ import (
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // A Volume is referenced by at most one Workload (ADR 0016, section 1.1).
@@ -111,7 +112,7 @@ func (s *Server) storedVolumeNames(ctx context.Context, workload string) ([]stri
 	if err != nil {
 		return nil, err
 	}
-	return volumeNames(w.Spec), nil
+	return keysIn(tenancy.ProjectOf(rec.Labels), volumeNames(w.Spec)), nil
 }
 
 // deleteVolume deletes a Volume unless a Workload holds it. The marker claim

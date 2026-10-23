@@ -100,7 +100,7 @@ const appLabel = "app"
 // Database's app label, or "". The error is for transient store failures; a
 // refusal or a hold is in the expansion.
 func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, app string) (expansion, error) {
-	name := d.GetMetadata().GetName()
+	name := objects.KeyOf(d.GetMetadata())
 	spec := d.GetSpec()
 	version, image, ok := database.Resolve(spec.GetEngine(), spec.GetVersion())
 	if !ok {
@@ -136,8 +136,12 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 
 	// Owned objects are in the Database's project, so that quotas count them there (ADR 0023, section 2).
 	labels := tenancy.WithProject(ownedLabels(app), d.GetMetadata().GetProject())
-	dataName, credName := name+dbDataSuffix, name+dbCredsSuffix
-	dbName := database.DBName(name)
+	// Owned Volume and Secret are keyed in the Database's project; the
+	// Workload that mounts them names them by their bare names (ADR 0023, pass B1).
+	project, bare := tenancy.KeyProject(name), tenancy.KeyName(name)
+	dataName, credName := bare+dbDataSuffix, bare+dbCredsSuffix
+	dataKey, credKey := tenancy.Key(project, dataName), tenancy.Key(project, credName)
+	dbName := database.DBName(bare)
 
 	// Storage is fixed once created: online resize is not in v1.
 	vol, err := objects.Encode(&v1alpha1.VolumeSpec{
@@ -147,12 +151,12 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 	if err != nil {
 		return expansion{}, err
 	}
-	if err := c.putOwned(ctx, v1alpha1.KindVolume, dataName, name, labels, vol, false); err != nil {
+	if err := c.putOwned(ctx, v1alpha1.KindVolume, dataKey, name, labels, vol, false); err != nil {
 		return blockedBy(err)
 	}
 
 	// The credentials are generated once. An existing Secret is kept as it is.
-	secret, err := c.st.Get(ctx, v1alpha1.KindSecret, credName)
+	secret, err := c.st.Get(ctx, v1alpha1.KindSecret, credKey)
 	var creds []byte
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -164,7 +168,7 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 	default:
 		creds = secret.Spec
 	}
-	if err := c.putOwned(ctx, v1alpha1.KindSecret, credName, name, labels, creds, false); err != nil {
+	if err := c.putOwned(ctx, v1alpha1.KindSecret, credKey, name, labels, creds, false); err != nil {
 		return blockedBy(err)
 	}
 
@@ -215,7 +219,7 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 	}
 
 	svc, err := objects.Encode(&v1alpha1.ServiceSpec{
-		Selector: name,
+		Selector: bare,
 		Ports:    []*v1alpha1.ServicePort{{Port: dbPort, TargetPort: dbPort, Protocol: "tcp"}},
 	})
 	if err != nil {
@@ -390,7 +394,7 @@ func (c *Controller) deleteOwned(ctx context.Context, s *state, kind, name strin
 			}
 			// Release the Volumes it mounts, as a user delete would.
 			for _, m := range w.Spec.GetVolumes() {
-				if err := c.releaseVolumeClaim(ctx, m.GetName(), name); err != nil {
+				if err := c.releaseVolumeClaim(ctx, tenancy.Key(tenancy.KeyProject(name), m.GetName()), name); err != nil {
 					return false, err
 				}
 			}
@@ -453,7 +457,7 @@ func (c *Controller) deleteIgnoringMissing(ctx context.Context, kind, name strin
 // refusal, or from the replicas of its Workload as of the last pass. A hold
 // keeps the running version and shows the wait as the message.
 func (c *Controller) writeDatabaseStatus(ctx context.Context, s *state, d *v1alpha1.Database, exp expansion) error {
-	name := d.GetMetadata().GetName()
+	name := objects.KeyOf(d.GetMetadata())
 	prev := d.GetStatus().GetPhase()
 	st := &v1alpha1.DatabaseStatus{
 		Endpoint:     fmt.Sprintf("%s.%s:%d", name, v1alpha1.DNSDomain, dbPort),

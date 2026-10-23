@@ -340,7 +340,10 @@ type StartPipelineRunRequest struct {
 	// The contents of the pipeline file at commit. At most 256 KiB.
 	File string `protobuf:"bytes,4,opt,name=file,proto3" json:"file,omitempty"`
 	// Paths changed in the commit range, for changes rules.
-	ChangedPaths  []string `protobuf:"bytes,5,rep,name=changed_paths,json=changedPaths,proto3" json:"changed_paths,omitempty"`
+	ChangedPaths []string `protobuf:"bytes,5,rep,name=changed_paths,json=changedPaths,proto3" json:"changed_paths,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,6,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -410,6 +413,13 @@ func (x *StartPipelineRunRequest) GetChangedPaths() []string {
 	return nil
 }
 
+func (x *StartPipelineRunRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
 type StartPipelineRunResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Run           string                 `protobuf:"bytes,1,opt,name=run,proto3" json:"run,omitempty"`
@@ -455,8 +465,11 @@ func (x *StartPipelineRunResponse) GetRun() string {
 }
 
 type CancelPipelineRunRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Run           string                 `protobuf:"bytes,1,opt,name=run,proto3" json:"run,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Run   string                 `protobuf:"bytes,1,opt,name=run,proto3" json:"run,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -498,6 +511,13 @@ func (x *CancelPipelineRunRequest) GetRun() string {
 	return ""
 }
 
+func (x *CancelPipelineRunRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
 type CancelPipelineRunResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -535,8 +555,11 @@ func (*CancelPipelineRunResponse) Descriptor() ([]byte, []int) {
 }
 
 type PlayJobRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Job           string                 `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Job   string                 `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -578,6 +601,13 @@ func (x *PlayJobRequest) GetJob() string {
 	return ""
 }
 
+func (x *PlayJobRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
 type PlayJobResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -615,8 +645,11 @@ func (*PlayJobResponse) Descriptor() ([]byte, []int) {
 }
 
 type JobLogsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Job           string                 `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Job   string                 `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -654,6 +687,13 @@ func (*JobLogsRequest) Descriptor() ([]byte, []int) {
 func (x *JobLogsRequest) GetJob() string {
 	if x != nil {
 		return x.Job
+	}
+	return ""
+}
+
+func (x *JobLogsRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -703,8 +743,11 @@ func (x *JobLogsResponse) GetLines() []*LogLine {
 }
 
 type StartBuildRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Config        string                 `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Config string                 `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -742,6 +785,13 @@ func (*StartBuildRequest) Descriptor() ([]byte, []int) {
 func (x *StartBuildRequest) GetConfig() string {
 	if x != nil {
 		return x.Config
+	}
+	return ""
+}
+
+func (x *StartBuildRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -791,8 +841,11 @@ func (x *StartBuildResponse) GetBuild() string {
 }
 
 type CancelBuildRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Build         string                 `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Build string                 `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -834,6 +887,13 @@ func (x *CancelBuildRequest) GetBuild() string {
 	return ""
 }
 
+func (x *CancelBuildRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
 type CancelBuildResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -871,8 +931,11 @@ func (*CancelBuildResponse) Descriptor() ([]byte, []int) {
 }
 
 type BuildLogsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Build         string                 `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Build string                 `protobuf:"bytes,1,opt,name=build,proto3" json:"build,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -910,6 +973,13 @@ func (*BuildLogsRequest) Descriptor() ([]byte, []int) {
 func (x *BuildLogsRequest) GetBuild() string {
 	if x != nil {
 		return x.Build
+	}
+	return ""
+}
+
+func (x *BuildLogsRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -959,8 +1029,11 @@ func (x *BuildLogsResponse) GetLines() []*LogLine {
 }
 
 type DatabaseBackupsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Database      string                 `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Database string                 `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -998,6 +1071,13 @@ func (*DatabaseBackupsRequest) Descriptor() ([]byte, []int) {
 func (x *DatabaseBackupsRequest) GetDatabase() string {
 	if x != nil {
 		return x.Database
+	}
+	return ""
+}
+
+func (x *DatabaseBackupsRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -1047,8 +1127,11 @@ func (x *DatabaseBackupsResponse) GetBackups() []*DatabaseBackupRecord {
 }
 
 type BackupDatabaseRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Database      string                 `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Database string                 `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1086,6 +1169,13 @@ func (*BackupDatabaseRequest) Descriptor() ([]byte, []int) {
 func (x *BackupDatabaseRequest) GetDatabase() string {
 	if x != nil {
 		return x.Database
+	}
+	return ""
+}
+
+func (x *BackupDatabaseRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -1602,8 +1692,11 @@ func (x *JoinClusterResponse) GetCommitIndex() uint64 {
 }
 
 type RestartWorkloadRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1641,6 +1734,13 @@ func (*RestartWorkloadRequest) Descriptor() ([]byte, []int) {
 func (x *RestartWorkloadRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *RestartWorkloadRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -1732,7 +1832,10 @@ type LogsRequest struct {
 	Replica string `protobuf:"bytes,2,opt,name=replica,proto3" json:"replica,omitempty"`
 	Follow  bool   `protobuf:"varint,3,opt,name=follow,proto3" json:"follow,omitempty"`
 	// Recent lines per replica; negative = all.
-	Tail          int32 `protobuf:"varint,4,opt,name=tail,proto3" json:"tail,omitempty"`
+	Tail int32 `protobuf:"varint,4,opt,name=tail,proto3" json:"tail,omitempty"`
+	// Project of the object named above (ADR 0023, pass B1). Empty finds the
+	// object in any project, and fails when more than one project has the name.
+	Project       string `protobuf:"bytes,5,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1793,6 +1896,13 @@ func (x *LogsRequest) GetTail() int32 {
 		return x.Tail
 	}
 	return 0
+}
+
+func (x *LogsRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
 }
 
 type ApplyRequest struct {
@@ -4962,42 +5072,51 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\x03job\x18\x0e \x01(\v2\x13.shoal.v1alpha1.JobH\x00R\x03job\x123\n" +
 	"\aproject\x18\x0f \x01(\v2\x17.shoal.v1alpha1.ProjectH\x00R\aproject\x12F\n" +
 	"\x0eresource_quota\x18\x10 \x01(\v2\x1d.shoal.v1alpha1.ResourceQuotaH\x00R\rresourceQuotaB\x06\n" +
-	"\x04kind\"\x98\x01\n" +
+	"\x04kind\"\xb2\x01\n" +
 	"\x17StartPipelineRunRequest\x12\x1a\n" +
 	"\bpipeline\x18\x01 \x01(\tR\bpipeline\x12\x10\n" +
 	"\x03ref\x18\x02 \x01(\tR\x03ref\x12\x16\n" +
 	"\x06commit\x18\x03 \x01(\tR\x06commit\x12\x12\n" +
 	"\x04file\x18\x04 \x01(\tR\x04file\x12#\n" +
-	"\rchanged_paths\x18\x05 \x03(\tR\fchangedPaths\",\n" +
+	"\rchanged_paths\x18\x05 \x03(\tR\fchangedPaths\x12\x18\n" +
+	"\aproject\x18\x06 \x01(\tR\aproject\",\n" +
 	"\x18StartPipelineRunResponse\x12\x10\n" +
-	"\x03run\x18\x01 \x01(\tR\x03run\",\n" +
+	"\x03run\x18\x01 \x01(\tR\x03run\"F\n" +
 	"\x18CancelPipelineRunRequest\x12\x10\n" +
-	"\x03run\x18\x01 \x01(\tR\x03run\"\x1b\n" +
-	"\x19CancelPipelineRunResponse\"\"\n" +
+	"\x03run\x18\x01 \x01(\tR\x03run\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"\x1b\n" +
+	"\x19CancelPipelineRunResponse\"<\n" +
 	"\x0ePlayJobRequest\x12\x10\n" +
-	"\x03job\x18\x01 \x01(\tR\x03job\"\x11\n" +
-	"\x0fPlayJobResponse\"\"\n" +
+	"\x03job\x18\x01 \x01(\tR\x03job\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"\x11\n" +
+	"\x0fPlayJobResponse\"<\n" +
 	"\x0eJobLogsRequest\x12\x10\n" +
-	"\x03job\x18\x01 \x01(\tR\x03job\"@\n" +
+	"\x03job\x18\x01 \x01(\tR\x03job\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"@\n" +
 	"\x0fJobLogsResponse\x12-\n" +
-	"\x05lines\x18\x01 \x03(\v2\x17.shoal.v1alpha1.LogLineR\x05lines\"+\n" +
+	"\x05lines\x18\x01 \x03(\v2\x17.shoal.v1alpha1.LogLineR\x05lines\"E\n" +
 	"\x11StartBuildRequest\x12\x16\n" +
-	"\x06config\x18\x01 \x01(\tR\x06config\"*\n" +
+	"\x06config\x18\x01 \x01(\tR\x06config\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"*\n" +
 	"\x12StartBuildResponse\x12\x14\n" +
-	"\x05build\x18\x01 \x01(\tR\x05build\"*\n" +
+	"\x05build\x18\x01 \x01(\tR\x05build\"D\n" +
 	"\x12CancelBuildRequest\x12\x14\n" +
-	"\x05build\x18\x01 \x01(\tR\x05build\"\x15\n" +
-	"\x13CancelBuildResponse\"(\n" +
+	"\x05build\x18\x01 \x01(\tR\x05build\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"\x15\n" +
+	"\x13CancelBuildResponse\"B\n" +
 	"\x10BuildLogsRequest\x12\x14\n" +
-	"\x05build\x18\x01 \x01(\tR\x05build\"B\n" +
+	"\x05build\x18\x01 \x01(\tR\x05build\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"B\n" +
 	"\x11BuildLogsResponse\x12-\n" +
-	"\x05lines\x18\x01 \x03(\v2\x17.shoal.v1alpha1.LogLineR\x05lines\"4\n" +
+	"\x05lines\x18\x01 \x03(\v2\x17.shoal.v1alpha1.LogLineR\x05lines\"N\n" +
 	"\x16DatabaseBackupsRequest\x12\x1a\n" +
-	"\bdatabase\x18\x01 \x01(\tR\bdatabase\"Y\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"Y\n" +
 	"\x17DatabaseBackupsResponse\x12>\n" +
-	"\abackups\x18\x01 \x03(\v2$.shoal.v1alpha1.DatabaseBackupRecordR\abackups\"3\n" +
+	"\abackups\x18\x01 \x03(\v2$.shoal.v1alpha1.DatabaseBackupRecordR\abackups\"M\n" +
 	"\x15BackupDatabaseRequest\x12\x1a\n" +
-	"\bdatabase\x18\x01 \x01(\tR\bdatabase\"V\n" +
+	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"V\n" +
 	"\x16BackupDatabaseResponse\x12<\n" +
 	"\x06backup\x18\x01 \x01(\v2$.shoal.v1alpha1.DatabaseBackupRecordR\x06backup\"\x16\n" +
 	"\x14ClusterStatusRequest\"\xdf\x01\n" +
@@ -5024,17 +5143,19 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1b\n" +
 	"\traft_addr\x18\x02 \x01(\tR\braftAddr\"8\n" +
 	"\x13JoinClusterResponse\x12!\n" +
-	"\fcommit_index\x18\x01 \x01(\x04R\vcommitIndex\",\n" +
+	"\fcommit_index\x18\x01 \x01(\x04R\vcommitIndex\"F\n" +
 	"\x16RestartWorkloadRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x18\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"\x18\n" +
 	"\x16ResetUIPasswordRequest\"5\n" +
 	"\x17ResetUIPasswordResponse\x12\x1a\n" +
-	"\bpassword\x18\x01 \x01(\tR\bpassword\"o\n" +
+	"\bpassword\x18\x01 \x01(\tR\bpassword\"\x89\x01\n" +
 	"\vLogsRequest\x12\x1a\n" +
 	"\bworkload\x18\x01 \x01(\tR\bworkload\x12\x18\n" +
 	"\areplica\x18\x02 \x01(\tR\areplica\x12\x16\n" +
 	"\x06follow\x18\x03 \x01(\bR\x06follow\x12\x12\n" +
-	"\x04tail\x18\x04 \x01(\x05R\x04tail\"@\n" +
+	"\x04tail\x18\x04 \x01(\x05R\x04tail\x12\x18\n" +
+	"\aproject\x18\x05 \x01(\tR\aproject\"@\n" +
 	"\fApplyRequest\x120\n" +
 	"\aobjects\x18\x01 \x03(\v2\x16.shoal.v1alpha1.ObjectR\aobjects\"F\n" +
 	"\rApplyResponse\x125\n" +

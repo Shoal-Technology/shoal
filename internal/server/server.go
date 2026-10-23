@@ -200,6 +200,10 @@ type Server struct {
 	obs *serverMetrics
 	// exporter reads the inner store for Backup (sealed Secrets).
 	exporter store.Exporter
+	// raw is the store under the encrypting wrapper, and encKey its key. The
+	// project migration needs both: it re-seals Secrets under new names.
+	raw    store.Store
+	encKey []byte
 
 	// acks tracks which edge streams were sent which HTTP-01 tokens.
 	acks *edgeAcks
@@ -353,6 +357,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		store:     st,
 		raft:      raftStore,
 		exporter:  exp,
+		raw:       inner,
+		encKey:    encKey,
 		gate:      cfg.leaderGate,
 		ca:        ca,
 		nodes:     newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
@@ -413,6 +419,10 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			}
 			return nil, fmt.Errorf("raft store not ready: %w", err)
 		}
+	}
+	if err := s.migrateProjects(ctx); err != nil {
+		st.Close()
+		return nil, err
 	}
 	if err := s.ensureUIPassword(ctx); err != nil {
 		st.Close()
@@ -543,6 +553,14 @@ func (s *Server) Close() error { return s.store.Close() }
 func (s *Server) runLeaderTasks(ctx context.Context) {
 	s.gate.enter(s.cfg.RaftNodeID)
 	defer s.gate.leave(s.cfg.RaftNodeID)
+	// A node that becomes leader after a start migrates the store first, if
+	// the old leader did not (see migrateProjects).
+	if err := s.migrateProjects(ctx); err != nil {
+		if ctx.Err() == nil {
+			s.log.Error("project migration failed; leader tasks not started", "err", err)
+		}
+		return
+	}
 	// A new leader must not judge nodes by heartbeats it never saw.
 	s.nodes.beginTerm(s.now())
 	// Followers find the leader's API through this record, so it must be
