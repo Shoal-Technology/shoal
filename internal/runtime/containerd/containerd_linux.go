@@ -194,6 +194,7 @@ func (r *containerdRuntime) Create(ctx context.Context, spec runtime.ContainerSp
 		Options: []string{"nosuid", "noexec", "nodev", "relatime", "ro"},
 	})
 	mounts = append(mounts, bindMounts(spec.Mounts)...)
+	mounts = append(mounts, tmpfsMounts(spec.Tmpfs)...)
 	specOpts := []oci.SpecOpts{
 		oci.WithImageConfig(img),
 		oci.WithHostname(spec.ID),
@@ -213,6 +214,7 @@ func (r *containerdRuntime) Create(ctx context.Context, spec runtime.ContainerSp
 		specOpts = append(specOpts, oci.WithCPUCFS(spec.CPUMillis*cpuPeriod/1000, cpuPeriod))
 	}
 	specOpts = append(specOpts, privilegeOpts(spec)...)
+	specOpts = append(specOpts, hardeningOpts(spec)...)
 
 	ports, err := json.Marshal(spec.Ports)
 	if err != nil {

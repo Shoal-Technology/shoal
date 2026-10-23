@@ -175,6 +175,20 @@ func Run(ctx context.Context, rt runtime.Runtime, job Job) (Result, error) {
 	return Result{Commit: commit, Image: repo + ":" + tag, Digest: digest}, nil
 }
 
+// CloneRepo fetches job.Source's repository into src, checks out its ref and
+// returns the commit. It is the clone a Build does, with the same credential
+// handling (ADR 0021, section 2). Pipeline jobs use it (ADR 0022, pass B).
+func CloneRepo(ctx context.Context, job Job, src string, log io.Writer) (string, error) {
+	return clone(ctx, job, src, log)
+}
+
+// Isolate firewalls the network namespace of a container, with the rules a
+// build's daemon gets (ADR 0021). An empty registry adds no registry exception.
+// Pipeline jobs use it (ADR 0022, section 5).
+func Isolate(ctx context.Context, rt runtime.Runtime, id, registry string) error {
+	return isolate(ctx, rt, id, registry)
+}
+
 func validate(job Job) error {
 	switch {
 	case job.Build == "":
@@ -486,9 +500,14 @@ func isolate(ctx context.Context, rt runtime.Runtime, id, registry string) error
 	if err != nil {
 		return err
 	}
-	regIP, regPort, err := registryEndpoint(registry)
-	if err != nil {
-		return err
+	// An empty registry means no registry exception: the namespace reaches
+	// only loopback, DNS and the public internet.
+	var regIP net.IP
+	var regPort string
+	if registry != "" {
+		if regIP, regPort, err = registryEndpoint(registry); err != nil {
+			return err
+		}
 	}
 	env := []string{"PATH=" + os.Getenv("PATH")}
 	for _, argv := range isolationRules(regIP, regPort, hostAddresses()) {
@@ -518,7 +537,9 @@ func isolationRules(regIP net.IP, regPort string, nodeAddrs []net.IP) [][]string
 	add("iptables", "-o", "lo", "-j", "ACCEPT")
 	add("iptables", "-p", "udp", "--dport", "53", "-j", "ACCEPT")
 	add("iptables", "-p", "tcp", "--dport", "53", "-j", "ACCEPT")
-	add("iptables", "-d", regIP.String(), "-p", "tcp", "--dport", regPort, "-j", "ACCEPT")
+	if regIP != nil {
+		add("iptables", "-d", regIP.String(), "-p", "tcp", "--dport", regPort, "-j", "ACCEPT")
+	}
 	for _, ip := range nodeAddrs {
 		add("iptables", "-d", ip.String(), "-j", "REJECT")
 	}

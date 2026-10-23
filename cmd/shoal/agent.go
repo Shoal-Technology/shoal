@@ -206,6 +206,8 @@ func startConnected(ctx context.Context, rf *runtimeFlags, nf *networkFlags, log
 	a.Attach(rt, netNode)
 	// Runs Builds when the server labels this node a builder (ADR 0021, pass B).
 	go a.RunBuilder(ctx)
+	// Runs pipeline jobs when the server labels this node a runner (ADR 0022, pass B).
+	go a.RunJobs(ctx)
 	log.Info("node network", "podCIDR", nc.GetPodCidr(), "dns", netNode.DNSServer(), "wireguard", nf.wgInterface)
 	return a, func() { rt.Close() }, nil
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Shoal-Technology/shoal/internal/build/buildkit"
+	"github.com/Shoal-Technology/shoal/internal/jobrun"
 	"github.com/Shoal-Technology/shoal/internal/runtime"
 	"github.com/Shoal-Technology/shoal/internal/security"
 	"github.com/Shoal-Technology/shoal/internal/volume"
@@ -190,6 +191,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, desired []Assignment) ([]Rep
 		// A build's daemon is not a replica: the builder owns its container
 		// and removes it when the build ends (ADR 0021, pass B).
 		if _, ok := actual[id].Labels[buildkit.LabelBuild]; ok {
+			continue
+		}
+		// A pipeline job's container is not a replica either: the job runner
+		// owns it and removes it when the job ends (ADR 0022, section 5).
+		if _, ok := actual[id].Labels[jobrun.LabelJob]; ok {
 			continue
 		}
 		if err := ctx.Err(); err != nil {

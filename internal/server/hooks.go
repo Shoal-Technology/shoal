@@ -106,6 +106,9 @@ func (p *portal) hook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Pipelines linked to this repository and branch start with the push, in
+	// the background: they read their file from the repository (ADR 0022).
+	go p.s.startWebhookPipelines(context.WithoutCancel(ctx), cfg.GetSpec(), ev)
 	name, dup, err := p.s.startWebhookBuild(ctx, cfg.GetSpec(), rec.Name, ev.Commit)
 	if err != nil {
 		p.s.log.Error("webhook: build not started", "config", rec.Name, "err", err)

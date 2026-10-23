@@ -52,6 +52,9 @@ type WebhookEvent struct {
 	Kind   string // WebhookPing, WebhookPush or WebhookIgnored
 	Ref    string // the ref that moved, as sent (refs/heads/main)
 	Commit string // the commit the ref now points at, lowercase hex
+	// ChangedPaths are the files the push changed, from the commits it carries
+	// (ADR 0022, section 2). A large push may send only some of its commits.
+	ChangedPaths []string
 }
 
 // VerifyWebhook checks the signature or token of a request against the shared
@@ -149,7 +152,15 @@ type pushPayload struct {
 	CheckoutSHA string `json:"checkout_sha"`
 	Commit      string `json:"commit"`
 	Deleted     bool   `json:"deleted"`
+	Commits     []struct {
+		Added    []string `json:"added"`
+		Modified []string `json:"modified"`
+		Removed  []string `json:"removed"`
+	} `json:"commits"`
 }
+
+// maxChangedPaths bounds the paths a push event carries into a run.
+const maxChangedPaths = 10000
 
 func parsePush(body []byte) (WebhookEvent, error) {
 	var p pushPayload
@@ -164,7 +175,19 @@ func parsePush(body []byte) (WebhookEvent, error) {
 	if !isFullSHA(commit) || p.Ref == "" || len(p.Ref) > 255 {
 		return WebhookEvent{}, ErrWebhookPayload
 	}
-	return WebhookEvent{Kind: WebhookPush, Ref: p.Ref, Commit: commit}, nil
+	seen := map[string]bool{}
+	var changed []string
+	for _, c := range p.Commits {
+		for _, list := range [][]string{c.Added, c.Modified, c.Removed} {
+			for _, f := range list {
+				if !seen[f] && len(changed) < maxChangedPaths {
+					seen[f] = true
+					changed = append(changed, f)
+				}
+			}
+		}
+	}
+	return WebhookEvent{Kind: WebhookPush, Ref: p.Ref, Commit: commit, ChangedPaths: changed}, nil
 }
 
 // WebhookBranch is the branch whose pushes start a Build: the trigger's own

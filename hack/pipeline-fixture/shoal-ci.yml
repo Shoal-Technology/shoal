@@ -1,0 +1,30 @@
+# Fixture for hack/pipeline-e2e.sh (ADR 0022, pass B). The e2e runs this file
+# from the repository at the commit under test. Each job checks one rule of
+# the pass B baseline, and the script asserts the job output and the run's
+# phase. The probes are in probe.sh and the secret check in token-check.sh.
+stages: [test, build]
+
+variables:
+  NODE_ENV: ci
+
+probe:
+  stage: test
+  image: docker.io/library/busybox:1.37
+  tags: [linux-amd64]
+  timeout: 10m
+  script:
+    - sh hack/pipeline-fixture/probe.sh
+
+token-check:
+  stage: test
+  image: docker.io/library/busybox:1.37
+  tags: [linux-amd64]
+  secrets:
+    FIXTURE_TOKEN: { secret: pipeline-token, key: token }
+  script:
+    - sh hack/pipeline-fixture/token-check.sh
+
+build-web:
+  stage: build
+  needs: [probe]
+  build: web
