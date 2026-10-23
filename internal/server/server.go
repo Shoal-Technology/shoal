@@ -191,6 +191,8 @@ type Server struct {
 	// builds queues Builds for builder nodes and holds their state (ADR
 	// 0021, pass B). It is the controller's executor.
 	builds *buildDispatch
+	// pipes runs pipeline jobs on runner nodes (ADR 0022, pass B).
+	pipes *pipelineDispatch
 
 	// raft is the raft store (StoreRaft only), nil otherwise.
 	raft *raftstore.Store
@@ -342,6 +344,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	// no Build can be started (see buildDispatch.Start).
 	regAddr, _ := registryAddress(cfg.AdvertiseAddress, cfg.RegistryListen)
 	builds := newBuildDispatch(st, cfg.Log, cfg.DataDir, cfg.Now, regAddr)
+	pipes := newPipelineDispatch(st, cfg.Log, cfg.DataDir, cfg.Now, regAddr)
 	s := &Server{
 		authzMode: authzMode,
 		cidrs:     cidrs,
@@ -354,14 +357,17 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		ca:        ca,
 		nodes:     newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
 		builds:    builds,
+		pipes:     pipes,
 		ctrl: controller.New(controller.Config{
 			Store: st, Log: cfg.Log, Now: cfg.Now, EvictAfter: cfg.EvictAfter, Interval: cfg.ControllerInterval,
-			ServiceCIDR: cidrs.services, Executor: builds,
+			ServiceCIDR: cidrs.services, Executor: builds, Runner: pipes,
 		}),
 		logs:       newLogBroker(),
 		leadership: leadership,
 		shutdown:   make(chan struct{}),
 	}
+	// The runner starts the Builds of build steps through the server.
+	pipes.srv = s
 	s.acks = newEdgeAcks()
 	s.initMetrics()
 	if cfg.AcmeDirectory != "" {

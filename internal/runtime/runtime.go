@@ -44,6 +44,18 @@ type ContainerSpec struct {
 	// needs setuid-style helpers to map its user namespace (ADR 0021). The zero
 	// value keeps the default for every workload.
 	AllowPrivilegeEscalation bool `json:",omitempty"`
+	// ReadOnlyRootfs mounts the root filesystem read-only. Writable paths are
+	// the ones in Mounts that are ReadWrite, and the Tmpfs paths (ADR 0022,
+	// section 5). The zero value keeps the writable root of every workload.
+	ReadOnlyRootfs bool `json:",omitempty"`
+	// DropAllCapabilities removes every Linux capability from the process,
+	// including the default set containerd grants. Pipeline jobs set it.
+	DropAllCapabilities bool `json:",omitempty"`
+	// Tmpfs are absolute paths mounted as an in-memory filesystem, with
+	// nosuid, nodev and noexec. Each is writable and empty.
+	Tmpfs []string `json:",omitempty"`
+	// PidsLimit caps the processes in the container. Zero means no limit.
+	PidsLimit int64 `json:",omitempty"`
 }
 
 // NetNSer is implemented by a runtime that can name a container's network

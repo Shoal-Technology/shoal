@@ -3,8 +3,8 @@
 Status: Accepted under ADR 0019 (Phase 2, items GL-03 to GL-06, GL-08, GL-11,
 GL-15, GL-27, GL-29, GL-33, GL-37, GL-38, GL-42, GL-43 of the parity matrix).
 Builds (ADR 0021) are the prerequisite: a pipeline job that builds an image
-starts a Build and never runs a builder itself. Pass A is implemented
-(see its implementation notes); passes B to D are not started.
+starts a Build and never runs a builder itself. Passes A and B are implemented
+(see their implementation notes); passes C and D are not started.
 
 Accepted 2026-10-23 by the project owner.
 
@@ -527,6 +527,101 @@ Acceptance criteria:
 - Log lines are streamed while the job runs, not only at the end.
 - The decision on rootless containers (section 5) is recorded in this ADR's
   follow-ups with the result of the test.
+
+Implementation notes (pass B, as built):
+
+- Code. `internal/jobrun` runs one job: the host clone, the container, the
+  gate, the log, the timeout and the cancel. `internal/agent/pipelinejob.go`
+  claims and reports. `internal/server/pipelinequeue.go` is the runner queue
+  (`pipeline.Runner`), with the claim, the secret check and build steps.
+  `internal/server/agentpipeline.go` has the two RPCs (`ClaimJob`, `ReportJob`).
+  `internal/server/pipelinetrigger.go` has the push triggers. The container
+  options are `ContainerSpec.ReadOnlyRootfs`, `DropAllCapabilities`, `Tmpfs`
+  and `PidsLimit` (`internal/runtime/containerd/hardening_linux.go`).
+- Placement. A runner node carries `shoal.dev/runner=true`
+  (`resource.RunnerLabel`). Each tag of a job must be a node label whose value
+  is `true` (`resource.NodeMatchesTags`). `Start` refuses a job that no runner
+  can take, so the job does not wait forever.
+- Isolation (section 5). The spec has no added capabilities, and
+  `no_new_privs` stays on, since only the build daemon clears it (the test
+  `TestNewPrivilegesStaysOnForJobs`). The root filesystem is read-only. The
+  writable mounts are `/workspace` and `/tmp` (tmpfs). The only host paths are
+  the job's own directory: the workspace, and `/shoal-ctl`, which is read-only
+  and holds the script and the gate. The container has its own network
+  namespace, which the agent firewalls with the build's rules
+  (`buildkit.Isolate`, with the registry exception when the server has a
+  registry) before it writes the gate. The script waits for the gate, so
+  nothing runs before the rules are in place. The job fails closed when the
+  rules cannot be applied.
+- Script. `set -e`, then `cd /workspace/repo`, then the lines as written. It
+  runs with `sh` from the image, so the image needs a shell.
+- Clone. The host clones the run's commit with the Build clone path
+  (`buildkit.CloneRepo`), with the pipeline's credentials. The credentials are
+  removed before the script runs.
+- Secrets (section 7). The server reads them when it hands out a job, and only
+  when the run's trust is `protected`. A job that names a secret in a run of
+  another trust is failed at claim, with the reason. A Secret without the key
+  fails the job too. The values reach the node over mTLS and go into the
+  container's environment. The agent replaces each value and its base64 form
+  with `[redacted]` in every log line (best-effort, section 6).
+- Timeout. The controller enforces `timeout` as before, and the agent stops
+  the container at the same limit, with the message `timeout`.
+- Cancel. `CancelPipelineRun` sets a flag. The runner learns of it on its next
+  report, within two seconds, and stops the container. The job ends
+  `cancelled`.
+- Build step. A job with `build:` starts a Build pinned to the run's commit,
+  through the normal Build path (trigger `pipeline`), and reports that Build's
+  phase. The job's log is the Build's log. The Build's digest is not passed to
+  later jobs yet (pass C).
+- Triggers (scope item 4). A push that the BuildConfig's webhook receives,
+  after its signature check, starts a run of each Pipeline whose repository is
+  the BuildConfig's and whose ref is the pushed branch (`HEAD` means the
+  config's branch). The server clones the repository with the Build clone path
+  and reads `shoal-ci.yml` (or the Pipeline's `path`) at the pushed commit. A
+  commit that already has a push run gets no second one. A branch in
+  `resource.DefaultProtectedBranches` (`main`) gives a `protected` run, and any
+  other branch a `same-repo` run. Tags do not start runs. The changed paths
+  come from the push payload's commits, so a very large push may be partial.
+  The CLI path (`shoal pipeline run`) is unchanged and still sends the file.
+- Not in pass B, for the owner to accept or move:
+  - No job token. No job receives the admin key, and no per-run token exists
+    yet. The token is needed for the deploy step, so it comes with pass C.
+  - Rootless. Not decided on a real node. Jobs run as the image's user, with
+    `no_new_privs` on, no capabilities and no privilege. Open question 1 stays
+    open.
+  - Cache and artifacts. The cache is not built, which section 6 allows for
+    this pass (scope item 3). Artifacts are parsed and not collected.
+  - Limits. The file has no resources field, so the defaults apply: one CPU,
+    1 GiB and 512 processes (`resource.DefaultJob*`). Per-job requests come
+    later.
+  - One job at a time per runner. Section 5 allows N; N is 1 in this pass.
+  - Protected branches come from a built-in list (`main`). The server config
+    does not set them yet.
+  - No node-loss detection for jobs, so `node_lost` is never reported. A
+    server restart loses queued and running jobs; they end `Error` with
+    `runner_error`, and `retry.when` may retry them.
+  - The three-host acceptance test is not run. The end-to-end test is one runner
+    node on a GitHub-hosted runner, because the shared VPS may not run
+    containers.
+  - Fork runs. Pass B has no pull-request triggers, so no fork run exists.
+- Acceptance criteria, as of this pass:
+  - Met by tests: the tag placement, the spec baseline (capabilities dropped,
+    `no_new_privs` on, read-only root, no host paths), the timeout and cancel,
+    the secret gate by trust, the claim and report flow, and the retry of a
+    lost job.
+  - Met by `hack/pipeline-e2e.sh` on a GitHub runner: a job reaches the internet
+    and cannot reach the node's ports (the probes of `hack/pipeline-fixture`),
+    the secret reaches the script and is redacted, the build step starts a
+    Build, and a push webhook starts a run that the secret gate refuses.
+  - Not met: the three-host test; the rootless decision (open question 1); the
+    cache (pass C); and streamed logs are checked only by the report interval,
+    not by a test.
+- Tests: `internal/jobrun/jobrun_test.go`,
+  `internal/runtime/containerd/hardening_linux_test.go`,
+  `internal/server/pipelinequeue_test.go`,
+  `internal/server/pipelinetrigger_test.go`, `internal/resource/runner_test.go`
+  and `internal/agent/pipelinejob_test.go`. The end-to-end test is
+  `hack/pipeline-e2e.sh`, run by `.github/workflows/pipeline-e2e.yml`.
 
 ### Pass C: environments and approvals
 

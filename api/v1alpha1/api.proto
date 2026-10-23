@@ -351,6 +351,61 @@ service Agent {
   // IssueBuildCertificate signs a builder's request for the push
   // certificate of a Build it claimed (ADR 0020 section 3, ADR 0021 pass B).
   rpc IssueBuildCertificate(IssueBuildCertificateRequest) returns (IssueBuildCertificateResponse);
+  // ClaimJob hands the next queued pipeline job to a runner node (ADR 0022,
+  // pass B). The response has no job when none is waiting that matches the
+  // node's labels, or the node is not labelled shoal.dev/runner=true.
+  rpc ClaimJob(ClaimJobRequest) returns (ClaimJobResponse);
+  // ReportJob carries a runner's log lines and, with a phase, the result of
+  // the job. The response says whether the job has been cancelled.
+  rpc ReportJob(ReportJobRequest) returns (ReportJobResponse);
+}
+
+message ClaimJobRequest {}
+
+message ClaimJobResponse {
+  // Empty when there is no job for this node.
+  string job = 1;
+  // The PipelineRun the job belongs to.
+  string run = 2;
+  string image = 3;
+  // The script lines. The runner writes them to a file and runs them with
+  // sh, after `set -e`.
+  repeated string script = 4;
+  // Variables of the job: the file's variables, and for a protected run the
+  // values of the job's secrets. Only the node receives them, over mTLS.
+  map<string, string> env = 5;
+  int64 timeout_seconds = 6;
+  // Git source of the run: the repository at the run's commit.
+  GitSource git = 7;
+  // Git credentials of the pipeline, from its Secret. Empty for a public
+  // repository.
+  BuildCredentials credentials = 8;
+  // Address of the embedded registry, for the egress rules of the job's
+  // network namespace. Empty when the registry is off.
+  string registry_address = 9;
+  // Secret values the runner must keep out of the logs.
+  repeated string redact = 10;
+  // Default limits of the job's container.
+  int64 cpu_millis = 11;
+  int64 memory_bytes = 12;
+  int64 pids_limit = 13;
+}
+
+message ReportJobRequest {
+  string job = 1;
+  repeated LogLine lines = 2;
+  // Empty while the job runs. Otherwise Complete, Failed or Error.
+  string phase = 3;
+  string message = 4;
+  // Set with phase Complete or Failed when the script ended.
+  int32 exit_code = 5;
+  // Set with phase Error: runner_error or node_lost (ADR 0022, section 5).
+  string reason = 6;
+}
+
+message ReportJobResponse {
+  // Set once CancelPipelineRun has been called for the job's run.
+  bool cancel = 1;
 }
 
 message ClaimBuildRequest {}

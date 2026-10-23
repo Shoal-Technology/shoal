@@ -1158,6 +1158,8 @@ const (
 	Agent_ClaimBuild_FullMethodName            = "/shoal.v1alpha1.Agent/ClaimBuild"
 	Agent_ReportBuild_FullMethodName           = "/shoal.v1alpha1.Agent/ReportBuild"
 	Agent_IssueBuildCertificate_FullMethodName = "/shoal.v1alpha1.Agent/IssueBuildCertificate"
+	Agent_ClaimJob_FullMethodName              = "/shoal.v1alpha1.Agent/ClaimJob"
+	Agent_ReportJob_FullMethodName             = "/shoal.v1alpha1.Agent/ReportJob"
 )
 
 // AgentClient is the client API for Agent service.
@@ -1190,6 +1192,13 @@ type AgentClient interface {
 	// IssueBuildCertificate signs a builder's request for the push
 	// certificate of a Build it claimed (ADR 0020 section 3, ADR 0021 pass B).
 	IssueBuildCertificate(ctx context.Context, in *IssueBuildCertificateRequest, opts ...grpc.CallOption) (*IssueBuildCertificateResponse, error)
+	// ClaimJob hands the next queued pipeline job to a runner node (ADR 0022,
+	// pass B). The response has no job when none is waiting that matches the
+	// node's labels, or the node is not labelled shoal.dev/runner=true.
+	ClaimJob(ctx context.Context, in *ClaimJobRequest, opts ...grpc.CallOption) (*ClaimJobResponse, error)
+	// ReportJob carries a runner's log lines and, with a phase, the result of
+	// the job. The response says whether the job has been cancelled.
+	ReportJob(ctx context.Context, in *ReportJobRequest, opts ...grpc.CallOption) (*ReportJobResponse, error)
 }
 
 type agentClient struct {
@@ -1276,6 +1285,26 @@ func (c *agentClient) IssueBuildCertificate(ctx context.Context, in *IssueBuildC
 	return out, nil
 }
 
+func (c *agentClient) ClaimJob(ctx context.Context, in *ClaimJobRequest, opts ...grpc.CallOption) (*ClaimJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClaimJobResponse)
+	err := c.cc.Invoke(ctx, Agent_ClaimJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) ReportJob(ctx context.Context, in *ReportJobRequest, opts ...grpc.CallOption) (*ReportJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReportJobResponse)
+	err := c.cc.Invoke(ctx, Agent_ReportJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
@@ -1306,6 +1335,13 @@ type AgentServer interface {
 	// IssueBuildCertificate signs a builder's request for the push
 	// certificate of a Build it claimed (ADR 0020 section 3, ADR 0021 pass B).
 	IssueBuildCertificate(context.Context, *IssueBuildCertificateRequest) (*IssueBuildCertificateResponse, error)
+	// ClaimJob hands the next queued pipeline job to a runner node (ADR 0022,
+	// pass B). The response has no job when none is waiting that matches the
+	// node's labels, or the node is not labelled shoal.dev/runner=true.
+	ClaimJob(context.Context, *ClaimJobRequest) (*ClaimJobResponse, error)
+	// ReportJob carries a runner's log lines and, with a phase, the result of
+	// the job. The response says whether the job has been cancelled.
+	ReportJob(context.Context, *ReportJobRequest) (*ReportJobResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -1336,6 +1372,12 @@ func (UnimplementedAgentServer) ReportBuild(context.Context, *ReportBuildRequest
 }
 func (UnimplementedAgentServer) IssueBuildCertificate(context.Context, *IssueBuildCertificateRequest) (*IssueBuildCertificateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method IssueBuildCertificate not implemented")
+}
+func (UnimplementedAgentServer) ClaimJob(context.Context, *ClaimJobRequest) (*ClaimJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClaimJob not implemented")
+}
+func (UnimplementedAgentServer) ReportJob(context.Context, *ReportJobRequest) (*ReportJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReportJob not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -1462,6 +1504,42 @@ func _Agent_IssueBuildCertificate_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_ClaimJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClaimJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ClaimJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_ClaimJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ClaimJob(ctx, req.(*ClaimJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_ReportJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ReportJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_ReportJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ReportJob(ctx, req.(*ReportJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1488,6 +1566,14 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IssueBuildCertificate",
 			Handler:    _Agent_IssueBuildCertificate_Handler,
+		},
+		{
+			MethodName: "ClaimJob",
+			Handler:    _Agent_ClaimJob_Handler,
+		},
+		{
+			MethodName: "ReportJob",
+			Handler:    _Agent_ReportJob_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
