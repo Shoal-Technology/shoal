@@ -127,6 +127,25 @@ grep -q "sha256 mismatch" "$work/bad.out" || { cat "$work/bad.out"; fail "no sha
 [ ! -e "$work/bin-bad/shoal" ] || fail "tampered archive installed a binary"
 pass "rejects a tampered archive"
 
+# 5b. With no stable release, the newest published release is used (install.sh
+# falls back to the release list, which includes pre-releases).
+mkdir -p "$work/srv/api-pre"
+printf '[{"tag_name": "%s"}]\n' "$tag" >"$work/srv/api-pre/releases"
+SHOAL_API_BASE="http://127.0.0.1:$port/api-pre" SHOAL_DOWNLOAD_BASE="$base" SHOAL_INSTALL_DIR="$work/bin-pre" \
+	sh "$script" >"$work/pre.out" 2>&1 || { cat "$work/pre.out"; fail "pre-release fallback install failed"; }
+[ -x "$work/bin-pre/shoal" ] || fail "pre-release fallback did not write the binary"
+grep -q "installing pre-release $tag" "$work/pre.out" || fail "pre-release fallback was not reported"
+pass "falls back to the newest published release when there is no stable one"
+
+# 5c. With no release at all, the install stops and says why.
+if SHOAL_API_BASE="http://127.0.0.1:$port/api-none" SHOAL_DOWNLOAD_BASE="$base" SHOAL_INSTALL_DIR="$work/bin-none" \
+	sh "$script" >"$work/none.out" 2>&1; then
+	fail "install without any release was accepted"
+fi
+grep -q "could not read the latest release" "$work/none.out" || { cat "$work/none.out"; fail "no release not reported"; }
+[ ! -e "$work/bin-none/shoal" ] || fail "install without a release installed a binary"
+pass "stops with a clear error when no release exists"
+
 # 6. A missing release fails cleanly.
 if SHOAL_VERSION="v9.9.9-missing" SHOAL_DOWNLOAD_BASE="$base" SHOAL_INSTALL_DIR="$work/bin-missing" \
 	sh "$script" >"$work/missing.out" 2>&1; then
