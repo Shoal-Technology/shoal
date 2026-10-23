@@ -16,6 +16,7 @@ import (
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // kindAliases maps the names users type to API kinds.
@@ -82,6 +83,21 @@ func newApplyCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
+			// --project (or the default project) applies to every project-scoped
+			// object that does not name one. A manifest that names another
+			// project is refused (ADR 0023, pass B1).
+			for _, o := range objs {
+				kind, _, _, err := resource.Prepare(o)
+				if err != nil || !tenancy.ProjectScoped(kind) || currentProject == "" {
+					continue
+				}
+				switch have := resource.ObjectProject(o); {
+				case have == "":
+					resource.SetObjectProject(o, currentProject)
+				case have != currentProject:
+					return fmt.Errorf("%s %q names project %q, but the project is %q: change one of them", strings.ToLower(kind), resource.ObjectName(o), have, currentProject)
+				}
+			}
 			resp, err := c.control.Apply(ctx, &v1alpha1.ApplyRequest{Objects: objs})
 			for _, r := range resp.GetResults() {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s/%s %s\n", strings.ToLower(r.Kind), r.Name, r.Action)
@@ -127,13 +143,13 @@ func newGetCmd() *cobra.Command {
 			defer cancel()
 			var items []*v1alpha1.Object
 			if len(args) == 2 {
-				obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: kind, Name: args[1]})
+				obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: kind, Name: args[1], Project: currentProject})
 				if err != nil {
 					return err
 				}
 				items = []*v1alpha1.Object{obj}
 			} else {
-				resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: kind})
+				resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: kind, Project: currentProject})
 				if err != nil {
 					return err
 				}
@@ -209,7 +225,7 @@ func newDescribeCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: args[1]})
+			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindWorkload, Name: args[1], Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -310,7 +326,7 @@ agent is refused until it joins again with a new token.`,
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			if _, err := c.control.Delete(ctx, &v1alpha1.DeleteRequest{Kind: kind, Name: args[1]}); err != nil {
+			if _, err := c.control.Delete(ctx, &v1alpha1.DeleteRequest{Kind: kind, Name: args[1], Project: currentProject}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "%s/%s deleted\n", strings.ToLower(kind), args[1])
@@ -499,7 +515,7 @@ Config values in environment variables, or to retry a rolled-back release.`,
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			res, err := c.control.RestartWorkload(ctx, &v1alpha1.RestartWorkloadRequest{Name: args[1]})
+			res, err := c.control.RestartWorkload(ctx, &v1alpha1.RestartWorkloadRequest{Name: args[1], Project: currentProject})
 			if err != nil {
 				return err
 			}

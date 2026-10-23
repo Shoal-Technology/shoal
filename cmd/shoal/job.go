@@ -33,7 +33,7 @@ func newJobLogsCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.JobLogs(ctx, &v1alpha1.JobLogsRequest{Job: args[0]})
+			resp, err := c.control.JobLogs(ctx, &v1alpha1.JobLogsRequest{Job: args[0], Project: currentProject})
 			if err != nil {
 				return fmt.Errorf("logs of job %s: %w", args[0], err)
 			}

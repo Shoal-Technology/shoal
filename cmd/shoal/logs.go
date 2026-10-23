@@ -45,7 +45,7 @@ shown as they arrive, until interrupted.`,
 				ctx, cancel = context.WithCancel(cmd.Context())
 			}
 			defer cancel()
-			stream, err := c.control.Logs(ctx, &v1alpha1.LogsRequest{Workload: args[0], Replica: replica, Follow: follow, Tail: tail})
+			stream, err := c.control.Logs(ctx, &v1alpha1.LogsRequest{Workload: args[0], Replica: replica, Follow: follow, Tail: tail, Project: currentProject})
 			if err != nil {
 				return err
 			}

@@ -39,7 +39,7 @@ func TestResolvePullSecrets(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			a := &v1alpha1.Assignment{Template: &v1alpha1.WorkloadSpec{Image: "ghcr.io/acme/web:1", ImagePullSecrets: tc.pull}}
-			d.resolve(a)
+			d.resolve(a, "default")
 			if strings.Contains(a.GetProblem(), "tok") {
 				t.Fatalf("problem leaks a credential: %q", a.GetProblem())
 			}

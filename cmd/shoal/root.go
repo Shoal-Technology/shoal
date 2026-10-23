@@ -29,10 +29,12 @@ func newRootCmd() *cobra.Command {
 	}
 	root.PersistentFlags().StringVar(&c.logLevel, "log-level", "info", "log level: debug, info, warn, error")
 	root.PersistentFlags().StringVar(&c.logFormat, "log-format", "text", "log format: text or json")
+	root.PersistentFlags().StringVarP(&projectFlag, "project", "p", "", "project to work in (default: $SHOAL_PROJECT, then the one set by 'shoal project use', then none)")
+	root.PersistentPreRunE = func(*cobra.Command, []string) error { return chooseProject() }
 	root.AddCommand(
 		newServerCmd(c), newAgentCmd(c),
 		newApplyCmd(), newGetCmd(), newDescribeCmd(), newLogsCmd(), newRestartCmd(), newDeleteCmd(), newTokenCmd(), newUICmd(),
-		newClusterCmd(), newBackupCmd(), newLabelCmd(), newVolumeCmd(),
+		newClusterCmd(), newBackupCmd(), newLabelCmd(), newVolumeCmd(), newProjectCmd(), newQuotaCmd(),
 		newDeployCmd(), newAppCmd(), newDBCmd(), newExplainCmd(), newSecretCmd(), newRegistryCmd(), newBuildCmd(), newPipelineCmd(), newJobCmd(),
 		newDebugCmd(c), newInitCmd(), newUninstallCmd(), newVersionCmd(),
 	)
