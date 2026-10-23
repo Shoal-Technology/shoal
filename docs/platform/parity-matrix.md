@@ -1,6 +1,6 @@
 # Platform parity matrix: Kubernetes, OpenShift (OKD), GitLab
 
-Status: Proposed (see [ADR 0019](../decisions/0019-shoal-platform-scope.md))
+Status: Accepted (see [ADR 0019](../decisions/0019-shoal-platform-scope.md))
 
 This matrix compares upstream concepts with what Shoal does today, and
 proposes one of three outcomes for each: **Build** in Shoal, **Integrate**
