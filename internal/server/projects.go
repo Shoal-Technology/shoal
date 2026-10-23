@@ -87,15 +87,6 @@ func (s *Server) projectExists(ctx context.Context, name string) (bool, error) {
 	return err == nil, err
 }
 
-// keyOf returns the store key of the object called name in project. Kinds
-// that are not project-scoped have no project, so their key is the name.
-func keyOf(kind, name, project string) string {
-	if !tenancy.ProjectScoped(kind) {
-		return name
-	}
-	return tenancy.Key(project, name)
-}
-
 // keysIn returns the store keys of names, all in project.
 func keysIn(project string, names []string) []string {
 	out := make([]string, 0, len(names))
@@ -143,22 +134,6 @@ func (s *Server) findObject(ctx context.Context, kind, name, project string) (st
 	slices.Sort(projects)
 	return store.Record{}, status.Errorf(codes.FailedPrecondition, "%s %q is in several projects (%s): name the project (--project)",
 		kind, name, strings.Join(projects, ", "))
-}
-
-// recordProject returns the project of a stored project-scoped object. found
-// is false for a cluster-wide kind and for an object that is not stored.
-func (s *Server) recordProject(ctx context.Context, kind, name string) (project string, found bool, err error) {
-	if !tenancy.ProjectScoped(kind) {
-		return "", false, nil
-	}
-	r, err := s.store.Get(ctx, kind, name)
-	if errors.Is(err, store.ErrNotFound) {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
-	return tenancy.ProjectOf(r.Labels), true, nil
 }
 
 // projectObjectCount counts the project-scoped objects in project, quotas
