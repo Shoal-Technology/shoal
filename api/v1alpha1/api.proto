@@ -25,6 +25,8 @@ message Object {
     Pipeline pipeline = 12;
     PipelineRun pipeline_run = 13;
     Job job = 14;
+    Project project = 15;
+    ResourceQuota resource_quota = 16;
   }
 }
 
@@ -261,10 +263,16 @@ message ApplyResult {
 message GetRequest {
   string kind = 1;
   string name = 2;
+  // For project-scoped kinds: the object must be in this project (ADR 0023).
+  // Empty finds the object in any project.
+  string project = 3;
 }
 
 message ListRequest {
   string kind = 1;
+  // For project-scoped kinds: list only this project's objects. Empty lists
+  // all projects.
+  string project = 2;
 }
 
 message ListResponse {
@@ -274,6 +282,8 @@ message ListResponse {
 message DeleteRequest {
   string kind = 1;
   string name = 2;
+  // As for GetRequest.
+  string project = 3;
 }
 
 message DeleteResponse {}

@@ -14,6 +14,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Builds (ADR 0021, pass A). A Build is created here from a BuildConfig; the
@@ -60,9 +61,16 @@ func (s *Server) createBuild(ctx context.Context, config string, source *v1alpha
 	if err != nil {
 		return "", apiError(err)
 	}
+	// A Build is in the project of its BuildConfig (ADR 0023, section 2).
+	var labels map[string]string
+	if bc, err := s.store.Get(ctx, v1alpha1.KindBuildConfig, config); err == nil {
+		labels = tenancy.WithProject(nil, tenancy.ProjectOf(bc.Labels))
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return "", apiError(err)
+	}
 	for range 5 {
 		bname := resource.BuildName(config, randomBuildSuffix())
-		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindBuild, Name: bname, Spec: specB, Status: statusB})
+		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindBuild, Name: bname, Spec: specB, Status: statusB, Labels: labels})
 		if errors.Is(err, store.ErrExists) {
 			continue
 		}

@@ -70,7 +70,13 @@ func (s *Server) authorize(ctx context.Context, fullMethod string) (context.Cont
 	if id.Role != role {
 		return nil, status.Errorf(codes.PermissionDenied, "%s may not call %s", id, fullMethod)
 	}
-	return context.WithValue(ctx, callerKey{}, caller{id: id, cert: cert}), nil
+	actx := context.WithValue(ctx, callerKey{}, caller{id: id, cert: cert})
+	// Control calls are also checked against the roles of ADR 0023 (audit
+	// mode in pass A). Calls that name objects are checked in their handler.
+	if err := s.authzRPC(actx, fullMethod); err != nil {
+		return nil, err
+	}
+	return actx, nil
 }
 
 func (s *Server) unaryAuth(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {

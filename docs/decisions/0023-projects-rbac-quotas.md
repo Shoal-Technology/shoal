@@ -53,7 +53,8 @@ prefix), ADR 0022 (approvals use the admin key until Projects exist).
 - Names stay unique cluster-wide in pass A, because the store key is unchanged.
   Two projects cannot each have a Workload called `web`. See open question 1.
 - A Database's owned objects (ADR 0016) take the Database's project, so that
-  their quota counts in the right project.
+  their quota counts in the right project. A Build takes the project of its
+  BuildConfig.
 
 ### 3. Mapping existing resources
 
