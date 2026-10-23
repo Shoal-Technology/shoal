@@ -19,6 +19,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // finishedJobKeep is how long a finished job stays in memory. The controller
@@ -213,7 +214,7 @@ func (d *buildDispatch) claim(ctx context.Context, node string) (*v1alpha1.Claim
 	name, src := j.name, j.source
 	d.mu.Unlock()
 
-	creds, err := d.credentials(ctx, src.GetCredentialsSecret())
+	creds, err := d.credentials(ctx, tenancy.KeyProject(name), src.GetCredentialsSecret())
 	if err != nil {
 		d.mu.Lock()
 		if j.state == jobClaimed && j.node == node {
@@ -257,11 +258,11 @@ func (d *buildDispatch) report(node string, req *v1alpha1.ReportBuildRequest) (b
 
 // credentials reads the git credentials of a Build from its Secret. The
 // values are returned to the builder only.
-func (d *buildDispatch) credentials(ctx context.Context, secret string) (*v1alpha1.BuildCredentials, error) {
+func (d *buildDispatch) credentials(ctx context.Context, project, secret string) (*v1alpha1.BuildCredentials, error) {
 	if secret == "" {
 		return &v1alpha1.BuildCredentials{}, nil
 	}
-	rec, err := d.st.Get(ctx, v1alpha1.KindSecret, secret)
+	rec, err := d.st.Get(ctx, v1alpha1.KindSecret, tenancy.Key(project, secret))
 	if err != nil {
 		return nil, fmt.Errorf("secret %q: %w", secret, err)
 	}

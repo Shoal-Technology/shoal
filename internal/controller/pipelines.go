@@ -16,6 +16,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/pipeline"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Pipelines (ADR 0022, pass A). A PipelineRun is expanded once, into one Job
@@ -73,7 +74,7 @@ func (c *Controller) syncPipelines(ctx context.Context) []error {
 			errs = append(errs, err)
 			continue
 		}
-		run := runs[obj.GetSpec().GetPipelineRun()]
+		run := runs[tenancy.Key(obj.GetMetadata().GetProject(), obj.GetSpec().GetPipelineRun())]
 		if run == nil {
 			if err := c.deleteIgnoringMissing(ctx, v1alpha1.KindJob, r.Name); err != nil {
 				errs = append(errs, err)
@@ -132,7 +133,7 @@ func (c *Controller) expandRun(ctx context.Context, run *pipelineRun, now time.T
 			continue
 		}
 		matched++
-		name := resource.JobName(run.rec.Name, job.GetName())
+		name := tenancy.Key(run.obj.GetMetadata().GetProject(), resource.JobName(tenancy.KeyName(run.rec.Name), job.GetName()))
 		if existing[name] {
 			continue
 		}
@@ -465,7 +466,7 @@ func (c *Controller) writePipelineRunStatus(ctx context.Context, run *pipelineRu
 func (c *Controller) syncPipelineStatus(ctx context.Context, precs []store.Record, runs map[string]*pipelineRun) []error {
 	newest := map[string]*pipelineRun{}
 	for _, run := range runs {
-		p := run.obj.GetSpec().GetPipeline()
+		p := tenancy.Key(run.obj.GetMetadata().GetProject(), run.obj.GetSpec().GetPipeline())
 		cur := newest[p]
 		if cur == nil || run.rec.CreatedAt.After(cur.rec.CreatedAt) {
 			newest[p] = run

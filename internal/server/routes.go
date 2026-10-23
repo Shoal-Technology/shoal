@@ -12,6 +12,7 @@ import (
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // routeSnapshot builds the ingress configuration for node (ADR 0015, passes
@@ -91,11 +92,11 @@ func (s *Server) routeSnapshot(ctx context.Context, node string) (*v1alpha1.Rout
 			RedirectHttp: spec.GetRedirectHttp(),
 		}
 		// Endpoints come from the Service status, as in the service proxy.
-		er.Endpoints, _ = resource.RouteEndpoints(svcs[spec.GetService()], spec.GetPort())
+		er.Endpoints, _ = resource.RouteEndpoints(svcs[tenancy.Key(tenancy.KeyProject(r.Name), spec.GetService())], spec.GetPort())
 		if spec.GetTls() == "secret" {
 			// A Secret that does not parse gets no certificate here; the
 			// Route status reports SecretInvalid.
-			if cert, key, err := resource.ParseRouteSecret(secrets[spec.GetTlsSecret()]); err == nil {
+			if cert, key, err := resource.ParseRouteSecret(secrets[tenancy.Key(tenancy.KeyProject(r.Name), spec.GetTlsSecret())]); err == nil {
 				er.CertPem, er.KeyPem = cert, key
 			}
 		}

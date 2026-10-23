@@ -473,7 +473,7 @@ func (p *portal) scale(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, `want {"replicas": N}`)
 		return
 	}
-	err := p.s.updateWorkloadSpec(r.Context(), r.PathValue("name"), func(s *v1alpha1.WorkloadSpec) error {
+	err := p.s.updateWorkloadSpec(r.Context(), "", r.PathValue("name"), func(s *v1alpha1.WorkloadSpec) error {
 		s.Replicas = req.Replicas
 		w := &v1alpha1.Workload{Metadata: &v1alpha1.ObjectMeta{Name: r.PathValue("name")}, Spec: s}
 		return resource.ValidateWorkload(w)
@@ -507,7 +507,7 @@ func (p *portal) patchData(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	data := map[string]string{}
 	var secretType string
-	rec, err := p.s.store.Get(r.Context(), kind, name)
+	rec, err := p.s.findObject(r.Context(), kind, name, "")
 	switch {
 	case err == nil && kind == v1alpha1.KindSecret:
 		s, err := objects.Secret(rec)
@@ -666,9 +666,9 @@ func (p *portal) writeRPCError(w http.ResponseWriter, err error) {
 
 // updateWorkloadSpec changes a workload's spec with a compare-and-swap
 // retry loop; change may reject the result.
-func (s *Server) updateWorkloadSpec(ctx context.Context, name string, change func(*v1alpha1.WorkloadSpec) error) error {
+func (s *Server) updateWorkloadSpec(ctx context.Context, project, name string, change func(*v1alpha1.WorkloadSpec) error) error {
 	for range casRetries {
-		rec, err := s.store.Get(ctx, v1alpha1.KindWorkload, name)
+		rec, err := s.findObject(ctx, v1alpha1.KindWorkload, name, project)
 		if err != nil {
 			return err
 		}
@@ -683,7 +683,7 @@ func (s *Server) updateWorkloadSpec(ctx context.Context, name string, change fun
 		if err != nil {
 			return err
 		}
-		if _, err = s.store.Update(ctx, v1alpha1.KindWorkload, name, b, rec.Generation); errors.Is(err, store.ErrConflict) {
+		if _, err = s.store.Update(ctx, v1alpha1.KindWorkload, rec.Name, b, rec.Generation); errors.Is(err, store.ErrConflict) {
 			continue
 		}
 		return err

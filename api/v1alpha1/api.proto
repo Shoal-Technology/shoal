@@ -106,6 +106,9 @@ message StartPipelineRunRequest {
   string file = 4;
   // Paths changed in the commit range, for changes rules.
   repeated string changed_paths = 5;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 6;
 }
 
 message StartPipelineRunResponse {
@@ -114,18 +117,27 @@ message StartPipelineRunResponse {
 
 message CancelPipelineRunRequest {
   string run = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message CancelPipelineRunResponse {}
 
 message PlayJobRequest {
   string job = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message PlayJobResponse {}
 
 message JobLogsRequest {
   string job = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message JobLogsResponse {
@@ -134,6 +146,9 @@ message JobLogsResponse {
 
 message StartBuildRequest {
   string config = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message StartBuildResponse {
@@ -142,12 +157,18 @@ message StartBuildResponse {
 
 message CancelBuildRequest {
   string build = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message CancelBuildResponse {}
 
 message BuildLogsRequest {
   string build = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message BuildLogsResponse {
@@ -156,6 +177,9 @@ message BuildLogsResponse {
 
 message DatabaseBackupsRequest {
   string database = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message DatabaseBackupsResponse {
@@ -164,6 +188,9 @@ message DatabaseBackupsResponse {
 
 message BackupDatabaseRequest {
   string database = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message BackupDatabaseResponse {
@@ -228,6 +255,9 @@ message JoinClusterResponse {
 
 message RestartWorkloadRequest {
   string name = 1;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 2;
 }
 
 message ResetUIPasswordRequest {}
@@ -243,6 +273,9 @@ message LogsRequest {
   bool follow = 3;
   // Recent lines per replica; negative = all.
   int32 tail = 4;
+  // Project of the object named above (ADR 0023, pass B1). Empty finds the
+  // object in any project, and fails when more than one project has the name.
+  string project = 5;
 }
 
 message ApplyRequest {

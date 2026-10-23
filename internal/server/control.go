@@ -81,6 +81,12 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 			return nil, err
 		}
 	}
+	// References resolve only within a project (ADR 0023, pass B1).
+	cross, err := c.s.crossProjectErrors(ctx, objs)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	errs = append(errs, cross...)
 	// Objects a Database owns are changed through the Database (ADR 0016, pass C).
 	for _, o := range objs {
 		switch o.kind {
@@ -88,7 +94,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		default:
 			continue
 		}
-		owner, err := c.s.ownerOf(ctx, o.kind, o.name)
+		owner, err := c.s.ownerOf(ctx, o.kind, o.key)
 		if err != nil {
 			return nil, apiError(err)
 		}
@@ -110,10 +116,10 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 			continue
 		}
 		key := resource.RouteKey(o.msg.(*v1alpha1.RouteSpec))
-		if owner, ok := owners[key]; ok && owner != o.name {
+		if owner, ok := owners[key]; ok && owner != o.key {
 			errs = append(errs, fmt.Errorf("route %q: host and pathPrefix are already used by route %q", o.name, owner))
 		}
-		owners[key] = o.name
+		owners[key] = o.key
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -145,13 +151,13 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 			continue
 		}
 		key := resource.RouteKey(o.msg.(*v1alpha1.RouteSpec))
-		created, err := c.s.reserveRoute(ctx, o.name, key)
+		created, err := c.s.reserveRoute(ctx, o.key, key)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		if created {
-			claims[key] = o.name
+			claims[key] = o.key
 		}
 	}
 	if err := errors.Join(errs...); err != nil {
@@ -177,7 +183,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 	batchVolumes := map[string]bool{}
 	for _, o := range objs {
 		if o.kind == v1alpha1.KindVolume {
-			batchVolumes[o.name] = true
+			batchVolumes[o.key] = true
 		}
 	}
 	var volErrs []error
@@ -185,7 +191,7 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 	for _, o := range objs {
 		switch o.kind {
 		case v1alpha1.KindWorkload:
-			names := volumeNames(o.msg.(*v1alpha1.WorkloadSpec))
+			names := keysIn(o.project, volumeNames(o.msg.(*v1alpha1.WorkloadSpec)))
 			missing, err := c.s.missingVolumes(ctx, names, batchVolumes)
 			if err != nil {
 				return nil, apiError(err)
@@ -193,11 +199,11 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 			if len(missing) > 0 {
 				volErrs = append(volErrs, fmt.Errorf("workload %q: volumes %v not found (apply the Volume first)", o.name, missing))
 			}
-			if prevVolumes[o.name], err = c.s.storedVolumeNames(ctx, o.name); err != nil {
+			if prevVolumes[o.key], err = c.s.storedVolumeNames(ctx, o.key); err != nil {
 				return nil, apiError(err)
 			}
 		case v1alpha1.KindVolume:
-			rec, err := c.s.store.Get(ctx, v1alpha1.KindVolume, o.name)
+			rec, err := c.s.store.Get(ctx, v1alpha1.KindVolume, o.key)
 			switch {
 			case errors.Is(err, store.ErrNotFound):
 			case err != nil:
@@ -221,8 +227,8 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		if o.kind != v1alpha1.KindWorkload {
 			continue
 		}
-		vols, err := c.s.claimVolumes(ctx, o.name, volumeNames(o.msg.(*v1alpha1.WorkloadSpec)))
-		claimed[o.name] = vols
+		vols, err := c.s.claimVolumes(ctx, o.key, keysIn(o.project, volumeNames(o.msg.(*v1alpha1.WorkloadSpec))))
+		claimed[o.key] = vols
 		if err != nil {
 			return nil, apiError(err)
 		}
@@ -233,12 +239,12 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		var oldKey, newKey string
 		if o.kind == v1alpha1.KindRoute {
 			newKey = resource.RouteKey(o.msg.(*v1alpha1.RouteSpec))
-			if oldKey, err = c.s.storedRouteKey(ctx, o.name); err != nil {
+			if oldKey, err = c.s.storedRouteKey(ctx, o.key); err != nil {
 				c.s.releaseClaims(ctx, claims)
 				return resp, apiError(err)
 			}
 		}
-		action, err := c.s.applySpec(ctx, o.kind, o.name, o.spec, o.labels)
+		action, err := c.s.applySpec(ctx, o.kind, o.key, o.spec, o.labels)
 		if err != nil {
 			c.s.releaseClaims(ctx, claims)
 			releaseVolClaims()
@@ -248,20 +254,20 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 			delete(claims, newKey)
 			// The Route moved to another host or prefix: free the old key.
 			if oldKey != "" && oldKey != newKey {
-				c.s.releaseRoute(ctx, oldKey, o.name)
+				c.s.releaseRoute(ctx, oldKey, o.key)
 			}
 		}
 		if o.kind == v1alpha1.KindWorkload {
-			delete(claimed, o.name)
+			delete(claimed, o.key)
 			// Volumes the workload no longer names are released.
-			newNames := volumeNames(o.msg.(*v1alpha1.WorkloadSpec))
+			newNames := keysIn(o.project, volumeNames(o.msg.(*v1alpha1.WorkloadSpec)))
 			var dropped []string
-			for _, v := range prevVolumes[o.name] {
+			for _, v := range prevVolumes[o.key] {
 				if !slices.Contains(newNames, v) {
 					dropped = append(dropped, v)
 				}
 			}
-			if err := c.s.releaseVolumes(ctx, o.name, dropped); err != nil {
+			if err := c.s.releaseVolumes(ctx, o.key, dropped); err != nil {
 				c.s.log.Warn("could not release dropped volume claims", "workload", o.name, "err", err)
 			}
 		}
@@ -462,7 +468,7 @@ func (c *controlService) Get(ctx context.Context, req *v1alpha1.GetRequest) (*v1
 		return nil, err
 	}
 	kind, name := req.GetKind(), req.GetName()
-	r, err := c.s.store.Get(ctx, kind, name)
+	r, err := c.s.findObject(ctx, kind, name, req.GetProject())
 	if errors.Is(err, store.ErrNotFound) && kind == v1alpha1.KindProject && name == tenancy.DefaultProject {
 		if err := c.s.authzCheck(ctx, authzCall{Method: "Get", Verb: authz.VerbGet, Kind: kind, Name: name}); err != nil {
 			return nil, err
@@ -472,13 +478,7 @@ func (c *controlService) Get(ctx context.Context, req *v1alpha1.GetRequest) (*v1
 	if err != nil {
 		return nil, apiError(err)
 	}
-	project, _, err := c.s.recordProject(ctx, kind, name)
-	if err != nil {
-		return nil, apiError(err)
-	}
-	if req.GetProject() != "" && tenancy.ProjectScoped(kind) && project != req.GetProject() {
-		return nil, status.Errorf(codes.NotFound, "%s %q not found in project %q", kind, name, req.GetProject())
-	}
+	project := keyProject(r)
 	if err := c.s.authzCheck(ctx, authzCall{Method: "Get", Verb: authz.VerbGet, Kind: kind, Project: project, Name: name}); err != nil {
 		return nil, err
 	}
@@ -530,40 +530,46 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
-	project, found, err := c.s.recordProject(ctx, req.GetKind(), req.GetName())
-	if err != nil {
-		return nil, apiError(err)
-	}
-	if found && req.GetProject() != "" && project != req.GetProject() {
-		return nil, status.Errorf(codes.NotFound, "%s %q not found in project %q", req.GetKind(), req.GetName(), req.GetProject())
-	}
-	if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Project: project, Name: req.GetName()}); err != nil {
-		return nil, err
-	}
 	if req.GetKind() == v1alpha1.KindProject {
+		if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Name: req.GetName()}); err != nil {
+			return nil, err
+		}
 		if err := c.s.deleteProject(ctx, req.GetName()); err != nil {
 			return nil, err
 		}
 		c.s.log.Info("object deleted", "kind", req.GetKind(), "name", req.GetName())
 		return &v1alpha1.DeleteResponse{}, nil
 	}
-	if owner, err := c.s.ownerOf(ctx, req.GetKind(), req.GetName()); err != nil {
+	// The object is found in the request's project, or in the one project
+	// that holds the name. A name that is absent fails here, before any write:
+	// it must never fall through to a same-named object in another project.
+	found, err := c.s.findObject(ctx, req.GetKind(), req.GetName(), req.GetProject())
+	if err != nil {
+		return nil, apiError(err)
+	}
+	// key is the stored key of the object, and name its bare name.
+	key := found.Name
+	project := keyProject(found)
+	if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Project: project, Name: req.GetName()}); err != nil {
+		return nil, err
+	}
+	if owner, err := c.s.ownerOf(ctx, req.GetKind(), key); err != nil {
 		return nil, apiError(err)
 	} else if owner != "" {
 		return nil, status.Error(codes.FailedPrecondition, ownedMessage(req.GetKind(), req.GetName(), owner))
 	}
 	if req.GetKind() == v1alpha1.KindBuild {
-		if err := c.s.checkBuildDeletable(ctx, req.GetName()); err != nil {
+		if err := c.s.checkBuildDeletable(ctx, key); err != nil {
 			return nil, err
 		}
 	}
 	if k := req.GetKind(); k == v1alpha1.KindPipelineRun || k == v1alpha1.KindJob {
-		if err := c.s.checkPipelineDeletable(ctx, k, req.GetName()); err != nil {
+		if err := c.s.checkPipelineDeletable(ctx, k, key); err != nil {
 			return nil, err
 		}
 	}
 	if req.GetKind() == v1alpha1.KindVolume {
-		if err := c.deleteVolume(ctx, req.GetName()); err != nil {
+		if err := c.deleteVolume(ctx, key); err != nil {
 			return nil, err
 		}
 		c.s.log.Info("object deleted", "kind", req.GetKind(), "name", req.GetName())
@@ -571,27 +577,27 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	}
 	var routeKey string
 	if req.GetKind() == v1alpha1.KindRoute {
-		key, err := c.s.storedRouteKey(ctx, req.GetName())
+		k, err := c.s.storedRouteKey(ctx, key)
 		if err != nil {
 			return nil, apiError(err)
 		}
-		routeKey = key
+		routeKey = k
 	}
 	var volumes []string
 	if req.GetKind() == v1alpha1.KindWorkload {
 		var err error
-		if volumes, err = c.s.storedVolumeNames(ctx, req.GetName()); err != nil {
+		if volumes, err = c.s.storedVolumeNames(ctx, key); err != nil {
 			return nil, apiError(err)
 		}
 	}
-	if err := c.s.store.Delete(ctx, req.GetKind(), req.GetName(), 0); err != nil {
+	if err := c.s.store.Delete(ctx, req.GetKind(), key, 0); err != nil {
 		return nil, apiError(err)
 	}
 	if routeKey != "" {
-		c.s.releaseRoute(ctx, routeKey, req.GetName())
+		c.s.releaseRoute(ctx, routeKey, key)
 	}
 	if len(volumes) > 0 {
-		if err := c.s.releaseVolumes(ctx, req.GetName(), volumes); err != nil {
+		if err := c.s.releaseVolumes(ctx, key, volumes); err != nil {
 			c.s.log.Warn("could not release volume claims", "workload", req.GetName(), "err", err)
 		}
 	}
@@ -769,12 +775,16 @@ func checkKind(kind string) error {
 // RestartWorkload sets spec.restartedAt, which changes the template and so
 // replaces the replicas with a rolling update.
 func (c *controlService) RestartWorkload(ctx context.Context, req *v1alpha1.RestartWorkloadRequest) (*v1alpha1.ApplyResult, error) {
-	if owner, err := c.s.ownerOf(ctx, v1alpha1.KindWorkload, req.GetName()); err != nil {
+	wrec, err := c.s.findObject(ctx, v1alpha1.KindWorkload, req.GetName(), req.GetProject())
+	if err != nil {
+		return nil, apiError(err)
+	}
+	if owner, err := c.s.ownerOf(ctx, v1alpha1.KindWorkload, wrec.Name); err != nil {
 		return nil, apiError(err)
 	} else if owner != "" {
 		return nil, status.Error(codes.FailedPrecondition, ownedMessage(v1alpha1.KindWorkload, req.GetName(), owner))
 	}
-	err := c.s.updateWorkloadSpec(ctx, req.GetName(), func(s *v1alpha1.WorkloadSpec) error {
+	err = c.s.updateWorkloadSpec(ctx, req.GetProject(), req.GetName(), func(s *v1alpha1.WorkloadSpec) error {
 		s.RestartedAt = ts(c.s.now())
 		return nil
 	})

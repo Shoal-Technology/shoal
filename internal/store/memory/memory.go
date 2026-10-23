@@ -76,6 +76,23 @@ func (s *Store) List(_ context.Context, kind string) ([]store.Record, error) {
 	return out, nil
 }
 
+// writeAll is write for an operation that changes several records and so
+// publishes several events. A failed fn doesn't consume a revision.
+func (s *Store) writeAll(fn func(rev int64, now time.Time) ([]store.Event, error)) error {
+	s.mu.Lock()
+	evs, err := fn(s.rev+1, s.now().UTC())
+	if err == nil {
+		s.rev++
+	}
+	s.mu.Unlock()
+	if err == nil {
+		for _, ev := range evs {
+			s.hub.Publish(ev)
+		}
+	}
+	return err
+}
+
 // write applies fn under the lock with the next revision and publishes the
 // event after unlocking. A failed fn doesn't consume a revision.
 func (s *Store) write(fn func(rev int64, now time.Time) (store.Event, error)) error {

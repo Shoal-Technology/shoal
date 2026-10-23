@@ -10,6 +10,7 @@ import (
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // dataSources holds the Secrets and Configs a snapshot resolves from.
@@ -50,14 +51,14 @@ func (s *Server) loadDataSources(ctx context.Context) (*dataSources, error) {
 // resolve fills in an assignment's env and mounts from the template's
 // references. A missing Secret, Config or key is reported as the
 // assignment's problem; the agent then leaves the replica alone.
-func (d *dataSources) resolve(a *v1alpha1.Assignment) {
+func (d *dataSources) resolve(a *v1alpha1.Assignment, project string) {
 	t := a.GetTemplate()
-	d.resolvePullSecrets(a)
+	d.resolvePullSecrets(a, project)
 	if a.Problem != "" {
 		return
 	}
 	lookup := func(kind string, src map[string]map[string]string, name, key string) (string, bool) {
-		data, ok := src[name]
+		data, ok := src[tenancy.Key(project, name)]
 		if !ok {
 			a.Problem = fmt.Sprintf("%s %q not found", kind, name)
 			return "", false
@@ -89,7 +90,7 @@ func (d *dataSources) resolve(a *v1alpha1.Assignment) {
 		if m.GetSecret() != "" {
 			src, kind, name = d.secrets, "secret", m.GetSecret()
 		}
-		data, ok := src[name]
+		data, ok := src[tenancy.Key(project, name)]
 		if !ok {
 			a.Problem = fmt.Sprintf("%s %q not found", kind, name)
 			return
@@ -102,14 +103,14 @@ func (d *dataSources) resolve(a *v1alpha1.Assignment) {
 // image_pull_secrets. A Secret that is missing, has another type or does not
 // parse is the assignment's problem, as a missing env Secret is. The problem
 // names the Secret, never a credential.
-func (d *dataSources) resolvePullSecrets(a *v1alpha1.Assignment) {
+func (d *dataSources) resolvePullSecrets(a *v1alpha1.Assignment, project string) {
 	for _, name := range a.GetTemplate().GetImagePullSecrets() {
-		data, ok := d.secrets[name]
+		data, ok := d.secrets[tenancy.Key(project, name)]
 		if !ok {
 			a.Problem = fmt.Sprintf("image pull secret %q not found", name)
 			return
 		}
-		typ := d.secretTypes[name]
+		typ := d.secretTypes[tenancy.Key(project, name)]
 		if typ == "" {
 			typ = resource.SecretTypeOpaque
 		}

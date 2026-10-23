@@ -10,6 +10,7 @@ import (
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Volume states (ADR 0016, section 1).
@@ -78,7 +79,7 @@ func (c *Controller) setVolumeStatus(ctx context.Context, s *state, v *v1alpha1.
 	if err != nil {
 		return err
 	}
-	name := v.GetMetadata().GetName()
+	name := objects.KeyOf(v.GetMetadata())
 	if _, err := c.st.UpdateStatus(ctx, v1alpha1.KindVolume, name, b); err != nil {
 		return fmt.Errorf("update status of volume %s: %w", name, err)
 	}
@@ -94,7 +95,7 @@ func (c *Controller) syncVolumes(ctx context.Context, s *state, now time.Time) [
 	users := map[string]string{}
 	for name, w := range s.workloads {
 		for _, m := range w.Spec.GetVolumes() {
-			users[m.GetName()] = name
+			users[tenancy.Key(w.GetMetadata().GetProject(), m.GetName())] = name
 		}
 	}
 	var errs []error

@@ -18,7 +18,8 @@ import (
 // DatabaseBackups lists the logical backups of a Database, newest first (ADR
 // 0016, section 3.4).
 func (c *controlService) DatabaseBackups(ctx context.Context, req *v1alpha1.DatabaseBackupsRequest) (*v1alpha1.DatabaseBackupsResponse, error) {
-	if _, err := c.databaseRecord(ctx, req.GetDatabase()); err != nil {
+	dbRec, err := c.databaseRecord(ctx, req.GetDatabase(), req.GetProject())
+	if err != nil {
 		return nil, err
 	}
 	recs, err := c.s.store.List(ctx, v1alpha1.KindDatabaseBackup)
@@ -31,7 +32,7 @@ func (c *controlService) DatabaseBackups(ctx context.Context, req *v1alpha1.Data
 		if err := proto.Unmarshal(r.Spec, b); err != nil {
 			return nil, apiError(err)
 		}
-		if b.GetDatabase() == req.GetDatabase() {
+		if b.GetDatabase() == dbRec.Name {
 			resp.Backups = append(resp.Backups, b)
 		}
 	}
@@ -44,7 +45,7 @@ func (c *controlService) DatabaseBackups(ctx context.Context, req *v1alpha1.Data
 // BackupDatabase records a manual backup of a Database that is Ready. The
 // backup is pending until the agent on the database's node has run it.
 func (c *controlService) BackupDatabase(ctx context.Context, req *v1alpha1.BackupDatabaseRequest) (*v1alpha1.BackupDatabaseResponse, error) {
-	rec, err := c.databaseRecord(ctx, req.GetDatabase())
+	rec, err := c.databaseRecord(ctx, req.GetDatabase(), req.GetProject())
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func (c *controlService) BackupDatabase(ctx context.Context, req *v1alpha1.Backu
 	}
 	now := c.s.now()
 	for range 5 {
-		b := database.NewBackupRecord(req.GetDatabase(), database.ReasonManual, d.GetStatus().GetVersion(), now, database.RandomSuffix())
+		b := database.NewBackupRecord(rec.Name, database.ReasonManual, d.GetStatus().GetVersion(), now, database.RandomSuffix())
 		spec, err := objects.Encode(b)
 		if err != nil {
 			return nil, apiError(err)
@@ -76,8 +77,8 @@ func (c *controlService) BackupDatabase(ctx context.Context, req *v1alpha1.Backu
 }
 
 // databaseRecord returns the stored Database name, or NotFound.
-func (c *controlService) databaseRecord(ctx context.Context, name string) (store.Record, error) {
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindDatabase, name)
+func (c *controlService) databaseRecord(ctx context.Context, name, project string) (store.Record, error) {
+	rec, err := c.s.findObject(ctx, v1alpha1.KindDatabase, name, project)
 	if errors.Is(err, store.ErrNotFound) {
 		return store.Record{}, status.Errorf(codes.NotFound, "database %q does not exist", name)
 	}

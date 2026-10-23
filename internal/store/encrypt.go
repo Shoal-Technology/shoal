@@ -154,3 +154,22 @@ func (e *EncryptingStore) UpdateStatus(ctx context.Context, kind, name string, s
 	}
 	return e.open(r)
 }
+
+// Reseal moves a sealed spec of kind from oldName to newName: it opens the
+// spec under the old name and seals the plain text under the new one. A
+// migration uses it when a record changes key (ADR 0023, pass B1). The key
+// must be the secret key the spec was sealed with.
+func Reseal(key []byte, kind, oldName, newName string, sealed []byte) ([]byte, error) {
+	if len(sealed) == 0 {
+		return sealed, nil
+	}
+	e, err := NewEncryptingStore(nil, key, kind)
+	if err != nil {
+		return nil, err
+	}
+	r, err := e.open(Record{Kind: kind, Name: oldName, Spec: sealed})
+	if err != nil {
+		return nil, err
+	}
+	return e.seal(kind, newName, r.Spec), nil
+}

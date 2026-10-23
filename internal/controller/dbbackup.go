@@ -15,6 +15,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/database"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Logical backups and restores of Databases (ADR 0016, sections 3.4, 3.7 and
@@ -153,7 +154,7 @@ func pruneSet(backups []backupRec, retain int32, exclude string) []backupRec {
 
 // backupJob is the job that writes the dump of b and deletes the prune files.
 func backupJob(db string, b *v1alpha1.DatabaseBackupRecord, prune []backupRec) *v1alpha1.DatabaseJob {
-	job := &v1alpha1.DatabaseJob{Id: b.GetId(), Kind: database.JobBackup, File: b.GetFile(), Database: database.DBName(db)}
+	job := &v1alpha1.DatabaseJob{Id: b.GetId(), Kind: database.JobBackup, File: b.GetFile(), Database: database.DBName(tenancy.KeyName(db))}
 	for _, p := range prune {
 		job.Prune = append(job.Prune, p.b.GetFile())
 	}
@@ -349,7 +350,7 @@ func restoreJob(target string, src *v1alpha1.DatabaseBackupRecord) *v1alpha1.Dat
 		Id:       database.RestoreJobID(target, src.GetId()),
 		Kind:     database.JobRestore,
 		File:     src.GetFile(),
-		Database: database.DBName(target),
+		Database: database.DBName(tenancy.KeyName(target)),
 		Target:   target + "." + v1alpha1.DNSDomain,
 		Sha256:   src.GetSha256(),
 	}
@@ -436,7 +437,7 @@ func (c *Controller) newDatabaseCredentials(ctx context.Context, name, dbName st
 	if source == nil {
 		return newCredentials(name, dbName)
 	}
-	sec, err := c.st.Get(ctx, v1alpha1.KindSecret, source.GetDatabase()+dbCredsSuffix)
+	sec, err := c.st.Get(ctx, v1alpha1.KindSecret, tenancy.Key(tenancy.KeyProject(source.GetDatabase()), tenancy.KeyName(source.GetDatabase())+dbCredsSuffix))
 	if err != nil {
 		return nil, fmt.Errorf("restore: read the credentials of %s: %w", source.GetDatabase(), err)
 	}

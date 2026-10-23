@@ -61,7 +61,7 @@ func (c *Controller) planRollout(s *state, w *v1alpha1.Workload, now time.Time) 
 		ro = &v1alpha1.RolloutStatus{}
 	}
 	stable := ro.GetStableTemplate()
-	reps := s.replicasOf(w.Metadata.GetName())
+	reps := s.replicasOf(objects.KeyOf(w.Metadata))
 
 	// Only a real rollout (from a known-good template to a different one)
 	// can fail and be rolled back; a first deployment can only fail.
@@ -72,11 +72,11 @@ func (c *Controller) planRollout(s *state, w *v1alpha1.Workload, now time.Time) 
 			ro.FailedGeneration = gen
 			if stable != nil {
 				ro.Message = fmt.Sprintf("rollout of generation %d failed (%s); rolled back to generation %d", gen, why, ro.StableGeneration)
-				c.log.Warn("rollout failed, rolling back", "workload", w.Metadata.GetName(), "generation", gen,
+				c.log.Warn("rollout failed, rolling back", "workload", objects.KeyOf(w.Metadata), "generation", gen,
 					"to", ro.StableGeneration, "reason", why)
 			} else {
 				ro.Message = fmt.Sprintf("generation %d is not becoming ready (%s); no earlier version to roll back to", gen, why)
-				c.log.Warn("first rollout failing", "workload", w.Metadata.GetName(), "generation", gen, "reason", why)
+				c.log.Warn("first rollout failing", "workload", objects.KeyOf(w.Metadata), "generation", gen, "reason", why)
 			}
 		}
 	}
@@ -148,7 +148,7 @@ func countUpdatedAvailable(reps []*replica, target *v1alpha1.WorkloadSpec) int {
 // fewer than maxUnavailable replicas are unavailable, so the next batch
 // waits until updated replicas pass their health checks.
 func (c *Controller) rollReplicas(ctx context.Context, s *state, w *v1alpha1.Workload, p plan, now time.Time) []error {
-	reps := s.replicasOf(w.Metadata.GetName())
+	reps := s.replicasOf(objects.KeyOf(w.Metadata))
 	var outdatedUp, outdatedDown []*replica
 	availableCount := 0
 	for _, r := range reps {
@@ -177,7 +177,7 @@ func (c *Controller) rollReplicas(ctx context.Context, s *state, w *v1alpha1.Wor
 			errs = append(errs, err)
 			continue
 		}
-		c.log.Info("replica updated", "replica", r.rec.Name, "workload", w.Metadata.GetName(), "generation", p.targetGen)
+		c.log.Info("replica updated", "replica", r.rec.Name, "workload", objects.KeyOf(w.Metadata), "generation", p.targetGen)
 	}
 	return errs
 }

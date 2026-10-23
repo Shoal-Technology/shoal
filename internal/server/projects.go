@@ -29,8 +29,10 @@ type prepared struct {
 	// requested is metadata.project as the client sent it. Empty keeps the
 	// object's current project.
 	requested string
-	// project and exists are set by resolveProject.
+	// project and exists are set by resolveProject. key is the store key of
+	// the object: its name in project (ADR 0023, pass B1).
 	project string
+	key     string
 	exists  bool
 }
 
@@ -43,24 +45,23 @@ func (s *Server) resolveProject(ctx context.Context, o *prepared) (userErr, err 
 		if o.requested != "" {
 			return fmt.Errorf("%s %q: metadata.project applies only to project-scoped kinds", o.kind, o.name), nil
 		}
+		o.key = o.name
 		return nil, nil
 	}
-	cur, err := s.store.Get(ctx, o.kind, o.name)
+	// A name is unique within a project (ADR 0023, pass B1). The project
+	// the request names, or default, together with the name is the object.
+	o.project = o.requested
+	if o.project == "" {
+		o.project = tenancy.DefaultProject
+	}
+	o.key = tenancy.Key(o.project, o.name)
+	_, err = s.store.Get(ctx, o.kind, o.key)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		o.project = o.requested
-		if o.project == "" {
-			o.project = tenancy.DefaultProject
-		}
 	case err != nil:
 		return nil, err
 	default:
 		o.exists = true
-		o.project = tenancy.ProjectOf(cur.Labels)
-		if o.requested != "" && o.requested != o.project {
-			return fmt.Errorf("%s %q is in project %q: move it by deleting it and applying it again, not by setting metadata.project to %q",
-				o.kind, o.name, o.project, o.requested), nil
-		}
 	}
 	ok, err := s.projectExists(ctx, o.project)
 	if err != nil {
@@ -86,20 +87,53 @@ func (s *Server) projectExists(ctx context.Context, name string) (bool, error) {
 	return err == nil, err
 }
 
-// recordProject returns the project of a stored project-scoped object. found
-// is false for a cluster-wide kind and for an object that is not stored.
-func (s *Server) recordProject(ctx context.Context, kind, name string) (project string, found bool, err error) {
+// keysIn returns the store keys of names, all in project.
+func keysIn(project string, names []string) []string {
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		out = append(out, tenancy.Key(project, n))
+	}
+	return out
+}
+
+// findObject returns the stored record of the object called name of kind. A
+// project names the object's project. An empty project searches every
+// project, and it is an error when more than one of them holds a name.
+// Cluster-wide kinds have no project and are read as they are stored.
+func (s *Server) findObject(ctx context.Context, kind, name, project string) (store.Record, error) {
 	if !tenancy.ProjectScoped(kind) {
-		return "", false, nil
+		return s.store.Get(ctx, kind, name)
 	}
-	r, err := s.store.Get(ctx, kind, name)
-	if errors.Is(err, store.ErrNotFound) {
-		return "", false, nil
+	if project != "" {
+		r, err := s.store.Get(ctx, kind, tenancy.Key(project, name))
+		if errors.Is(err, store.ErrNotFound) {
+			return r, fmt.Errorf("%s %q not found in project %q: %w", kind, name, project, store.ErrNotFound)
+		}
+		return r, err
 	}
+	recs, err := s.store.List(ctx, kind)
 	if err != nil {
-		return "", false, err
+		return store.Record{}, err
 	}
-	return tenancy.ProjectOf(r.Labels), true, nil
+	var hits []store.Record
+	for _, r := range recs {
+		if tenancy.Bare(r.Name, tenancy.ProjectOf(r.Labels)) == name {
+			hits = append(hits, r)
+		}
+	}
+	switch len(hits) {
+	case 0:
+		return store.Record{}, fmt.Errorf("%s %q: %w", kind, name, store.ErrNotFound)
+	case 1:
+		return hits[0], nil
+	}
+	var projects []string
+	for _, r := range hits {
+		projects = append(projects, tenancy.ProjectOf(r.Labels))
+	}
+	slices.Sort(projects)
+	return store.Record{}, status.Errorf(codes.FailedPrecondition, "%s %q is in several projects (%s): name the project (--project)",
+		kind, name, strings.Join(projects, ", "))
 }
 
 // projectObjectCount counts the project-scoped objects in project, quotas
@@ -172,7 +206,7 @@ func (s *Server) quotasByProject(ctx context.Context) (map[string][]quotaLimit, 
 			return nil, fmt.Errorf("quota %q: %w", r.Name, err)
 		}
 		p := tenancy.ProjectOf(r.Labels)
-		out[p] = append(out[p], quotaLimit{name: r.Name, limits: lim})
+		out[p] = append(out[p], quotaLimit{name: tenancy.Bare(r.Name, p), limits: lim})
 	}
 	return out, nil
 }
@@ -252,7 +286,7 @@ func (s *Server) projectUsage(ctx context.Context, project string, objs []prepar
 		if err != nil {
 			return before, after, fmt.Errorf("%s %q: %w", o.kind, o.name, err)
 		}
-		key := o.kind + "/" + o.name
+		key := o.kind + "/" + o.key
 		after = after.Sub(stored[key]).Add(u)
 		stored[key] = u
 	}
@@ -363,4 +397,13 @@ func (s *Server) authzCheck(ctx context.Context, c authzCall) error {
 // 0023, section 5), so only the admin certificate is allowed.
 func (s *Server) authzBindings() []authz.Binding {
 	return nil
+}
+
+// keyProject returns the project of a stored record, or "" for a kind that
+// is not project-scoped or a missing record.
+func keyProject(r store.Record) string {
+	if !tenancy.ProjectScoped(r.Kind) {
+		return ""
+	}
+	return tenancy.ProjectOf(r.Labels)
 }

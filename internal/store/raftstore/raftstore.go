@@ -41,6 +41,7 @@ const (
 	opLabels = "labels"
 	opDelete = "delete"
 	opImport = "import"
+	opRekey  = "rekey"
 )
 
 // command is one replicated write. Now and UID are chosen by the proposer.
@@ -56,6 +57,10 @@ type command struct {
 	Generation int64             `json:"generation,omitempty"`
 	// Dump is set on an import: the whole state to load into an empty FSM.
 	Dump *store.Dump `json:"dump,omitempty"`
+	// Moves and Puts are set on a rekey (store.Rekeyer). They apply as one log
+	// entry, so every replica applies all of them or none.
+	Moves []store.Move   `json:"moves,omitempty"`
+	Puts  []store.Record `json:"puts,omitempty"`
 }
 
 // result is the FSM's response to a command.
@@ -77,7 +82,10 @@ type Store struct {
 // bound address, so a configured port 0 shows the port actually picked.
 func (s *Store) RaftAddr() raft.ServerAddress { return s.addr }
 
-var _ store.Store = (*Store)(nil)
+var (
+	_ store.Store   = (*Store)(nil)
+	_ store.Rekeyer = (*Store)(nil)
+)
 
 // Config describes one Raft node. Transport and the stores are injected so
 // tests can connect nodes in-process and later swap in durable storage.
@@ -305,6 +313,12 @@ func (s *Store) Delete(ctx context.Context, kind, name string, generation int64)
 	return err
 }
 
+// Rekey implements store.Rekeyer as one replicated command.
+func (s *Store) Rekey(ctx context.Context, moves []store.Move, puts []store.Record) error {
+	_, err := s.apply(ctx, command{Op: opRekey, Now: time.Now().UTC(), Moves: moves, Puts: puts})
+	return err
+}
+
 func (s *Store) Watch(ctx context.Context, kinds ...string) <-chan store.Event {
 	return s.mem.Watch(ctx, kinds...)
 }
@@ -419,6 +433,8 @@ func (f *fsm) Apply(l *raft.Log) any {
 		return &result{rec: rec, err: err}
 	case opDelete:
 		return &result{err: f.mem.Delete(ctx, c.Kind, c.Name, c.Generation)}
+	case opRekey:
+		return &result{err: f.mem.Rekey(ctx, c.Moves, c.Puts)}
 	case opImport:
 		if c.Dump == nil {
 			return &result{err: errors.New("import without data")}

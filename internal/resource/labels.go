@@ -178,3 +178,16 @@ func Matches(reqs []Requirement, labels map[string]string) bool {
 // the app, and this label tells deploy and app delete that the manifest does
 // not name them and that the Database controller decides their lifecycle.
 const OwnedByLabel = "shoal.dev/owned-by"
+
+// SetObjectProject sets metadata.project of obj. The caller decides whether
+// the object's kind has projects; the CLI sets it from --project.
+func SetObjectProject(obj *v1alpha1.Object, project string) {
+	if m := metadataOf(obj); m != nil {
+		m.Project = project
+	}
+}
+
+// ObjectName returns metadata.name of obj, or "" when it has none.
+func ObjectName(obj *v1alpha1.Object) string {
+	return metadataOf(obj).GetName()
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Git webhooks (ADR 0021, pass C). The portal serves POST /hooks/v1/<config
@@ -71,7 +72,7 @@ func (p *portal) hook(w http.ResponseWriter, r *http.Request) {
 		hookReply(w, http.StatusBadRequest, `{"error":"bad request"}`)
 		return
 	}
-	secret, err := p.s.webhookSecret(ctx, hook.GetSecret())
+	secret, err := p.s.webhookSecret(ctx, tenancy.Key(tenancy.KeyProject(rec.Name), hook.GetSecret()))
 	if err != nil {
 		// Without the secret nothing can match. The reason is logged, not sent.
 		p.s.log.Warn("webhook: secret unusable", "config", rec.Name, "secret", hook.GetSecret(), "err", err)
@@ -110,6 +111,7 @@ func (p *portal) hook(w http.ResponseWriter, r *http.Request) {
 	// the background: they read their file from the repository (ADR 0022).
 	go p.s.startWebhookPipelines(context.WithoutCancel(ctx), cfg.GetSpec(), ev)
 	name, dup, err := p.s.startWebhookBuild(ctx, cfg.GetSpec(), rec.Name, ev.Commit)
+	name = tenancy.KeyName(name)
 	if err != nil {
 		p.s.log.Error("webhook: build not started", "config", rec.Name, "err", err)
 		hookReply(w, http.StatusInternalServerError, `{"error":"build not started"}`)
@@ -133,25 +135,33 @@ func (p *portal) hook(w http.ResponseWriter, r *http.Request) {
 // started: dup is true and name is that existing Build. The check and the
 // create run under hookMu, so two deliveries of one push cannot both start a
 // Build.
-func (s *Server) startWebhookBuild(ctx context.Context, cfg *v1alpha1.BuildConfigSpec, config, commit string) (name string, dup bool, err error) {
+func (s *Server) startWebhookBuild(ctx context.Context, cfg *v1alpha1.BuildConfigSpec, configKey, commit string) (name string, dup bool, err error) {
 	s.hookMu.Lock()
 	defer s.hookMu.Unlock()
-	builds, err := s.buildsOf(ctx)
+	// The BuildConfig is named by its key: project and bare name (ADR 0023, pass B1).
+	project, config := tenancy.KeyProject(configKey), tenancy.KeyName(configKey)
+	all, err := s.buildsOf(ctx)
 	if err != nil {
 		return "", false, err
+	}
+	var builds []*v1alpha1.Build
+	for _, b := range all {
+		if b.GetMetadata().GetProject() == project {
+			builds = append(builds, b)
+		}
 	}
 	if existing, ok := resource.FindDuplicateBuild(config, commit, builds); ok {
 		return existing, true, nil
 	}
 	if secret := cfg.GetCredentialsSecret(); secret != "" {
-		if err := s.checkBuildCredentials(ctx, cfg.GetGit().GetUrl(), secret); err != nil {
+		if err := s.checkBuildCredentials(ctx, project, cfg.GetGit().GetUrl(), secret); err != nil {
 			return "", false, err
 		}
 	}
 	src := proto.CloneOf(cfg)
 	src.Git.Ref = commit
-	name, err = s.createBuild(ctx, config, src, resource.BuildTriggerWebhook)
-	return name, false, err
+	key, err := s.createBuild(ctx, project, config, src, resource.BuildTriggerWebhook)
+	return key, false, err
 }
 
 // buildsOf returns the Builds in the store. A Build that cannot be decoded is

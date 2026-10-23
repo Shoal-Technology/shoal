@@ -19,6 +19,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/pipeline"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Pipelines (ADR 0022, pass A). A PipelineRun is created here from the file the
@@ -44,10 +45,11 @@ func (c *controlService) StartPipelineRun(ctx context.Context, req *v1alpha1.Sta
 	case len(req.GetChangedPaths()) > maxChangedPaths:
 		return nil, status.Errorf(codes.InvalidArgument, "at most %d changed paths", maxChangedPaths)
 	}
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindPipeline, name)
+	rec, err := c.s.findObject(ctx, v1alpha1.KindPipeline, name, req.GetProject())
 	if err != nil {
 		return nil, apiError(err)
 	}
+	project := keyProject(rec)
 	p, err := objects.Pipeline(rec)
 	if err != nil {
 		return nil, apiError(err)
@@ -56,7 +58,7 @@ func (c *controlService) StartPipelineRun(ctx context.Context, req *v1alpha1.Sta
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%s is not valid:\n%v", pipeline.FileName, err)
 	}
-	if err := c.s.checkPipelineSecrets(ctx, src); err != nil {
+	if err := c.s.checkPipelineSecrets(ctx, project, src); err != nil {
 		return nil, err
 	}
 	ref := req.GetRef()
@@ -66,7 +68,7 @@ func (c *controlService) StartPipelineRun(ctx context.Context, req *v1alpha1.Sta
 	if ref == "" {
 		ref = resource.DefaultPipelineRef
 	}
-	rname, err := c.s.createPipelineRun(ctx, name, &v1alpha1.PipelineRunSpec{
+	rname, err := c.s.createPipelineRun(ctx, project, name, &v1alpha1.PipelineRunSpec{
 		Pipeline:     name,
 		Source:       src,
 		Trigger:      resource.TriggerManual,
@@ -78,12 +80,12 @@ func (c *controlService) StartPipelineRun(ctx context.Context, req *v1alpha1.Sta
 	if err != nil {
 		return nil, err
 	}
-	return &v1alpha1.StartPipelineRunResponse{Run: rname}, nil
+	return &v1alpha1.StartPipelineRunResponse{Run: tenancy.KeyName(rname)}, nil
 }
 
-// createPipelineRun stores a new run of pipeline and returns its name. The
-// controller expands it.
-func (s *Server) createPipelineRun(ctx context.Context, pipelineName string, spec *v1alpha1.PipelineRunSpec) (string, error) {
+// createPipelineRun stores a new run of pipeline (a bare name in project) and
+// returns the run's store key. The controller expands it.
+func (s *Server) createPipelineRun(ctx context.Context, project, pipelineName string, spec *v1alpha1.PipelineRunSpec) (string, error) {
 	specB, err := objects.Encode(spec)
 	if err != nil {
 		return "", apiError(err)
@@ -94,27 +96,28 @@ func (s *Server) createPipelineRun(ctx context.Context, pipelineName string, spe
 	}
 	for range 5 {
 		rname := resource.PipelineRunName(pipelineName, randomPipelineSuffix())
-		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindPipelineRun, Name: rname, Spec: specB, Status: statusB})
+		key := tenancy.Key(project, rname)
+		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindPipelineRun, Name: key, Spec: specB, Status: statusB, Labels: tenancy.WithProject(nil, project)})
 		if errors.Is(err, store.ErrExists) {
 			continue
 		}
 		if err != nil {
 			return "", apiError(err)
 		}
-		s.log.Info("pipeline run requested", "run", rname, "pipeline", pipelineName, "commit", spec.GetCommit())
-		return rname, nil
+		s.log.Info("pipeline run requested", "run", rname, "pipeline", pipelineName, "project", project, "commit", spec.GetCommit())
+		return key, nil
 	}
 	return "", status.Error(codes.Internal, "no free pipeline run name")
 }
 
 // checkPipelineSecrets checks that each Secret a job names exists and holds the
 // key. The value is not read into the response and not stored in the run.
-func (s *Server) checkPipelineSecrets(ctx context.Context, src *v1alpha1.PipelineSource) error {
+func (s *Server) checkPipelineSecrets(ctx context.Context, project string, src *v1alpha1.PipelineSource) error {
 	var errs []error
 	for _, job := range src.GetJobs() {
 		for _, env := range slices.Sorted(maps.Keys(job.GetSecrets())) {
 			ref := job.GetSecrets()[env]
-			rec, err := s.store.Get(ctx, v1alpha1.KindSecret, ref.GetSecret())
+			rec, err := s.store.Get(ctx, v1alpha1.KindSecret, tenancy.Key(project, ref.GetSecret()))
 			if errors.Is(err, store.ErrNotFound) {
 				errs = append(errs, fmt.Errorf("job %s: %s names Secret %q, which does not exist", job.GetName(), env, ref.GetSecret()))
 				continue
@@ -144,7 +147,7 @@ func (c *controlService) CancelPipelineRun(ctx context.Context, req *v1alpha1.Ca
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "run is required")
 	}
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindPipelineRun, name)
+	rec, err := c.s.findObject(ctx, v1alpha1.KindPipelineRun, name, req.GetProject())
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -159,7 +162,7 @@ func (c *controlService) CancelPipelineRun(ctx context.Context, req *v1alpha1.Ca
 		return &v1alpha1.CancelPipelineRunResponse{}, nil
 	}
 	r.Spec.CancelRequested = true
-	if err := c.updateSpec(ctx, v1alpha1.KindPipelineRun, name, r.Spec, rec.Generation); err != nil {
+	if err := c.updateSpec(ctx, v1alpha1.KindPipelineRun, rec.Name, r.Spec, rec.Generation); err != nil {
 		return nil, err
 	}
 	c.s.log.Info("pipeline run cancel requested", "run", name)
@@ -173,7 +176,7 @@ func (c *controlService) PlayJob(ctx context.Context, req *v1alpha1.PlayJobReque
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "job is required")
 	}
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindJob, name)
+	rec, err := c.s.findObject(ctx, v1alpha1.KindJob, name, req.GetProject())
 	if err != nil {
 		return nil, apiError(err)
 	}
@@ -188,7 +191,7 @@ func (c *controlService) PlayJob(ctx context.Context, req *v1alpha1.PlayJobReque
 		return &v1alpha1.PlayJobResponse{}, nil
 	}
 	j.Spec.PlayRequested = true
-	if err := c.updateSpec(ctx, v1alpha1.KindJob, name, j.Spec, rec.Generation); err != nil {
+	if err := c.updateSpec(ctx, v1alpha1.KindJob, rec.Name, j.Spec, rec.Generation); err != nil {
 		return nil, err
 	}
 	c.s.log.Info("pipeline job play requested", "job", name)
@@ -214,10 +217,11 @@ func (c *controlService) JobLogs(ctx context.Context, req *v1alpha1.JobLogsReque
 	if name == "" {
 		return nil, status.Error(codes.InvalidArgument, "job is required")
 	}
-	if _, err := c.s.store.Get(ctx, v1alpha1.KindJob, name); err != nil {
+	rec, err := c.s.findObject(ctx, v1alpha1.KindJob, name, req.GetProject())
+	if err != nil {
 		return nil, apiError(err)
 	}
-	lines, err := c.s.ctrl.JobLogs(ctx, name)
+	lines, err := c.s.ctrl.JobLogs(ctx, rec.Name)
 	if err != nil {
 		return nil, apiError(err)
 	}

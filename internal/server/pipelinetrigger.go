@@ -14,6 +14,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/pipeline"
 	"github.com/Shoal-Technology/shoal/internal/resource"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Push triggers for pipelines (ADR 0022, pass B, section 4). A push that the
@@ -66,7 +67,9 @@ func (s *Server) startWebhookPipelines(ctx context.Context, cfg *v1alpha1.BuildC
 // startPipelinePush reads the Pipeline's file at the pushed commit and starts a
 // run of it. A run that already covers the commit is kept, not repeated.
 func (s *Server) startPipelinePush(ctx context.Context, name string, p *v1alpha1.Pipeline, branch string, ev resource.WebhookEvent) {
-	creds, err := gitCredentials(ctx, s.store, p.GetSpec().GetCredentialsSecret())
+	// name is the Pipeline's store key; the run is in its project (ADR 0023, pass B1).
+	project, bare := tenancy.KeyProject(name), tenancy.KeyName(name)
+	creds, err := gitCredentials(ctx, s.store, project, p.GetSpec().GetCredentialsSecret())
 	if err != nil {
 		s.log.Warn("pipeline trigger: credentials", "pipeline", name, "err", err)
 		return
@@ -81,7 +84,7 @@ func (s *Server) startPipelinePush(ctx context.Context, name string, p *v1alpha1
 		s.log.Warn("pipeline trigger: the file is not valid, no run started", "pipeline", name, "commit", ev.Commit, "err", err)
 		return
 	}
-	if err := s.checkPipelineSecrets(ctx, src); err != nil {
+	if err := s.checkPipelineSecrets(ctx, project, src); err != nil {
 		s.log.Warn("pipeline trigger: the file names a Secret that is not usable, no run started", "pipeline", name, "err", err)
 		return
 	}
@@ -95,8 +98,8 @@ func (s *Server) startPipelinePush(ctx context.Context, name string, p *v1alpha1
 		s.log.Info("pipeline trigger: commit already has a run", "pipeline", name, "run", run, "commit", ev.Commit)
 		return
 	}
-	rname, err := s.createPipelineRun(ctx, name, &v1alpha1.PipelineRunSpec{
-		Pipeline:     name,
+	rname, err := s.createPipelineRun(ctx, project, bare, &v1alpha1.PipelineRunSpec{
+		Pipeline:     bare,
 		Source:       src,
 		Trigger:      resource.TriggerPush,
 		Commit:       ev.Commit,
@@ -124,7 +127,7 @@ func (s *Server) pipelineRunForCommit(ctx context.Context, pipelineName, commit 
 			continue
 		}
 		sp := r.GetSpec()
-		if sp.GetPipeline() == pipelineName && sp.GetCommit() == commit && sp.GetTrigger() == resource.TriggerPush {
+		if tenancy.Key(tenancy.KeyProject(rec.Name), sp.GetPipeline()) == pipelineName && sp.GetCommit() == commit && sp.GetTrigger() == resource.TriggerPush {
 			return rec.Name, true, nil
 		}
 	}

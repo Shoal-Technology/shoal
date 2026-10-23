@@ -113,7 +113,7 @@ checkout of the pipeline's repository.`,
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindPipeline, Name: args[0]})
+			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindPipeline, Name: args[0], Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -135,7 +135,7 @@ checkout of the pipeline's repository.`,
 				return fmt.Errorf("read %s at %s: %w", path, ref, err)
 			}
 			changed := changedPaths(commit)
-			resp, err := c.control.StartPipelineRun(ctx, &v1alpha1.StartPipelineRunRequest{
+			resp, err := c.control.StartPipelineRun(ctx, &v1alpha1.StartPipelineRunRequest{Project: currentProject,
 				Pipeline: args[0], Ref: ref, Commit: commit, File: file, ChangedPaths: changed,
 			})
 			if err != nil {
@@ -164,7 +164,7 @@ func newPipelineLsCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindPipeline})
+			resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindPipeline, Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -189,7 +189,7 @@ func newPipelineRunsCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindPipelineRun})
+			resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindPipelineRun, Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -218,7 +218,7 @@ func newPipelineCancelCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			if _, err := c.control.CancelPipelineRun(ctx, &v1alpha1.CancelPipelineRunRequest{Run: args[0]}); err != nil {
+			if _, err := c.control.CancelPipelineRun(ctx, &v1alpha1.CancelPipelineRunRequest{Run: args[0], Project: currentProject}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "pipelinerun/%s cancel requested\n", args[0])
@@ -243,7 +243,7 @@ func newPipelinePlayCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			if _, err := c.control.PlayJob(ctx, &v1alpha1.PlayJobRequest{Job: args[0]}); err != nil {
+			if _, err := c.control.PlayJob(ctx, &v1alpha1.PlayJobRequest{Job: args[0], Project: currentProject}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "job/%s play requested\n", args[0])

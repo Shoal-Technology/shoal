@@ -19,6 +19,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/security"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // maxStatusMessage bounds what an agent can make the server store per
@@ -192,7 +193,7 @@ func (a *agentService) snapshot(ctx context.Context, node string) (*v1alpha1.Ass
 			TemplateGeneration: rp.Spec.GetTemplateGeneration(),
 			Job:                rp.Spec.GetJob(),
 		}
-		data.resolve(as)
+		data.resolve(as, tenancy.KeyProject(rp.Spec.GetWorkload()))
 		snap.Assignments = append(snap.Assignments, as)
 	}
 	vrecs, err := a.s.store.List(ctx, v1alpha1.KindVolume)

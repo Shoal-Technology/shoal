@@ -37,7 +37,7 @@ func newDBBackupsCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.DatabaseBackups(ctx, &v1alpha1.DatabaseBackupsRequest{Database: args[0]})
+			resp, err := c.control.DatabaseBackups(ctx, &v1alpha1.DatabaseBackupsRequest{Database: args[0], Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -65,7 +65,7 @@ ok. The backup is stored on the database's data volume.`,
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.BackupDatabase(ctx, &v1alpha1.BackupDatabaseRequest{Database: args[0]})
+			resp, err := c.control.BackupDatabase(ctx, &v1alpha1.BackupDatabaseRequest{Database: args[0], Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ NEW must not exist. Its password is the password of DATABASE.`,
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.DatabaseBackups(ctx, &v1alpha1.DatabaseBackupsRequest{Database: source})
+			resp, err := c.control.DatabaseBackups(ctx, &v1alpha1.DatabaseBackupsRequest{Database: source, Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -115,7 +115,7 @@ NEW must not exist. Its password is the password of DATABASE.`,
 			case backup.GetStatus() != database.BackupOK:
 				return fmt.Errorf("backup %s is %s, not ok", from, backup.GetStatus())
 			}
-			got, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindDatabase, Name: source})
+			got, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindDatabase, Name: source, Project: currentProject})
 			if err != nil {
 				return err
 			}

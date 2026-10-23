@@ -84,7 +84,7 @@ func newBuildStartCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.StartBuild(ctx, &v1alpha1.StartBuildRequest{Config: args[0]})
+			resp, err := c.control.StartBuild(ctx, &v1alpha1.StartBuildRequest{Config: args[0], Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -110,7 +110,7 @@ func newBuildLsCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindBuild})
+			resp, err := c.control.List(ctx, &v1alpha1.ListRequest{Kind: v1alpha1.KindBuild, Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func newBuildLogsCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			resp, err := c.control.BuildLogs(ctx, &v1alpha1.BuildLogsRequest{Build: args[0]})
+			resp, err := c.control.BuildLogs(ctx, &v1alpha1.BuildLogsRequest{Build: args[0], Project: currentProject})
 			if err != nil {
 				return err
 			}
@@ -164,7 +164,7 @@ func newBuildCancelCmd() *cobra.Command {
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			if _, err := c.control.CancelBuild(ctx, &v1alpha1.CancelBuildRequest{Build: args[0]}); err != nil {
+			if _, err := c.control.CancelBuild(ctx, &v1alpha1.CancelBuildRequest{Build: args[0], Project: currentProject}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "build/%s cancel requested\n", args[0])
@@ -199,7 +199,7 @@ browsers and git hosts trust (shoal server --ui-cert and --ui-key).`,
 			defer c.Close()
 			ctx, cancel := c.ctx(cmd.Context())
 			defer cancel()
-			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindBuildConfig, Name: args[0]})
+			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindBuildConfig, Name: args[0], Project: currentProject})
 			if err != nil {
 				return err
 			}
