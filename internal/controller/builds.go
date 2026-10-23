@@ -142,6 +142,9 @@ func (c *Controller) syncConfigBuilds(ctx context.Context, cfg store.Record, bs 
 			}
 		}
 	}
+	if err := c.rollOutNewest(ctx, bs); err != nil {
+		errs = append(errs, err)
+	}
 	if len(bs) > 0 {
 		if err := c.writeConfigStatus(ctx, cfg, bs[len(bs)-1]); err != nil {
 			errs = append(errs, err)

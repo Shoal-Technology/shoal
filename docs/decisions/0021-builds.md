@@ -195,7 +195,95 @@ The BuildKit executor needs decisions that this ADR does not settle:
 
 - Pass B: the BuildKit executor, builder placement, the push identity, and
   streamed logs (see the plan above).
-- Pass C: webhooks, the on-success Workload update (OB-45), and the appspec
-  `build:` section.
+- Pass C: done, see the addendum below. The appspec `build:` section is not
+  done.
 - Later: a run policy with latest-only (OB-16), resources and timeouts (OB-18),
   rerun (OB-19), Dockerfile-less builds (OB-08), and Project scoping (OB-36).
+
+## Pass C addendum: webhooks and build-to-rollout
+
+Pass C is implemented: git webhooks (OB-11, OB-12, GL-02), and the on-success
+Workload update (OB-45). It changes section 7 above as follows.
+
+### Webhook trigger
+
+`spec.webhook` on a BuildConfig:
+
+| Field | Meaning |
+|---|---|
+| `provider` | `github`, `gitlab`, `gitea` or `generic` |
+| `secret` | Name of an Opaque Secret whose `webhook-secret` key holds the shared secret |
+| `branch` | Branch whose pushes start a Build. Default: the config's `ref`. Required when the ref is `HEAD` or a commit, since no push would match it |
+
+One webhook per config. A tag push never starts a Build.
+
+### Endpoint and checks
+
+- `POST /hooks/v1/<config uid>` on the portal (`--ui-listen`, port 7444 by
+  default). The portal is the server's own HTTPS listener, while the edge only
+  routes traffic to workloads, so the endpoint lives on the portal. The uid is random, so the path cannot be
+  guessed, and the request is checked by its signature, not by a portal session.
+  The git host must trust the portal's certificate: give it one with `shoal
+  server --ui-cert and --ui-key`. The code is in `internal/server/hooks.go` and
+  the checks in `internal/resource/webhook.go`.
+- Signatures, all compared in constant time:
+  - GitHub: `X-Hub-Signature-256`, HMAC-SHA256 of the body.
+  - Gitea: `X-Gitea-Signature`, HMAC-SHA256 of the body, hex.
+  - Generic: `X-Shoal-Signature-256`, HMAC-SHA256 of the body, as `sha256=<hex>`.
+  - GitLab: `X-Gitlab-Token`, the secret itself. Both sides are hashed before
+    the comparison, so its length does not show.
+- A missing, malformed or wrong signature is `401` with the body `unauthorized`.
+  The reason is logged with the config name, never the secret or the body.
+- Events: GitHub and Gitea `push` and `ping`; GitLab `Push Hook`; generic
+  `{"ref": "refs/heads/<branch>", "commit": "<sha>"}`, a push unless
+  `X-Shoal-Event: ping` is sent. Any other event, and a push that deletes its
+  ref, is `202 {"status":"ignored"}`. A ping is `200`. A malformed push is `400`.
+- A request body above 1 MiB is `413`. A config takes 30 requests a minute,
+  then `429` with `Retry-After`.
+- An unknown uid, or a config without a webhook, is `404`.
+
+Known limits: the signatures carry no timestamp, so a valid push that is
+replayed is accepted again and starts another Build of the same commit. The
+same happens when a host redelivers a push. Deduplicating those is a follow-up.
+
+### What a webhook starts
+
+A Build whose spec is a copy of the config's spec with `git.ref` replaced by the
+pushed commit, and whose trigger is `webhook`. It goes through the same queue as
+`StartBuild`, so the rules of section 4 apply. The Build builds the commit that
+was pushed, not whatever the branch points at when the build runs.
+
+### Build to rollout (OB-45)
+
+`spec.onSuccess.updateWorkload: <name>`. When a Build of the config completes
+with a digest, the controller sets the Workload's image to
+`shoal.local/<repository>@<digest>`. The repository comes from the Build's own
+spec snapshot, and `shoal.local` is the alias that agents resolve to the
+embedded registry (ADR 0020). The digest form means a tag that is moved later
+does not change what runs, which avoids a re-pull of a reused tag.
+
+- The image change is a spec change, so the existing rollout and rollback apply
+  (ADR 0010).
+- Only the newest completed Build of a config counts. An older run that finishes
+  late never moves the Workload back.
+- The Build records `workloadUpdated` once the Workload is set, so the update
+  happens once and a converged pass writes nothing.
+- A missing Workload leaves a message on the Build, and the next pass retries.
+- Pass B contract: the executor must report the manifest digest in
+  `Status.Digest`. The image reference in `Status.Image` is informational here.
+
+### CLI
+
+`shoal build webhook-url CONFIG [--base-url URL]` prints the URL, the Secret
+name and key, the branch, and the setup steps for the provider. The default
+base is `https://<server host>:7444`. The secret's value is never printed, and
+there is no `--show-secret`: the API never returns Secret values, and `get`
+redacts them. Set the value with `shoal secret create <name>
+webhook-secret=<value>`.
+
+### Not in pass C
+
+- The appspec `build:` section.
+- Tag pushes and tag moves as triggers (OB-14, OB-23).
+- Deduplicating redelivered pushes.
+- Reporting build status back to the git host (GL-02 follow-up).

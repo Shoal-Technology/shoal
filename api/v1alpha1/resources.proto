@@ -638,6 +638,29 @@ message BuildConfigSpec {
   BuildOutput output = 3;
   // Dockerfile build arguments (ARG values).
   map<string, string> build_args = 4;
+  // Starts a Build when a git host pushes to a branch (ADR 0021, pass C).
+  BuildWebhook webhook = 5;
+  // Rolls a Workload out to the digest of a completed Build (OB-45).
+  BuildOnSuccess on_success = 6;
+}
+
+// BuildWebhook lets a git host start a Build by calling the portal at
+// /hooks/v1/<config uid> (OB-11, OB-12, GL-02). Each request is checked with
+// the secret.
+message BuildWebhook {
+  // github, gitlab, gitea or generic.
+  string provider = 1;
+  // Name of an Opaque Secret whose webhook-secret key holds the shared secret.
+  string secret = 2;
+  // Branch whose pushes start a Build. Defaults to the config's ref; required
+  // when the ref is HEAD.
+  string branch = 3;
+}
+
+// BuildOnSuccess names the Workload that a completed Build updates (OB-45).
+message BuildOnSuccess {
+  // The Workload whose image becomes shoal.local/<repository>@<digest>.
+  string update_workload = 1;
 }
 
 message GitSource {
@@ -679,7 +702,7 @@ message BuildSpec {
   string config = 1;
   // The config's spec when the run was started. Later edits do not change it.
   BuildConfigSpec source = 2;
-  // manual (webhook triggers come in a later pass).
+  // manual (StartBuild) or webhook (a git push).
   string trigger = 3;
   // Set by CancelBuild. The controller stops the run and sets Cancelled.
   bool cancel_requested = 4;
@@ -702,4 +725,6 @@ message BuildStatus {
   string digest = 7;
   // Name of the log stream the executor writes (OB-20). Set when the run starts.
   string log_ref = 8;
+  // The Workload whose image was set to this Build's digest (OB-45). Set once.
+  string workload_updated = 9;
 }

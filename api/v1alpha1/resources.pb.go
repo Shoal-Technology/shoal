@@ -4454,7 +4454,11 @@ type BuildConfigSpec struct {
 	CredentialsSecret string       `protobuf:"bytes,2,opt,name=credentials_secret,json=credentialsSecret,proto3" json:"credentials_secret,omitempty"`
 	Output            *BuildOutput `protobuf:"bytes,3,opt,name=output,proto3" json:"output,omitempty"`
 	// Dockerfile build arguments (ARG values).
-	BuildArgs     map[string]string `protobuf:"bytes,4,rep,name=build_args,json=buildArgs,proto3" json:"build_args,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	BuildArgs map[string]string `protobuf:"bytes,4,rep,name=build_args,json=buildArgs,proto3" json:"build_args,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Starts a Build when a git host pushes to a branch (ADR 0021, pass C).
+	Webhook *BuildWebhook `protobuf:"bytes,5,opt,name=webhook,proto3" json:"webhook,omitempty"`
+	// Rolls a Workload out to the digest of a completed Build (OB-45).
+	OnSuccess     *BuildOnSuccess `protobuf:"bytes,6,opt,name=on_success,json=onSuccess,proto3" json:"on_success,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4517,6 +4521,133 @@ func (x *BuildConfigSpec) GetBuildArgs() map[string]string {
 	return nil
 }
 
+func (x *BuildConfigSpec) GetWebhook() *BuildWebhook {
+	if x != nil {
+		return x.Webhook
+	}
+	return nil
+}
+
+func (x *BuildConfigSpec) GetOnSuccess() *BuildOnSuccess {
+	if x != nil {
+		return x.OnSuccess
+	}
+	return nil
+}
+
+// BuildWebhook lets a git host start a Build by calling the portal at
+// /hooks/v1/<config uid> (OB-11, OB-12, GL-02). Each request is checked with
+// the secret.
+type BuildWebhook struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// github, gitlab, gitea or generic.
+	Provider string `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	// Name of an Opaque Secret whose webhook-secret key holds the shared secret.
+	Secret string `protobuf:"bytes,2,opt,name=secret,proto3" json:"secret,omitempty"`
+	// Branch whose pushes start a Build. Defaults to the config's ref; required
+	// when the ref is HEAD.
+	Branch        string `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuildWebhook) Reset() {
+	*x = BuildWebhook{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildWebhook) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildWebhook) ProtoMessage() {}
+
+func (x *BuildWebhook) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildWebhook.ProtoReflect.Descriptor instead.
+func (*BuildWebhook) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *BuildWebhook) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *BuildWebhook) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *BuildWebhook) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+// BuildOnSuccess names the Workload that a completed Build updates (OB-45).
+type BuildOnSuccess struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The Workload whose image becomes shoal.local/<repository>@<digest>.
+	UpdateWorkload string `protobuf:"bytes,1,opt,name=update_workload,json=updateWorkload,proto3" json:"update_workload,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *BuildOnSuccess) Reset() {
+	*x = BuildOnSuccess{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuildOnSuccess) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuildOnSuccess) ProtoMessage() {}
+
+func (x *BuildOnSuccess) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuildOnSuccess.ProtoReflect.Descriptor instead.
+func (*BuildOnSuccess) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *BuildOnSuccess) GetUpdateWorkload() string {
+	if x != nil {
+		return x.UpdateWorkload
+	}
+	return ""
+}
+
 type GitSource struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// https://host/path or ssh://, or git@host:path. Credentials never go in the URL.
@@ -4533,7 +4664,7 @@ type GitSource struct {
 
 func (x *GitSource) Reset() {
 	*x = GitSource{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[61]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4545,7 +4676,7 @@ func (x *GitSource) String() string {
 func (*GitSource) ProtoMessage() {}
 
 func (x *GitSource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[61]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4558,7 +4689,7 @@ func (x *GitSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GitSource.ProtoReflect.Descriptor instead.
 func (*GitSource) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{61}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *GitSource) GetUrl() string {
@@ -4601,7 +4732,7 @@ type BuildOutput struct {
 
 func (x *BuildOutput) Reset() {
 	*x = BuildOutput{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[62]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4613,7 +4744,7 @@ func (x *BuildOutput) String() string {
 func (*BuildOutput) ProtoMessage() {}
 
 func (x *BuildOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[62]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4626,7 +4757,7 @@ func (x *BuildOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildOutput.ProtoReflect.Descriptor instead.
 func (*BuildOutput) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{62}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *BuildOutput) GetRepository() string {
@@ -4654,7 +4785,7 @@ type BuildConfigStatus struct {
 
 func (x *BuildConfigStatus) Reset() {
 	*x = BuildConfigStatus{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[63]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4666,7 +4797,7 @@ func (x *BuildConfigStatus) String() string {
 func (*BuildConfigStatus) ProtoMessage() {}
 
 func (x *BuildConfigStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[63]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4679,7 +4810,7 @@ func (x *BuildConfigStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildConfigStatus.ProtoReflect.Descriptor instead.
 func (*BuildConfigStatus) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{63}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *BuildConfigStatus) GetLastBuild() string {
@@ -4711,7 +4842,7 @@ type Build struct {
 
 func (x *Build) Reset() {
 	*x = Build{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[64]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4723,7 +4854,7 @@ func (x *Build) String() string {
 func (*Build) ProtoMessage() {}
 
 func (x *Build) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[64]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4736,7 +4867,7 @@ func (x *Build) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Build.ProtoReflect.Descriptor instead.
 func (*Build) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{64}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *Build) GetApiVersion() string {
@@ -4780,7 +4911,7 @@ type BuildSpec struct {
 	Config string `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 	// The config's spec when the run was started. Later edits do not change it.
 	Source *BuildConfigSpec `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
-	// manual (webhook triggers come in a later pass).
+	// manual (StartBuild) or webhook (a git push).
 	Trigger string `protobuf:"bytes,3,opt,name=trigger,proto3" json:"trigger,omitempty"`
 	// Set by CancelBuild. The controller stops the run and sets Cancelled.
 	CancelRequested bool `protobuf:"varint,4,opt,name=cancel_requested,json=cancelRequested,proto3" json:"cancel_requested,omitempty"`
@@ -4790,7 +4921,7 @@ type BuildSpec struct {
 
 func (x *BuildSpec) Reset() {
 	*x = BuildSpec{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[65]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4802,7 +4933,7 @@ func (x *BuildSpec) String() string {
 func (*BuildSpec) ProtoMessage() {}
 
 func (x *BuildSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[65]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4815,7 +4946,7 @@ func (x *BuildSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildSpec.ProtoReflect.Descriptor instead.
 func (*BuildSpec) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{65}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *BuildSpec) GetConfig() string {
@@ -4863,14 +4994,16 @@ type BuildStatus struct {
 	// Manifest digest of the pushed image. Set on success.
 	Digest string `protobuf:"bytes,7,opt,name=digest,proto3" json:"digest,omitempty"`
 	// Name of the log stream the executor writes (OB-20). Set when the run starts.
-	LogRef        string `protobuf:"bytes,8,opt,name=log_ref,json=logRef,proto3" json:"log_ref,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	LogRef string `protobuf:"bytes,8,opt,name=log_ref,json=logRef,proto3" json:"log_ref,omitempty"`
+	// The Workload whose image was set to this Build's digest (OB-45). Set once.
+	WorkloadUpdated string `protobuf:"bytes,9,opt,name=workload_updated,json=workloadUpdated,proto3" json:"workload_updated,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *BuildStatus) Reset() {
 	*x = BuildStatus{}
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[66]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4882,7 +5015,7 @@ func (x *BuildStatus) String() string {
 func (*BuildStatus) ProtoMessage() {}
 
 func (x *BuildStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1alpha1_resources_proto_msgTypes[66]
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4895,7 +5028,7 @@ func (x *BuildStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildStatus.ProtoReflect.Descriptor instead.
 func (*BuildStatus) Descriptor() ([]byte, []int) {
-	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{66}
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *BuildStatus) GetPhase() string {
@@ -4950,6 +5083,13 @@ func (x *BuildStatus) GetDigest() string {
 func (x *BuildStatus) GetLogRef() string {
 	if x != nil {
 		return x.LogRef
+	}
+	return ""
+}
+
+func (x *BuildStatus) GetWorkloadUpdated() string {
+	if x != nil {
+		return x.WorkloadUpdated
 	}
 	return ""
 }
@@ -5343,16 +5483,25 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
 	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x123\n" +
 	"\x04spec\x18\x04 \x01(\v2\x1f.shoal.v1alpha1.BuildConfigSpecR\x04spec\x129\n" +
-	"\x06status\x18\x05 \x01(\v2!.shoal.v1alpha1.BuildConfigStatusR\x06status\"\xaf\x02\n" +
+	"\x06status\x18\x05 \x01(\v2!.shoal.v1alpha1.BuildConfigStatusR\x06status\"\xa6\x03\n" +
 	"\x0fBuildConfigSpec\x12+\n" +
 	"\x03git\x18\x01 \x01(\v2\x19.shoal.v1alpha1.GitSourceR\x03git\x12-\n" +
 	"\x12credentials_secret\x18\x02 \x01(\tR\x11credentialsSecret\x123\n" +
 	"\x06output\x18\x03 \x01(\v2\x1b.shoal.v1alpha1.BuildOutputR\x06output\x12M\n" +
 	"\n" +
-	"build_args\x18\x04 \x03(\v2..shoal.v1alpha1.BuildConfigSpec.BuildArgsEntryR\tbuildArgs\x1a<\n" +
+	"build_args\x18\x04 \x03(\v2..shoal.v1alpha1.BuildConfigSpec.BuildArgsEntryR\tbuildArgs\x126\n" +
+	"\awebhook\x18\x05 \x01(\v2\x1c.shoal.v1alpha1.BuildWebhookR\awebhook\x12=\n" +
+	"\n" +
+	"on_success\x18\x06 \x01(\v2\x1e.shoal.v1alpha1.BuildOnSuccessR\tonSuccess\x1a<\n" +
 	"\x0eBuildArgsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"p\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Z\n" +
+	"\fBuildWebhook\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x16\n" +
+	"\x06secret\x18\x02 \x01(\tR\x06secret\x12\x16\n" +
+	"\x06branch\x18\x03 \x01(\tR\x06branch\"9\n" +
+	"\x0eBuildOnSuccess\x12'\n" +
+	"\x0fupdate_workload\x18\x01 \x01(\tR\x0eupdateWorkload\"p\n" +
 	"\tGitSource\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x10\n" +
 	"\x03ref\x18\x02 \x01(\tR\x03ref\x12\x1f\n" +
@@ -5382,7 +5531,7 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\x06config\x18\x01 \x01(\tR\x06config\x127\n" +
 	"\x06source\x18\x02 \x01(\v2\x1f.shoal.v1alpha1.BuildConfigSpecR\x06source\x12\x18\n" +
 	"\atrigger\x18\x03 \x01(\tR\atrigger\x12)\n" +
-	"\x10cancel_requested\x18\x04 \x01(\bR\x0fcancelRequested\"\x94\x02\n" +
+	"\x10cancel_requested\x18\x04 \x01(\bR\x0fcancelRequested\"\xbf\x02\n" +
 	"\vBuildStatus\x12\x14\n" +
 	"\x05phase\x18\x01 \x01(\tR\x05phase\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x129\n" +
@@ -5393,7 +5542,8 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\x06commit\x18\x05 \x01(\tR\x06commit\x12\x14\n" +
 	"\x05image\x18\x06 \x01(\tR\x05image\x12\x16\n" +
 	"\x06digest\x18\a \x01(\tR\x06digest\x12\x17\n" +
-	"\alog_ref\x18\b \x01(\tR\x06logRefB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"\alog_ref\x18\b \x01(\tR\x06logRef\x12)\n" +
+	"\x10workload_updated\x18\t \x01(\tR\x0fworkloadUpdatedB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_resources_proto_rawDescOnce sync.Once
@@ -5407,7 +5557,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -5470,23 +5620,25 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ImageTagSpec)(nil),          // 58: shoal.v1alpha1.ImageTagSpec
 	(*BuildConfig)(nil),           // 59: shoal.v1alpha1.BuildConfig
 	(*BuildConfigSpec)(nil),       // 60: shoal.v1alpha1.BuildConfigSpec
-	(*GitSource)(nil),             // 61: shoal.v1alpha1.GitSource
-	(*BuildOutput)(nil),           // 62: shoal.v1alpha1.BuildOutput
-	(*BuildConfigStatus)(nil),     // 63: shoal.v1alpha1.BuildConfigStatus
-	(*Build)(nil),                 // 64: shoal.v1alpha1.Build
-	(*BuildSpec)(nil),             // 65: shoal.v1alpha1.BuildSpec
-	(*BuildStatus)(nil),           // 66: shoal.v1alpha1.BuildStatus
-	nil,                           // 67: shoal.v1alpha1.ObjectMeta.LabelsEntry
-	nil,                           // 68: shoal.v1alpha1.NodeSpec.LabelsEntry
-	nil,                           // 69: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 70: shoal.v1alpha1.ConfigSpec.DataEntry
-	nil,                           // 71: shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
-	(*timestamppb.Timestamp)(nil), // 72: google.protobuf.Timestamp
+	(*BuildWebhook)(nil),          // 61: shoal.v1alpha1.BuildWebhook
+	(*BuildOnSuccess)(nil),        // 62: shoal.v1alpha1.BuildOnSuccess
+	(*GitSource)(nil),             // 63: shoal.v1alpha1.GitSource
+	(*BuildOutput)(nil),           // 64: shoal.v1alpha1.BuildOutput
+	(*BuildConfigStatus)(nil),     // 65: shoal.v1alpha1.BuildConfigStatus
+	(*Build)(nil),                 // 66: shoal.v1alpha1.Build
+	(*BuildSpec)(nil),             // 67: shoal.v1alpha1.BuildSpec
+	(*BuildStatus)(nil),           // 68: shoal.v1alpha1.BuildStatus
+	nil,                           // 69: shoal.v1alpha1.ObjectMeta.LabelsEntry
+	nil,                           // 70: shoal.v1alpha1.NodeSpec.LabelsEntry
+	nil,                           // 71: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 72: shoal.v1alpha1.ConfigSpec.DataEntry
+	nil,                           // 73: shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
+	(*timestamppb.Timestamp)(nil), // 74: google.protobuf.Timestamp
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	72, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	72, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
-	67, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
+	74, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	74, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
 	0,  // 3: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	2,  // 4: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
 	15, // 5: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
@@ -5496,7 +5648,7 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	10, // 9: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
 	14, // 10: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
 	7,  // 11: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	72, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	74, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
 	3,  // 13: shoal.v1alpha1.WorkloadSpec.volumes:type_name -> shoal.v1alpha1.VolumeMount
 	5,  // 14: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
 	6,  // 15: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
@@ -5510,15 +5662,15 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	18, // 23: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
 	19, // 24: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
 	2,  // 25: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	72, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	74, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
 	32, // 27: shoal.v1alpha1.ReplicaSpec.job:type_name -> shoal.v1alpha1.DatabaseJob
-	72, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	74, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
 	33, // 29: shoal.v1alpha1.ReplicaStatus.job:type_name -> shoal.v1alpha1.DatabaseJobResult
 	0,  // 30: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	21, // 31: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
 	22, // 32: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	68, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
-	72, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	70, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
+	74, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
 	23, // 35: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
 	0,  // 36: shoal.v1alpha1.Volume.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	25, // 37: shoal.v1alpha1.Volume.spec:type_name -> shoal.v1alpha1.VolumeSpec
@@ -5529,13 +5681,13 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	31, // 42: shoal.v1alpha1.Database.status:type_name -> shoal.v1alpha1.DatabaseStatus
 	9,  // 43: shoal.v1alpha1.DatabaseSpec.resources:type_name -> shoal.v1alpha1.Resources
 	30, // 44: shoal.v1alpha1.DatabaseSpec.backup:type_name -> shoal.v1alpha1.DatabaseBackup
-	72, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
+	74, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 46: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	36, // 47: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	69, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	71, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
 	0,  // 49: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	39, // 50: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	70, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	72, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
 	0,  // 52: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	41, // 53: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
 	43, // 54: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
@@ -5543,40 +5695,42 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	0,  // 56: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	45, // 57: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
 	46, // 58: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
-	72, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
+	74, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
 	0,  // 60: shoal.v1alpha1.Certificate.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	48, // 61: shoal.v1alpha1.Certificate.spec:type_name -> shoal.v1alpha1.CertificateSpec
 	49, // 62: shoal.v1alpha1.Certificate.status:type_name -> shoal.v1alpha1.CertificateStatus
-	72, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
-	72, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
-	72, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
+	74, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
+	74, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
+	74, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
 	0,  // 66: shoal.v1alpha1.AcmeAccount.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	51, // 67: shoal.v1alpha1.AcmeAccount.spec:type_name -> shoal.v1alpha1.AcmeAccountSpec
 	52, // 68: shoal.v1alpha1.AcmeAccount.status:type_name -> shoal.v1alpha1.AcmeAccountStatus
 	0,  // 69: shoal.v1alpha1.AcmeChallenge.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	54, // 70: shoal.v1alpha1.AcmeChallenge.spec:type_name -> shoal.v1alpha1.AcmeChallengeSpec
-	72, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
-	72, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	74, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
+	74, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
 	0,  // 73: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	57, // 74: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	72, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	74, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 76: shoal.v1alpha1.BuildConfig.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	60, // 77: shoal.v1alpha1.BuildConfig.spec:type_name -> shoal.v1alpha1.BuildConfigSpec
-	63, // 78: shoal.v1alpha1.BuildConfig.status:type_name -> shoal.v1alpha1.BuildConfigStatus
-	61, // 79: shoal.v1alpha1.BuildConfigSpec.git:type_name -> shoal.v1alpha1.GitSource
-	62, // 80: shoal.v1alpha1.BuildConfigSpec.output:type_name -> shoal.v1alpha1.BuildOutput
-	71, // 81: shoal.v1alpha1.BuildConfigSpec.build_args:type_name -> shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
-	0,  // 82: shoal.v1alpha1.Build.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	65, // 83: shoal.v1alpha1.Build.spec:type_name -> shoal.v1alpha1.BuildSpec
-	66, // 84: shoal.v1alpha1.Build.status:type_name -> shoal.v1alpha1.BuildStatus
-	60, // 85: shoal.v1alpha1.BuildSpec.source:type_name -> shoal.v1alpha1.BuildConfigSpec
-	72, // 86: shoal.v1alpha1.BuildStatus.started_at:type_name -> google.protobuf.Timestamp
-	72, // 87: shoal.v1alpha1.BuildStatus.finished_at:type_name -> google.protobuf.Timestamp
-	88, // [88:88] is the sub-list for method output_type
-	88, // [88:88] is the sub-list for method input_type
-	88, // [88:88] is the sub-list for extension type_name
-	88, // [88:88] is the sub-list for extension extendee
-	0,  // [0:88] is the sub-list for field type_name
+	65, // 78: shoal.v1alpha1.BuildConfig.status:type_name -> shoal.v1alpha1.BuildConfigStatus
+	63, // 79: shoal.v1alpha1.BuildConfigSpec.git:type_name -> shoal.v1alpha1.GitSource
+	64, // 80: shoal.v1alpha1.BuildConfigSpec.output:type_name -> shoal.v1alpha1.BuildOutput
+	73, // 81: shoal.v1alpha1.BuildConfigSpec.build_args:type_name -> shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
+	61, // 82: shoal.v1alpha1.BuildConfigSpec.webhook:type_name -> shoal.v1alpha1.BuildWebhook
+	62, // 83: shoal.v1alpha1.BuildConfigSpec.on_success:type_name -> shoal.v1alpha1.BuildOnSuccess
+	0,  // 84: shoal.v1alpha1.Build.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	67, // 85: shoal.v1alpha1.Build.spec:type_name -> shoal.v1alpha1.BuildSpec
+	68, // 86: shoal.v1alpha1.Build.status:type_name -> shoal.v1alpha1.BuildStatus
+	60, // 87: shoal.v1alpha1.BuildSpec.source:type_name -> shoal.v1alpha1.BuildConfigSpec
+	74, // 88: shoal.v1alpha1.BuildStatus.started_at:type_name -> google.protobuf.Timestamp
+	74, // 89: shoal.v1alpha1.BuildStatus.finished_at:type_name -> google.protobuf.Timestamp
+	90, // [90:90] is the sub-list for method output_type
+	90, // [90:90] is the sub-list for method input_type
+	90, // [90:90] is the sub-list for extension type_name
+	90, // [90:90] is the sub-list for extension extendee
+	0,  // [0:90] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_resources_proto_init() }
@@ -5594,7 +5748,7 @@ func file_api_v1alpha1_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   72,
+			NumMessages:   74,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
