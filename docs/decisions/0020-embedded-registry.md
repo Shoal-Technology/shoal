@@ -1,9 +1,10 @@
 ﻿# 0020: Embedded OCI registry
 
-Status: Accepted under ADR 0019 (Phase 1, items OB-22, OB-23, GL-40). Pass A
-is implemented: the registry listener, mTLS authorization, tag rows in the
-store and the `shoal registry` commands. Agent pull wiring, garbage collection
-and Project scoping are follow-ups (see "Follow-ups").
+Status: Accepted under ADR 0019 (Phase 1, items OB-22, OB-23, GL-40). Passes A
+and B are implemented. Pass A: the registry listener, mTLS authorization, tag
+rows in the store and the `shoal registry` commands. Pass B: agents pull from
+the registry over mTLS, and the `shoal.local` alias. Garbage collection and
+Project scoping are follow-ups (see "Follow-ups").
 
 ## Context
 
@@ -98,11 +99,40 @@ The design has to match the existing patterns:
 
 ### 6. Agents
 
-Agents already trust the cluster CA. Containerd still needs a `hosts.toml`
-entry for the registry (CA and, for node pulls, the node's client certificate),
-and image pull credentials delivered like other secrets. That wiring is Pass B.
-Until then, a Workload can pull from the registry only on a node that
-containerd is configured for by hand.
+Pass B (implemented):
+
+- The server advertises the registry in `NodeConfigResponse.registry_address`
+  (`api/v1alpha1/api.proto`) when `--registry-listen` is set. The address is
+  the advertised host (`--advertise-address`) with the listener's port
+  (`registryAddress`, `internal/server/network.go`). The registry certificate
+  already names the advertised host, so the agent's TLS check passes on it.
+  The agent reads it with its node config (`cmd/shoal/agent.go`,
+  `startConnected`). The cached copy in `node.conf` serves a restart while the
+  server is unreachable.
+- The agent trusts the registry with the cluster CA it already has and presents
+  its node certificate (`runtime.Registry`, `internal/runtime/registry.go`).
+  TLS 1.3 is required and verification is never skipped. The certificate is
+  read on each handshake (`Connected.Registry`), so a renewed certificate is
+  used without a restart. A node with no certificate fails the handshake.
+- The containerd pull resolver (`registryHosts`,
+  `internal/runtime/containerd/containerd_linux.go`) reaches the registry host
+  over that TLS client. Other hosts keep the logins of `image_pull_secrets`
+  and anonymous pulls, as before. No `hosts.toml` is written: that file would
+  hold the node's private key under `/etc/containerd` and go stale at each
+  renewal. The in-process settings need no root and no change to containerd's
+  configuration.
+- `shoal.local/<repo>:<tag>` maps to `<registry address>/<repo>:<tag>` in
+  `containerdRuntime.imageName`, for pulls and lookups alike, so the image is
+  stored under the name the agent pulled. On a node without a registry the alias
+  is left alone and the pull fails on an unknown host.
+- Authorization is the table in section 3. A node certificate pulls, and a
+  certificate whose Node was deleted is refused. The test
+  `TestAgentPullsOverMutualTLS` (`internal/registry/agent_pull_test.go`) runs
+  the agent's TLS settings against the registry.
+- Limits in v1: the agent trusts only the advertised address and the alias.
+  Other names in `--registry-name` are not mapped. A pull is by name: a node
+  that already has `<repo>:<tag>` does not pull again when the tag moves. The
+  registry port must be reachable from every node at the advertised host.
 
 ### 7. Garbage collection
 
@@ -120,14 +150,19 @@ never delete a digest that a tag still points to.
 - Admin certificate holders can push any repository. A stolen node
   certificate can read all images until its Node is deleted (at most 30 days
   of exposure from expiry, as in ADR 0007).
+- New pulls depend on the registry. If it is down, a node that needs an image it
+  does not have fails that pull, and running containers are not affected.
 - Registry data lives on the server that runs the listener. With `--store=raft`,
   tag rows replicate but blobs do not. Run the registry on one server until
   blob replication is decided.
 
 ## Follow-ups
 
-- Pass B: containerd `hosts.toml` for the registry, pull credentials through
-  `image_pull_secrets` (K-19), and the agent side of OB-22.
+- Re-pull when a tag moves: a node with `<repo>:<tag>` already in containerd
+  keeps that image. This belongs to the rollout path of OB-45, which should
+  resolve tags to digests.
+- Other registry names for agents (`--registry-name`), if needed, as a list
+  in NodeConfig rather than a single address.
 - `shoal registry gc` (CC-09).
 - Project-scoped access and tokens (GL-40 remainder), when Project lands.
 - Route exposure through ingress (ADR 0015) for external push over the

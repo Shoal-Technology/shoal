@@ -45,6 +45,11 @@ type Config struct {
 	ClusterCIDR string
 	ServiceCIDR string
 
+	// RegistryListen is the embedded registry's listen address (ADR 0020),
+	// empty when the registry is off. Agents dial the advertised host with
+	// this port (NodeConfig, ADR 0020 pass B).
+	RegistryListen string
+
 	HeartbeatInterval      time.Duration // asked of agents, default 5s
 	NodeNotReadyAfter      time.Duration // default 20s
 	NodeStatusPersistEvery time.Duration // default 30s
@@ -210,6 +215,9 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	cfg.setDefaults()
 	if cfg.DataDir == "" || cfg.AdvertiseAddress == "" || cfg.Log == nil {
 		return nil, errors.New("server: DataDir, AdvertiseAddress and Log are required")
+	}
+	if _, err := registryAddress(cfg.AdvertiseAddress, cfg.RegistryListen); err != nil {
+		return nil, err
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)

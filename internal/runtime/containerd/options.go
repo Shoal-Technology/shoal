@@ -38,6 +38,11 @@ type Options struct {
 	// the host's upstream resolvers.
 	DNSServer string
 	DNSSearch []string
+	// Registry, if set, is the embedded registry (ADR 0020, pass B). Pulls
+	// from its address use TLS with the cluster CA and the node's client
+	// certificate, and the shoal.local alias maps to it. Nil leaves pulls to
+	// the default resolver.
+	Registry *runtime.Registry
 }
 
 func (o *Options) setDefaults() {
