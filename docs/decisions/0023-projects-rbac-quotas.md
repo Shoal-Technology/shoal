@@ -338,12 +338,21 @@ reads a non-default object as `name.project`, with its project label.
 
 ### Known gaps (for review)
 
-1. **Cross-project references.** Pass A allowed a Route or Service in one
-   project to name a Workload in another. Pass B1 does not refuse such a
-   reference at apply, and the migration cannot rewrite it: a bare name in a
-   project object resolves in its own project only. After the migration, such a
-   reference reads as not found. Decision 5 puts default-deny in pass C, but the
-   apply check should land with B1 or B2. This is the first thing to review.
+1. **Cross-project references are refused (decision 5, pass B1).** A reference
+   from an object to an object in another project fails at apply with
+   `InvalidArgument`, naming both projects. The references are Route to
+   Service and TLS Secret, Service to Workload (selector), Workload to Secret,
+   Config, Volume and pull Secret, BuildConfig to Secret and to the Workload
+   it updates on success, and Pipeline to Secret (`resource.References`,
+   `internal/resource/refs.go`; the apply check is
+   `internal/server/crossproject.go`). An object's references resolve only
+   within its own project. The migration refuses pass-A data that holds such a
+   reference (`projmigrate.ErrCrossProject`, `internal/projmigrate/projmigrate.go`).
+   It takes no backup and changes nothing. The refusal lists each reference
+   and the remedy: move the object into the referring project, or delete the
+   reference, then upgrade. Environment targets (pass C) are not in this
+   change, because pass C has not merged. Cross-project service traffic policy
+   stays in pass C (decision 5).
 2. **Portal.** Reads by name use the any-project lookup. Writes go through the
    default project. Project screens are pass C.
 3. **Registry and build-cache quota** is pass C (decision 3).

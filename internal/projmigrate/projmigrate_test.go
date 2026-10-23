@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -44,10 +45,10 @@ func mustProto(t *testing.T, m proto.Message) []byte {
 func preMigration(t *testing.T) *memory.Store {
 	t.Helper()
 	s := memory.New(nil)
-	mustCreate(t, s, v1alpha1.KindWorkload, "api", tenancy.DefaultProject, []byte("api-spec"))
-	mustCreate(t, s, v1alpha1.KindWorkload, "web", "team-a", []byte("web-spec"))
+	mustCreate(t, s, v1alpha1.KindWorkload, "api", tenancy.DefaultProject, mustProto(t, &v1alpha1.WorkloadSpec{Image: "api"}))
+	mustCreate(t, s, v1alpha1.KindWorkload, "web", "team-a", mustProto(t, &v1alpha1.WorkloadSpec{Image: "web"}))
 	mustCreate(t, s, v1alpha1.KindVolume, "data", "team-a", []byte("vol"))
-	mustCreate(t, s, v1alpha1.KindRoute, "site", "team-a", []byte("route"))
+	mustCreate(t, s, v1alpha1.KindRoute, "site", "team-a", mustProto(t, &v1alpha1.RouteSpec{Host: "site.example.com"}))
 	mustCreate(t, s, v1alpha1.KindDatabase, "db", "team-a", []byte("db"))
 	// A Secret is sealed under the name it is stored with.
 	enc, err := store.NewEncryptingStore(s, testKey, v1alpha1.KindSecret)
@@ -108,7 +109,7 @@ func TestMigratesRenamesAndRewritesReferences(t *testing.T) {
 	// Default objects keep their keys; project objects move.
 	get(t, s, v1alpha1.KindWorkload, "api")
 	web := get(t, s, v1alpha1.KindWorkload, "web.team-a")
-	if tenancy.ProjectOf(web.Labels) != "team-a" || string(web.Spec) != "web-spec" {
+	if tenancy.ProjectOf(web.Labels) != "team-a" || specImage(t, web.Spec) != "web" {
 		t.Fatalf("moved workload: %+v", web)
 	}
 	if _, err := s.Get(ctx, v1alpha1.KindWorkload, "web"); err == nil {
@@ -259,4 +260,55 @@ func TestRefusesPartialState(t *testing.T) {
 			}
 		})
 	}
+}
+
+// specImage returns the image of an encoded Workload spec.
+func specImage(t *testing.T, b []byte) string {
+	t.Helper()
+	var ws v1alpha1.WorkloadSpec
+	if err := proto.Unmarshal(b, &ws); err != nil {
+		t.Fatal(err)
+	}
+	return ws.GetImage()
+}
+
+// TestRefusesCrossProjectReferences checks that pass-A data holding a
+// reference to another project is not migrated: the refusal lists the
+// reference, changes nothing, and takes no backup.
+func TestRefusesCrossProjectReferences(t *testing.T) {
+	s := memory.New(nil)
+	mustCreate(t, s, v1alpha1.KindService, "api", tenancy.DefaultProject, mustProto(t, &v1alpha1.ServiceSpec{Selector: "web"}))
+	mustCreate(t, s, v1alpha1.KindRoute, "site", "team-a", mustProto(t, &v1alpha1.RouteSpec{Host: "site.example.com", Service: "api"}))
+	rev := s.Revision()
+	backups := 0
+	err := Run(ctx, s, testKey, encKind, func(store.Dump) error { backups++; return nil }, nil)
+	if !errors.Is(err, ErrCrossProject) {
+		t.Fatalf("err = %v, want ErrCrossProject", err)
+	}
+	want := `Route "site" in project "team-a" references Service "api", which is in project "default"`
+	if !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "remedy:") {
+		t.Fatalf("refusal does not name the reference and the remedy: %v", err)
+	}
+	if backups != 0 {
+		t.Fatalf("a backup was taken for a refused migration")
+	}
+	if s.Revision() != rev {
+		t.Fatal("a refused migration changed the store")
+	}
+	if _, err := s.Get(ctx, MetaKind, MetaName); err == nil {
+		t.Fatal("version record written by a refused migration")
+	}
+}
+
+// TestSameProjectReferencesMigrate checks that a reference within one project
+// is not a cross-project reference, even when another project holds the name.
+func TestSameProjectReferencesMigrate(t *testing.T) {
+	s := memory.New(nil)
+	mustCreate(t, s, v1alpha1.KindService, "api", tenancy.DefaultProject, mustProto(t, &v1alpha1.ServiceSpec{Selector: "web"}))
+	mustCreate(t, s, v1alpha1.KindService, "edge", "team-a", mustProto(t, &v1alpha1.ServiceSpec{Selector: "web"}))
+	mustCreate(t, s, v1alpha1.KindRoute, "site", "team-a", mustProto(t, &v1alpha1.RouteSpec{Host: "site.example.com", Service: "edge"}))
+	if err := Run(ctx, s, testKey, encKind, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	get(t, s, v1alpha1.KindRoute, "site.team-a")
 }

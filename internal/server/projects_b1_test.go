@@ -200,3 +200,50 @@ func TestStartMigratesAPreProjectStore(t *testing.T) {
 
 // filepathGlob is filepath.Glob, kept here so the test reads as one file.
 func filepathGlob(pattern string) ([]string, error) { return filepath.Glob(pattern) }
+
+// TestCrossProjectReferencesRefused checks that an apply refuses each kind of
+// reference to an object in another project, with both projects named, and
+// accepts the same reference within one project (ADR 0023, pass B1).
+func TestCrossProjectReferencesRefused(t *testing.T) {
+	ts := startServer(t, t.TempDir(), &clock{})
+	p := projectClient{t: t, admin: ts.admin(t), ctx: context.Background()}
+	p.mustApply(projDoc(v1alpha1.KindProject, "team-a", "", ""))
+	// The targets live in the default project.
+	p.mustApply(projDoc(v1alpha1.KindWorkload, "web", "", workloadBody(1, "100m")))
+	p.mustApply(projDoc(v1alpha1.KindService, "api", "", "  selector: web\n  ports:\n  - port: 80\n    targetPort: 8080\n    protocol: tcp\n"))
+	p.mustApply(projDoc(v1alpha1.KindSecret, "creds", "", "  data:\n    token: c2VjcmV0\n"))
+	p.mustApply(projDoc(v1alpha1.KindConfig, "settings", "", "  data:\n    level: info\n"))
+	p.mustApply(projDoc(v1alpha1.KindVolume, "data", "", "  size: 1Gi\n"))
+
+	image := "  image: nginx:1.27\n"
+	cases := []struct {
+		name, kind, spec, want string
+	}{
+		{"route to service", v1alpha1.KindRoute, "  host: site.example.com\n  service: api\n  port: 80\n",
+			`Route "site" in project "team-a" references Service "api", which is in project "default"`},
+		{"service to workload", v1alpha1.KindService, "  selector: web\n  ports:\n  - port: 80\n    targetPort: 8080\n    protocol: tcp\n",
+			`Service "api2" in project "team-a" references Workload "web", which is in project "default"`},
+		{"workload env to secret", v1alpha1.KindWorkload, image + "  env:\n  - name: TOKEN\n    valueFrom:\n      secret:\n        name: creds\n        key: token\n",
+			`Workload "w" in project "team-a" references Secret "creds", which is in project "default"`},
+		{"workload file to config", v1alpha1.KindWorkload, image + "  files:\n  - path: /etc/app.conf\n    config: settings\n",
+			`Workload "w" in project "team-a" references Config "settings", which is in project "default"`},
+		{"workload to volume", v1alpha1.KindWorkload, image + "  volumes:\n  - name: data\n    mountPath: /data\n",
+			`Workload "w" in project "team-a" references Volume "data", which is in project "default"`},
+		{"workload pull secret", v1alpha1.KindWorkload, image + "  imagePullSecrets:\n  - creds\n",
+			`Workload "w" in project "team-a" references Secret "creds", which is in project "default"`},
+		{"pipeline to secret", v1alpha1.KindPipeline, "  repo: https://example.com/acme/app.git\n  credentialsSecret: creds\n",
+			`Pipeline "p" in project "team-a" references Secret "creds", which is in project "default"`},
+	}
+	for _, tc := range cases {
+		name := map[string]string{
+			v1alpha1.KindRoute: "site", v1alpha1.KindService: "api2", v1alpha1.KindWorkload: "w", v1alpha1.KindPipeline: "p",
+		}[tc.kind]
+		_, err := p.apply(projDoc(tc.kind, name, "team-a", tc.spec))
+		projWantStatus(t, err, codes.InvalidArgument, tc.want)
+		_ = tc.name
+	}
+
+	// The same references within team-a are accepted.
+	p.mustApply(projDoc(v1alpha1.KindSecret, "creds", "team-a", "  data:\n    token: c2VjcmV0\n"))
+	p.mustApply(projDoc(v1alpha1.KindWorkload, "w", "team-a", image+"  env:\n  - name: TOKEN\n    valueFrom:\n      secret:\n        name: creds\n        key: token\n"))
+}

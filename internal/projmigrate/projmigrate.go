@@ -17,11 +17,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
 	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
@@ -41,6 +43,12 @@ const (
 // newer than this server. Nothing is changed. The operator restores a backup
 // taken before the migration, or runs the server version that wrote it.
 var ErrPartial = errors.New("partial project migration")
+
+// ErrCrossProject means the pass-A data holds a reference from an object to
+// an object in another project. Pass B1 resolves references only within a
+// project, so the store is not migrated. Nothing is changed, and no backup is
+// taken: the operator moves or deletes the references, then upgrades.
+var ErrCrossProject = errors.New("references across projects")
 
 type marker struct {
 	Version int `json:"version"`
@@ -125,6 +133,17 @@ func Build(recs []store.Record, key []byte, encKinds []string) (Plan, error) {
 			return Plan{}, fmt.Errorf("%w: %s %q is in project %q but keyed by its bare name, while the store is version %d", ErrPartial, r.Kind, r.Name, p, from)
 		case from == 0 && p != tenancy.DefaultProject:
 			movedFrom = append(movedFrom, r)
+		}
+	}
+
+	if from == 0 {
+		refs, err := crossProjectRefs(recs)
+		if err != nil {
+			return Plan{}, err
+		}
+		if len(refs) > 0 {
+			return Plan{}, fmt.Errorf("%w: %d reference(s) name an object in another project:\n  %s\nremedy: before upgrading, move each referenced object into the project of the object that names it (delete it, then apply it again there), or delete the reference; then run the upgrade again",
+				ErrCrossProject, len(refs), strings.Join(refs, "\n  "))
 		}
 	}
 
@@ -317,6 +336,9 @@ func Run(ctx context.Context, st store.Store, key []byte, encKinds []string, bac
 	}
 	plan, err := Build(d.Records, key, encKinds)
 	if err != nil {
+		if errors.Is(err, ErrCrossProject) {
+			return fmt.Errorf("project migration refused, nothing changed: %w", err)
+		}
 		return fmt.Errorf("project migration refused, nothing changed: %w (restore a backup taken before the migration, or run the server version that wrote the store)", err)
 	}
 	if plan.Empty() {
@@ -342,6 +364,61 @@ func Run(ctx context.Context, st store.Store, key []byte, encKinds []string, bac
 	if log != nil {
 		log.Info("migrated the store to project keys", "fromVersion", plan.From, "toVersion", Version,
 			"renamed", len(plan.Moves), "rewritten", len(plan.Puts)-1)
+	}
+	return nil
+}
+
+// crossProjectRefs lists the references of the pass-A records that name an
+// object of another project, in a fixed order. Before version 1 a bare name is
+// unique cluster-wide, so a reference names at most one object.
+func crossProjectRefs(recs []store.Record) ([]string, error) {
+	targets := map[string]map[string][]string{} // kind -> bare name -> projects
+	for _, r := range recs {
+		if !tenancy.ProjectScoped(r.Kind) {
+			continue
+		}
+		if targets[r.Kind] == nil {
+			targets[r.Kind] = map[string][]string{}
+		}
+		targets[r.Kind][r.Name] = append(targets[r.Kind][r.Name], tenancy.ProjectOf(r.Labels))
+	}
+	var out []string
+	for _, r := range recs {
+		spec := specMessage(r.Kind)
+		if !tenancy.ProjectScoped(r.Kind) || spec == nil {
+			continue
+		}
+		if err := proto.Unmarshal(r.Spec, spec); err != nil {
+			return nil, fmt.Errorf("%s %q: its spec does not decode: %w", r.Kind, r.Name, err)
+		}
+		p := tenancy.ProjectOf(r.Labels)
+		for _, ref := range resource.References(r.Kind, spec) {
+			ps := targets[ref.Kind][ref.Name]
+			if len(ps) == 0 || slices.Contains(ps, p) {
+				continue
+			}
+			out = append(out, fmt.Sprintf("%s %q in project %q references %s %q, which is in project %q",
+				r.Kind, r.Name, p, ref.Kind, ref.Name, ps[0]))
+		}
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
+// specMessage returns an empty spec message for the kinds that hold
+// references, or nil for the others.
+func specMessage(kind string) proto.Message {
+	switch kind {
+	case v1alpha1.KindRoute:
+		return &v1alpha1.RouteSpec{}
+	case v1alpha1.KindService:
+		return &v1alpha1.ServiceSpec{}
+	case v1alpha1.KindWorkload:
+		return &v1alpha1.WorkloadSpec{}
+	case v1alpha1.KindBuildConfig:
+		return &v1alpha1.BuildConfigSpec{}
+	case v1alpha1.KindPipeline:
+		return &v1alpha1.PipelineSpec{}
 	}
 	return nil
 }

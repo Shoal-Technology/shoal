@@ -81,6 +81,12 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 			return nil, err
 		}
 	}
+	// References resolve only within a project (ADR 0023, pass B1).
+	cross, err := c.s.crossProjectErrors(ctx, objs)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	errs = append(errs, cross...)
 	// Objects a Database owns are changed through the Database (ADR 0016, pass C).
 	for _, o := range objs {
 		switch o.kind {
