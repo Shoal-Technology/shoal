@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	goruntime "runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,9 +35,12 @@ import (
 
 // ConnectedConfig configures an agent that is managed by a server.
 type ConnectedConfig struct {
-	// Server is the server's host:port. Optional once joined: the saved
-	// address is used, and a different one given here replaces it.
-	Server string
+	// Servers are the host:port addresses of the cluster's servers. The agent
+	// talks to the leader: when a follower names it, the agent moves there,
+	// and it reconnects to the others when the leader is lost. Optional once
+	// joined: the saved address is used, and servers given here replace it
+	// unless it is one of them.
+	Servers []string
 	// Token and CAHash are only needed for the first join.
 	Token  string
 	CAHash string
@@ -100,6 +104,11 @@ type Connected struct {
 	reconnect     chan struct{}                     // asks the sync loop to reconnect (after renewal)
 	desired       chan *v1alpha1.AssignmentSnapshot // latest snapshot for the reconciler (latest wins)
 	statusChanged chan struct{}                     // asks the session to send a heartbeat now
+
+	servers []string    // known servers in order; a server joins the list once it accepts a session
+	target  string      // server the next session or request dials (see pickServer)
+	hops    int         // leader hints followed since a session last succeeded (see followHint)
+	retry   retryPolicy // reconnect backoff (see policy)
 }
 
 // Backoff bounds for reconnecting to the server.
@@ -124,6 +133,10 @@ func NewConnected(ctx context.Context, cfg ConnectedConfig) (*Connected, error) 
 		reconnect:     make(chan struct{}, 1),
 		desired:       make(chan *v1alpha1.AssignmentSnapshot, 1),
 		statusChanged: make(chan struct{}, 1),
+		servers:       normalizeServers(cfg.Servers),
+	}
+	if len(c.servers) > 0 {
+		c.target = c.servers[0]
 	}
 	creds, err := security.LoadClientConfig(cfg.CredentialsPath)
 	switch {
@@ -163,19 +176,23 @@ func (c *Connected) useSaved(creds *security.ClientConfig) error {
 	if c.cfg.Token != "" {
 		c.log.Info("already joined; ignoring --token", "node", id.Name)
 	}
-	if c.cfg.Server != "" && c.cfg.Server != creds.Server {
-		c.log.Info("server address changed", "old", creds.Server, "new", c.cfg.Server)
-		creds.Server = c.cfg.Server
+	if len(c.servers) > 0 && !slices.Contains(c.servers, creds.Server) {
+		c.log.Info("server address changed", "old", creds.Server, "new", c.servers[0])
+		creds.Server = c.servers[0]
 		if err := creds.Save(c.cfg.CredentialsPath); err != nil {
 			return err
 		}
 	}
+	if len(c.servers) == 0 {
+		c.servers = []string{creds.Server}
+	}
 	c.creds, c.ca, c.cert, c.name = creds, p.CA, &p.TLSCert, id.Name
+	c.target = creds.Server
 	return nil
 }
 
 func (c *Connected) join(ctx context.Context) error {
-	if c.cfg.Server == "" || c.cfg.Token == "" || c.cfg.CAHash == "" {
+	if len(c.servers) == 0 || c.cfg.Token == "" || c.cfg.CAHash == "" {
 		return errors.New("not joined yet: --server, --token and --ca-hash are required (see `shoal token create` on the server)")
 	}
 	name := c.cfg.NodeName
@@ -197,53 +214,66 @@ func (c *Connected) join(ctx context.Context) error {
 		return err
 	}
 
-	var pinned security.PinnedCA
-	conn, err := dial(c.cfg.Server, security.PinnedTLS(c.cfg.CAHash, &pinned))
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	c.log.Info("joining cluster", "server", c.cfg.Server, "node", name)
-	var resp *v1alpha1.JoinResponse
-	for delay := reconnectMin; ; delay = min(delay*2, reconnectMax) {
+	var (
+		resp   *v1alpha1.JoinResponse
+		addr   string
+		caCert *x509.Certificate
+	)
+	pol := c.policy()
+	c.log.Info("joining cluster", "servers", c.servers, "node", name)
+	for delay := pol.min; ; delay = min(delay*2, pol.max) {
+		addr = c.pickServer()
+		var pinned security.PinnedCA
+		conn, err := dial(addr, security.PinnedTLS(c.cfg.CAHash, &pinned))
+		if err != nil {
+			return err
+		}
 		jctx, cancel := context.WithTimeout(ctx, rpcTimeout)
 		resp, err = v1alpha1.NewJoinClient(conn).Join(jctx, &v1alpha1.JoinRequest{Token: c.cfg.Token, NodeName: name, Csr: csr})
 		cancel()
+		conn.Close()
 		if err == nil {
+			caCert = pinned.Cert()
 			break
 		}
-		// Only connection problems are worth retrying; a rejected token or
-		// an untrusted server won't fix itself.
+		// A rejected token or an untrusted server won't fix itself.
 		if perr := pinned.Err(); perr != nil {
-			return fmt.Errorf("join %s: %w (check --ca-hash)", c.cfg.Server, perr)
+			return fmt.Errorf("join %s: %w (check --ca-hash)", addr, perr)
 		}
-		if status.Code(err) != codes.Unavailable && status.Code(err) != codes.DeadlineExceeded {
-			return fmt.Errorf("join %s: %s", c.cfg.Server, status.Convert(err).Message())
+		if leader, ok := leaderHint(err); ok && c.followHint(leader) {
+			c.log.Info("server is not the leader; joining through the leader", "server", addr, "leader", leader)
+			continue
 		}
-		c.log.Warn("cannot reach server, retrying", "server", c.cfg.Server, "in", delay, "err", err)
-		if err := sleep(ctx, delay); err != nil {
+		if !retryable(err) {
+			return fmt.Errorf("join %s: %s", addr, status.Convert(err).Message())
+		}
+		c.moveOn(addr)
+		c.log.Warn("cannot reach server, retrying", "server", addr, "in", delay, "err", err)
+		if err := pol.wait(ctx, delay); err != nil {
 			return err
 		}
 	}
 
 	ca, err := x509.ParseCertificate(resp.GetCaCertificate())
-	if err != nil || pinned.Cert() == nil || !ca.Equal(pinned.Cert()) {
+	if err != nil || caCert == nil || !ca.Equal(caCert) {
 		return errors.New("join: server returned a CA that differs from the pinned one")
 	}
 	cert, err := checkIssued(resp.GetCertificate(), ca, key)
 	if err != nil {
 		return fmt.Errorf("join: %w", err)
 	}
-	creds, err := security.NewClientConfig(c.cfg.Server, ca, cert, key)
+	creds, err := security.NewClientConfig(addr, ca, cert, key)
 	if err != nil {
 		return err
 	}
 	if err := creds.Save(c.cfg.CredentialsPath); err != nil {
 		return err
 	}
-	c.log.Info("joined cluster", "node", name, "credentials", c.cfg.CredentialsPath, "certExpires", cert.NotAfter)
+	c.log.Info("joined cluster", "node", name, "server", addr, "credentials", c.cfg.CredentialsPath, "certExpires", cert.NotAfter)
 	c.creds, c.ca, c.name = creds, ca, name
 	c.cert = &tls.Certificate{Certificate: [][]byte{cert.Raw}, PrivateKey: key, Leaf: cert}
+	c.target = addr
+	c.servers = addServer(c.servers, addr)
 	return nil
 }
 
@@ -283,11 +313,16 @@ func (c *Connected) currentCert() (*tls.Certificate, error) {
 	return c.cert, nil
 }
 
+// dial connects to the server the agent currently prefers (see pickServer).
 func (c *Connected) dial() (*grpc.ClientConn, error) {
+	return c.dialAddr(c.pickServer())
+}
+
+func (c *Connected) dialAddr(addr string) (*grpc.ClientConn, error) {
 	c.mu.Lock()
-	server, ca := c.creds.Server, c.ca
+	ca := c.ca
 	c.mu.Unlock()
-	return dial(server, security.ClientTLS(ca, c.currentCert))
+	return dial(addr, security.ClientTLS(ca, c.currentCert))
 }
 
 func dial(server string, tc *tls.Config) (*grpc.ClientConn, error) {
@@ -329,29 +364,38 @@ func (c *Connected) Run(ctx context.Context) error {
 		}()
 	}
 
-	delay := reconnectMin
+	pol := c.policy()
+	delay := pol.min
 	for {
+		addr := c.pickServer()
 		start := time.Now()
-		err := c.session(ctx)
+		err := c.session(ctx, addr)
 		if ctx.Err() != nil {
 			return nil
 		}
 		if time.Since(start) > time.Minute {
-			delay = reconnectMin // the session was healthy for a while
+			delay = pol.min // the session was healthy for a while
 		}
 		wait := delay
+		leader, hinted := leaderHint(err)
 		switch code := status.Code(err); {
 		case errors.Is(err, errReconnect):
 			c.log.Info("reconnecting with renewed certificate")
 			wait = 0
+		case hinted && c.followHint(leader):
+			c.log.Info("server is not the leader; following the leader hint", "server", addr, "leader", leader)
+			wait = 0
 		case code == codes.PermissionDenied || code == codes.Unauthenticated:
-			c.log.Error("server rejected this node", "err", status.Convert(err).Message())
-			wait = reconnectDenied
+			c.log.Error("server rejected this node", "server", addr, "err", status.Convert(err).Message())
+			c.moveOn(addr)
+			wait = pol.denied
 		default:
-			c.log.Warn("lost connection to server", "err", err, "retryIn", wait)
-			delay = min(delay*2, reconnectMax)
+			wait = jittered(delay)
+			c.log.Warn("lost connection to server", "server", addr, "err", err, "retryIn", wait)
+			c.moveOn(addr)
+			delay = min(delay*2, pol.max)
 		}
-		if err := sleep(ctx, wait); err != nil {
+		if err := pol.wait(ctx, wait); err != nil {
 			return nil
 		}
 	}
@@ -359,11 +403,12 @@ func (c *Connected) Run(ctx context.Context) error {
 
 var errReconnect = errors.New("reconnect requested")
 
-// session runs one Sync stream until it fails: it hands assignment
+// session runs one Sync stream with addr until it fails: it hands assignment
 // snapshots to the reconciler and sends heartbeats at the interval the
-// server asks for, and right away when replica statuses change.
-func (c *Connected) session(ctx context.Context) error {
-	conn, err := c.dial()
+// server asks for, and right away when replica statuses change. A follower
+// refuses the stream and names the leader (see Run).
+func (c *Connected) session(ctx context.Context, addr string) error {
+	conn, err := c.dialAddr(addr)
 	if err != nil {
 		return err
 	}
@@ -378,16 +423,14 @@ func (c *Connected) session(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c.served(addr)
 	c.setConnected(true)
 	defer c.setConnected(false)
 	interval := first.GetConfig().GetHeartbeatInterval().AsDuration()
 	if interval < time.Second {
 		interval = 5 * time.Second
 	}
-	c.mu.Lock()
-	server := c.creds.Server
-	c.mu.Unlock()
-	c.log.Info("connected to server", "server", server, "node", c.name, "heartbeatInterval", interval)
+	c.log.Info("connected to server", "server", addr, "node", c.name, "heartbeatInterval", interval)
 
 	recvErr := make(chan error, 1)
 	go func() {
@@ -441,9 +484,12 @@ func (c *Connected) session(ctx context.Context) error {
 // reached it falls back to the last settings received; without those it
 // retries until ctx is done (containers can't start without a subnet).
 func (c *Connected) NodeConfig(ctx context.Context) (*v1alpha1.NodeConfigResponse, error) {
-	for delay := reconnectMin; ; delay = min(delay*2, reconnectMax) {
-		cfg, err := c.fetchNodeConfig(ctx)
+	pol := c.policy()
+	for delay := pol.min; ; delay = min(delay*2, pol.max) {
+		addr := c.pickServer()
+		cfg, err := c.fetchNodeConfig(ctx, addr)
 		if err == nil {
+			c.served(addr)
 			if b, err := protojson.Marshal(cfg); err == nil && c.cfg.NodeConfigPath != "" {
 				if err := security.WriteFileAtomic(c.cfg.NodeConfigPath, b, 0o600); err != nil {
 					c.log.Warn("cache node config", "err", err)
@@ -454,22 +500,27 @@ func (c *Connected) NodeConfig(ctx context.Context) (*v1alpha1.NodeConfigRespons
 		if code := status.Code(err); code == codes.PermissionDenied || code == codes.Unauthenticated {
 			return nil, fmt.Errorf("get node config: %s", status.Convert(err).Message())
 		}
+		if leader, ok := leaderHint(err); ok && c.followHint(leader) {
+			c.log.Info("server is not the leader; asking the leader for node config", "server", addr, "leader", leader)
+			continue
+		}
+		c.moveOn(addr)
 		if b, rerr := os.ReadFile(c.cfg.NodeConfigPath); rerr == nil {
 			cached := &v1alpha1.NodeConfigResponse{}
 			if protojson.Unmarshal(b, cached) == nil && cached.GetPodCidr() != "" {
-				c.log.Warn("server unreachable, using cached node config", "err", err, "podCIDR", cached.GetPodCidr())
+				c.log.Warn("server unreachable, using cached node config", "server", addr, "err", err, "podCIDR", cached.GetPodCidr())
 				return cached, nil
 			}
 		}
-		c.log.Warn("cannot get node config from the server, retrying", "in", delay, "err", err)
-		if err := sleep(ctx, delay); err != nil {
+		c.log.Warn("cannot get node config from the server, retrying", "server", addr, "in", delay, "err", err)
+		if err := pol.wait(ctx, delay); err != nil {
 			return nil, err
 		}
 	}
 }
 
-func (c *Connected) fetchNodeConfig(ctx context.Context) (*v1alpha1.NodeConfigResponse, error) {
-	conn, err := c.dial()
+func (c *Connected) fetchNodeConfig(ctx context.Context, addr string) (*v1alpha1.NodeConfigResponse, error) {
+	conn, err := c.dialAddr(addr)
 	if err != nil {
 		return nil, err
 	}

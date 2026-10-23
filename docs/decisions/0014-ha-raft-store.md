@@ -171,7 +171,11 @@ Option B is implemented.
   rejects a write before it changes anything, so the retry cannot apply a
   write twice.
 - Scope: unary RPCs only. Streaming RPCs that write (agent streams) are not
-  forwarded. Agents reconnect to a leader through the join flow.
+  forwarded. Instead, a follower refuses an agent's `Sync` with the same
+  not-leader message and the leader's address. An agent given several
+  `--server` addresses dials that leader, and it rotates through the servers
+  with backoff when the leader is lost (`internal/agent/connected.go`,
+  `servers.go`).
 - Test: `TestRaftWriteForwarding` (cluster_test.go) covers a write through a
   follower, a leader stop with a new leader record, a write through the
   surviving follower, reads of pre- and post-failover records, and leader
