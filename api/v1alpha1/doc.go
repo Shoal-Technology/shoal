@@ -20,8 +20,11 @@ const (
 	KindDatabase    = "Database"
 	KindBuildConfig = "BuildConfig"
 	KindBuild       = "Build"
-	KindJoinToken   = "JoinToken" // internal
-	KindUIAuth      = "UIAuth"    // internal
+	KindPipeline    = "Pipeline"    // ADR 0022
+	KindPipelineRun = "PipelineRun" // ADR 0022
+	KindJob         = "Job"         // ADR 0022, K-06 subset
+	KindJoinToken   = "JoinToken"   // internal
+	KindUIAuth      = "UIAuth"      // internal
 
 	// Internal kinds for automatic TLS (ADR 0015, pass C). Not user-appliable.
 	KindCertificate   = "Certificate"

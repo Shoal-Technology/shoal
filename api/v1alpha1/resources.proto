@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package shoal.v1alpha1;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1";
@@ -727,4 +728,191 @@ message BuildStatus {
   string log_ref = 8;
   // The Workload whose image was set to this Build's digest (OB-45). Set once.
   string workload_updated = 9;
+}
+
+// Pipeline is the definition of the pipeline of one repository (ADR 0022).
+// Each execution is a PipelineRun. The jobs come from the repository's
+// shoal-ci.yml, copied into each run.
+message Pipeline {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  PipelineSpec spec = 4;
+  PipelineStatus status = 5;
+}
+
+message PipelineSpec {
+  // A git URL, checked as BuildConfig's git URL is (ADR 0021).
+  string repo = 1;
+  // Branch, tag or commit that manual runs read. Defaults to HEAD.
+  string ref = 2;
+  // File inside the repository. Defaults to shoal-ci.yml.
+  string path = 3;
+  // Name of a Secret for the clone, as in ADR 0021.
+  string credentials_secret = 4;
+}
+
+message PipelineStatus {
+  // The newest run of this pipeline, and its phase. Set by the controller.
+  string last_run = 1;
+  string last_phase = 2;
+}
+
+// PipelineRun is one execution of a Pipeline (ADR 0022). The server creates
+// it; the controller expands it into Jobs and owns its status.
+message PipelineRun {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  PipelineRunSpec spec = 4;
+  PipelineRunStatus status = 5;
+}
+
+message PipelineRunSpec {
+  // The Pipeline this run came from.
+  string pipeline = 1;
+  // The parsed shoal-ci.yml, taken when the run was created. Later commits do
+  // not change a run.
+  PipelineSource source = 2;
+  // manual, push, pull_request or tag.
+  string trigger = 3;
+  // The commit that was read, and the ref it was read from.
+  string commit = 4;
+  string ref = 5;
+  // protected, same-repo or fork. Set by the server, never by the file (ADR
+  // 0022, section 7).
+  string trust = 6;
+  // Set by CancelPipelineRun. The controller stops the run.
+  bool cancel_requested = 7;
+  // Paths changed in the commit range. Used by changes rules.
+  repeated string changed_paths = 8;
+}
+
+message PipelineRunStatus {
+  // New, Running, Complete, Failed, Error or Cancelled.
+  string phase = 1;
+  string message = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp finished_at = 4;
+}
+
+// PipelineSource is a parsed shoal-ci.yml.
+message PipelineSource {
+  // Stage names, in the order they run.
+  repeated string stages = 1;
+  // Variables of every job of the run.
+  map<string, string> variables = 2;
+  // Jobs in the order they appear in the file.
+  repeated PipelineJob jobs = 3;
+}
+
+// PipelineJob is one job as written in shoal-ci.yml.
+message PipelineJob {
+  string name = 1;
+  string stage = 2;
+  // Jobs of earlier stages this job waits for.
+  repeated string needs = 3;
+  string image = 4;
+  repeated string script = 5;
+  map<string, string> variables = 6;
+  repeated string tags = 7;
+  // on_success, always, manual or never. Used when the job has no rules.
+  string when = 8;
+  bool allow_failure = 9;
+  repeated PipelineRule rules = 10;
+  google.protobuf.Duration timeout = 11;
+  JobRetry retry = 12;
+  JobCache cache = 13;
+  JobArtifacts artifacts = 14;
+  // Environment variable name to Secret reference. Values are never stored.
+  map<string, SecretRef> secrets = 15;
+  // Name of a BuildConfig. A build job starts a Build (ADR 0021).
+  string build = 16;
+  JobDeploy deploy = 17;
+  JobEnvironment environment = 18;
+}
+
+// PipelineRule is one entry of a job's rules.
+message PipelineRule {
+  // branch == "name", tag == true, event == "push" joined by &&. Empty when
+  // the rule has no condition.
+  string condition = 1;
+  // Glob patterns over the changed paths. Empty when the rule has none.
+  repeated string changes = 2;
+  // on_success, always, manual or never. Empty means on_success.
+  string when = 3;
+}
+
+message JobRetry {
+  int32 max = 1;
+  // runner_error and node_lost are the only reasons retried (ADR 0022,
+  // section 5).
+  repeated string when = 2;
+}
+
+message JobCache {
+  string key = 1;
+  repeated string paths = 2;
+}
+
+message JobArtifacts {
+  repeated string paths = 1;
+  google.protobuf.Duration expire_in = 2;
+}
+
+message SecretRef {
+  string secret = 1;
+  string key = 2;
+}
+
+message JobDeploy {
+  string workload = 1;
+  // A build job of an earlier stage whose digest the deploy uses.
+  string from = 2;
+}
+
+message JobEnvironment {
+  string name = 1;
+  // Only "required" is accepted. The gate is pass C.
+  string approval = 2;
+}
+
+// Job is one job of one PipelineRun (ADR 0022, section 4). The controller
+// creates it and owns its status.
+message Job {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  JobSpec spec = 4;
+  JobStatus status = 5;
+}
+
+message JobSpec {
+  // The PipelineRun this job belongs to.
+  string pipeline_run = 1;
+  // The job as written in the file.
+  PipelineJob job = 2;
+  // The when after rules were applied. A job with no rules keeps its own.
+  string when = 3;
+  bool allow_failure = 4;
+  // Variables the job runs with: the run's, then the job's. No secret values.
+  map<string, string> env = 5;
+  // Set by PlayJob. The controller starts a manual job that was asked to run.
+  bool play_requested = 6;
+}
+
+message JobStatus {
+  // New, Pending, Running, Manual, Complete, Failed, Error, Cancelled or
+  // Skipped. Error is an infrastructure failure; Failed is a job that ran
+  // and failed.
+  string phase = 1;
+  string message = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp finished_at = 4;
+  string node = 5;
+  int32 exit_code = 6;
+  // Tries so far, counting the first (retry).
+  int32 attempt = 7;
+  // Name of the log stream the runner writes.
+  string log_ref = 8;
 }

@@ -9,6 +9,7 @@ package v1alpha1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -5094,11 +5095,1373 @@ func (x *BuildStatus) GetWorkloadUpdated() string {
 	return ""
 }
 
+// Pipeline is the definition of the pipeline of one repository (ADR 0022).
+// Each execution is a PipelineRun. The jobs come from the repository's
+// shoal-ci.yml, copied into each run.
+type Pipeline struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *PipelineSpec          `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Status        *PipelineStatus        `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pipeline) Reset() {
+	*x = Pipeline{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pipeline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pipeline) ProtoMessage() {}
+
+func (x *Pipeline) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pipeline.ProtoReflect.Descriptor instead.
+func (*Pipeline) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *Pipeline) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *Pipeline) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Pipeline) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *Pipeline) GetSpec() *PipelineSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *Pipeline) GetStatus() *PipelineStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type PipelineSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A git URL, checked as BuildConfig's git URL is (ADR 0021).
+	Repo string `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
+	// Branch, tag or commit that manual runs read. Defaults to HEAD.
+	Ref string `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
+	// File inside the repository. Defaults to shoal-ci.yml.
+	Path string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	// Name of a Secret for the clone, as in ADR 0021.
+	CredentialsSecret string `protobuf:"bytes,4,opt,name=credentials_secret,json=credentialsSecret,proto3" json:"credentials_secret,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PipelineSpec) Reset() {
+	*x = PipelineSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineSpec) ProtoMessage() {}
+
+func (x *PipelineSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineSpec.ProtoReflect.Descriptor instead.
+func (*PipelineSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *PipelineSpec) GetRepo() string {
+	if x != nil {
+		return x.Repo
+	}
+	return ""
+}
+
+func (x *PipelineSpec) GetRef() string {
+	if x != nil {
+		return x.Ref
+	}
+	return ""
+}
+
+func (x *PipelineSpec) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *PipelineSpec) GetCredentialsSecret() string {
+	if x != nil {
+		return x.CredentialsSecret
+	}
+	return ""
+}
+
+type PipelineStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The newest run of this pipeline, and its phase. Set by the controller.
+	LastRun       string `protobuf:"bytes,1,opt,name=last_run,json=lastRun,proto3" json:"last_run,omitempty"`
+	LastPhase     string `protobuf:"bytes,2,opt,name=last_phase,json=lastPhase,proto3" json:"last_phase,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineStatus) Reset() {
+	*x = PipelineStatus{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineStatus) ProtoMessage() {}
+
+func (x *PipelineStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineStatus.ProtoReflect.Descriptor instead.
+func (*PipelineStatus) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *PipelineStatus) GetLastRun() string {
+	if x != nil {
+		return x.LastRun
+	}
+	return ""
+}
+
+func (x *PipelineStatus) GetLastPhase() string {
+	if x != nil {
+		return x.LastPhase
+	}
+	return ""
+}
+
+// PipelineRun is one execution of a Pipeline (ADR 0022). The server creates
+// it; the controller expands it into Jobs and owns its status.
+type PipelineRun struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *PipelineRunSpec       `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Status        *PipelineRunStatus     `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineRun) Reset() {
+	*x = PipelineRun{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineRun) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineRun) ProtoMessage() {}
+
+func (x *PipelineRun) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineRun.ProtoReflect.Descriptor instead.
+func (*PipelineRun) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *PipelineRun) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *PipelineRun) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *PipelineRun) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *PipelineRun) GetSpec() *PipelineRunSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *PipelineRun) GetStatus() *PipelineRunStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type PipelineRunSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The Pipeline this run came from.
+	Pipeline string `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
+	// The parsed shoal-ci.yml, taken when the run was created. Later commits do
+	// not change a run.
+	Source *PipelineSource `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	// manual, push, pull_request or tag.
+	Trigger string `protobuf:"bytes,3,opt,name=trigger,proto3" json:"trigger,omitempty"`
+	// The commit that was read, and the ref it was read from.
+	Commit string `protobuf:"bytes,4,opt,name=commit,proto3" json:"commit,omitempty"`
+	Ref    string `protobuf:"bytes,5,opt,name=ref,proto3" json:"ref,omitempty"`
+	// protected, same-repo or fork. Set by the server, never by the file (ADR
+	// 0022, section 7).
+	Trust string `protobuf:"bytes,6,opt,name=trust,proto3" json:"trust,omitempty"`
+	// Set by CancelPipelineRun. The controller stops the run.
+	CancelRequested bool `protobuf:"varint,7,opt,name=cancel_requested,json=cancelRequested,proto3" json:"cancel_requested,omitempty"`
+	// Paths changed in the commit range. Used by changes rules.
+	ChangedPaths  []string `protobuf:"bytes,8,rep,name=changed_paths,json=changedPaths,proto3" json:"changed_paths,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineRunSpec) Reset() {
+	*x = PipelineRunSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineRunSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineRunSpec) ProtoMessage() {}
+
+func (x *PipelineRunSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineRunSpec.ProtoReflect.Descriptor instead.
+func (*PipelineRunSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *PipelineRunSpec) GetPipeline() string {
+	if x != nil {
+		return x.Pipeline
+	}
+	return ""
+}
+
+func (x *PipelineRunSpec) GetSource() *PipelineSource {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *PipelineRunSpec) GetTrigger() string {
+	if x != nil {
+		return x.Trigger
+	}
+	return ""
+}
+
+func (x *PipelineRunSpec) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
+func (x *PipelineRunSpec) GetRef() string {
+	if x != nil {
+		return x.Ref
+	}
+	return ""
+}
+
+func (x *PipelineRunSpec) GetTrust() string {
+	if x != nil {
+		return x.Trust
+	}
+	return ""
+}
+
+func (x *PipelineRunSpec) GetCancelRequested() bool {
+	if x != nil {
+		return x.CancelRequested
+	}
+	return false
+}
+
+func (x *PipelineRunSpec) GetChangedPaths() []string {
+	if x != nil {
+		return x.ChangedPaths
+	}
+	return nil
+}
+
+type PipelineRunStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// New, Running, Complete, Failed, Error or Cancelled.
+	Phase         string                 `protobuf:"bytes,1,opt,name=phase,proto3" json:"phase,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineRunStatus) Reset() {
+	*x = PipelineRunStatus{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineRunStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineRunStatus) ProtoMessage() {}
+
+func (x *PipelineRunStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineRunStatus.ProtoReflect.Descriptor instead.
+func (*PipelineRunStatus) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *PipelineRunStatus) GetPhase() string {
+	if x != nil {
+		return x.Phase
+	}
+	return ""
+}
+
+func (x *PipelineRunStatus) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *PipelineRunStatus) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *PipelineRunStatus) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
+// PipelineSource is a parsed shoal-ci.yml.
+type PipelineSource struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Stage names, in the order they run.
+	Stages []string `protobuf:"bytes,1,rep,name=stages,proto3" json:"stages,omitempty"`
+	// Variables of every job of the run.
+	Variables map[string]string `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Jobs in the order they appear in the file.
+	Jobs          []*PipelineJob `protobuf:"bytes,3,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineSource) Reset() {
+	*x = PipelineSource{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineSource) ProtoMessage() {}
+
+func (x *PipelineSource) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineSource.ProtoReflect.Descriptor instead.
+func (*PipelineSource) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *PipelineSource) GetStages() []string {
+	if x != nil {
+		return x.Stages
+	}
+	return nil
+}
+
+func (x *PipelineSource) GetVariables() map[string]string {
+	if x != nil {
+		return x.Variables
+	}
+	return nil
+}
+
+func (x *PipelineSource) GetJobs() []*PipelineJob {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+// PipelineJob is one job as written in shoal-ci.yml.
+type PipelineJob struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Stage string                 `protobuf:"bytes,2,opt,name=stage,proto3" json:"stage,omitempty"`
+	// Jobs of earlier stages this job waits for.
+	Needs     []string          `protobuf:"bytes,3,rep,name=needs,proto3" json:"needs,omitempty"`
+	Image     string            `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	Script    []string          `protobuf:"bytes,5,rep,name=script,proto3" json:"script,omitempty"`
+	Variables map[string]string `protobuf:"bytes,6,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Tags      []string          `protobuf:"bytes,7,rep,name=tags,proto3" json:"tags,omitempty"`
+	// on_success, always, manual or never. Used when the job has no rules.
+	When         string               `protobuf:"bytes,8,opt,name=when,proto3" json:"when,omitempty"`
+	AllowFailure bool                 `protobuf:"varint,9,opt,name=allow_failure,json=allowFailure,proto3" json:"allow_failure,omitempty"`
+	Rules        []*PipelineRule      `protobuf:"bytes,10,rep,name=rules,proto3" json:"rules,omitempty"`
+	Timeout      *durationpb.Duration `protobuf:"bytes,11,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	Retry        *JobRetry            `protobuf:"bytes,12,opt,name=retry,proto3" json:"retry,omitempty"`
+	Cache        *JobCache            `protobuf:"bytes,13,opt,name=cache,proto3" json:"cache,omitempty"`
+	Artifacts    *JobArtifacts        `protobuf:"bytes,14,opt,name=artifacts,proto3" json:"artifacts,omitempty"`
+	// Environment variable name to Secret reference. Values are never stored.
+	Secrets map[string]*SecretRef `protobuf:"bytes,15,rep,name=secrets,proto3" json:"secrets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Name of a BuildConfig. A build job starts a Build (ADR 0021).
+	Build         string          `protobuf:"bytes,16,opt,name=build,proto3" json:"build,omitempty"`
+	Deploy        *JobDeploy      `protobuf:"bytes,17,opt,name=deploy,proto3" json:"deploy,omitempty"`
+	Environment   *JobEnvironment `protobuf:"bytes,18,opt,name=environment,proto3" json:"environment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineJob) Reset() {
+	*x = PipelineJob{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineJob) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineJob) ProtoMessage() {}
+
+func (x *PipelineJob) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineJob.ProtoReflect.Descriptor instead.
+func (*PipelineJob) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *PipelineJob) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PipelineJob) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *PipelineJob) GetNeeds() []string {
+	if x != nil {
+		return x.Needs
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetImage() string {
+	if x != nil {
+		return x.Image
+	}
+	return ""
+}
+
+func (x *PipelineJob) GetScript() []string {
+	if x != nil {
+		return x.Script
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetVariables() map[string]string {
+	if x != nil {
+		return x.Variables
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetWhen() string {
+	if x != nil {
+		return x.When
+	}
+	return ""
+}
+
+func (x *PipelineJob) GetAllowFailure() bool {
+	if x != nil {
+		return x.AllowFailure
+	}
+	return false
+}
+
+func (x *PipelineJob) GetRules() []*PipelineRule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.Timeout
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetRetry() *JobRetry {
+	if x != nil {
+		return x.Retry
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetCache() *JobCache {
+	if x != nil {
+		return x.Cache
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetArtifacts() *JobArtifacts {
+	if x != nil {
+		return x.Artifacts
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetSecrets() map[string]*SecretRef {
+	if x != nil {
+		return x.Secrets
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetBuild() string {
+	if x != nil {
+		return x.Build
+	}
+	return ""
+}
+
+func (x *PipelineJob) GetDeploy() *JobDeploy {
+	if x != nil {
+		return x.Deploy
+	}
+	return nil
+}
+
+func (x *PipelineJob) GetEnvironment() *JobEnvironment {
+	if x != nil {
+		return x.Environment
+	}
+	return nil
+}
+
+// PipelineRule is one entry of a job's rules.
+type PipelineRule struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// branch == "name", tag == true, event == "push" joined by &&. Empty when
+	// the rule has no condition.
+	Condition string `protobuf:"bytes,1,opt,name=condition,proto3" json:"condition,omitempty"`
+	// Glob patterns over the changed paths. Empty when the rule has none.
+	Changes []string `protobuf:"bytes,2,rep,name=changes,proto3" json:"changes,omitempty"`
+	// on_success, always, manual or never. Empty means on_success.
+	When          string `protobuf:"bytes,3,opt,name=when,proto3" json:"when,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PipelineRule) Reset() {
+	*x = PipelineRule{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PipelineRule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PipelineRule) ProtoMessage() {}
+
+func (x *PipelineRule) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PipelineRule.ProtoReflect.Descriptor instead.
+func (*PipelineRule) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *PipelineRule) GetCondition() string {
+	if x != nil {
+		return x.Condition
+	}
+	return ""
+}
+
+func (x *PipelineRule) GetChanges() []string {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
+}
+
+func (x *PipelineRule) GetWhen() string {
+	if x != nil {
+		return x.When
+	}
+	return ""
+}
+
+type JobRetry struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Max   int32                  `protobuf:"varint,1,opt,name=max,proto3" json:"max,omitempty"`
+	// runner_error and node_lost are the only reasons retried (ADR 0022,
+	// section 5).
+	When          []string `protobuf:"bytes,2,rep,name=when,proto3" json:"when,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobRetry) Reset() {
+	*x = JobRetry{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobRetry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobRetry) ProtoMessage() {}
+
+func (x *JobRetry) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobRetry.ProtoReflect.Descriptor instead.
+func (*JobRetry) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *JobRetry) GetMax() int32 {
+	if x != nil {
+		return x.Max
+	}
+	return 0
+}
+
+func (x *JobRetry) GetWhen() []string {
+	if x != nil {
+		return x.When
+	}
+	return nil
+}
+
+type JobCache struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Paths         []string               `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobCache) Reset() {
+	*x = JobCache{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobCache) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobCache) ProtoMessage() {}
+
+func (x *JobCache) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobCache.ProtoReflect.Descriptor instead.
+func (*JobCache) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *JobCache) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *JobCache) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
+}
+
+type JobArtifacts struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Paths         []string               `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
+	ExpireIn      *durationpb.Duration   `protobuf:"bytes,2,opt,name=expire_in,json=expireIn,proto3" json:"expire_in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobArtifacts) Reset() {
+	*x = JobArtifacts{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobArtifacts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobArtifacts) ProtoMessage() {}
+
+func (x *JobArtifacts) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobArtifacts.ProtoReflect.Descriptor instead.
+func (*JobArtifacts) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *JobArtifacts) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
+}
+
+func (x *JobArtifacts) GetExpireIn() *durationpb.Duration {
+	if x != nil {
+		return x.ExpireIn
+	}
+	return nil
+}
+
+type SecretRef struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SecretRef) Reset() {
+	*x = SecretRef{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SecretRef) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SecretRef) ProtoMessage() {}
+
+func (x *SecretRef) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SecretRef.ProtoReflect.Descriptor instead.
+func (*SecretRef) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *SecretRef) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *SecretRef) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type JobDeploy struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Workload string                 `protobuf:"bytes,1,opt,name=workload,proto3" json:"workload,omitempty"`
+	// A build job of an earlier stage whose digest the deploy uses.
+	From          string `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobDeploy) Reset() {
+	*x = JobDeploy{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobDeploy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobDeploy) ProtoMessage() {}
+
+func (x *JobDeploy) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobDeploy.ProtoReflect.Descriptor instead.
+func (*JobDeploy) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *JobDeploy) GetWorkload() string {
+	if x != nil {
+		return x.Workload
+	}
+	return ""
+}
+
+func (x *JobDeploy) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+type JobEnvironment struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Only "required" is accepted. The gate is pass C.
+	Approval      string `protobuf:"bytes,2,opt,name=approval,proto3" json:"approval,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobEnvironment) Reset() {
+	*x = JobEnvironment{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobEnvironment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobEnvironment) ProtoMessage() {}
+
+func (x *JobEnvironment) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobEnvironment.ProtoReflect.Descriptor instead.
+func (*JobEnvironment) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *JobEnvironment) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *JobEnvironment) GetApproval() string {
+	if x != nil {
+		return x.Approval
+	}
+	return ""
+}
+
+// Job is one job of one PipelineRun (ADR 0022, section 4). The controller
+// creates it and owns its status.
+type Job struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *JobSpec               `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	Status        *JobStatus             `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Job) Reset() {
+	*x = Job{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Job) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Job) ProtoMessage() {}
+
+func (x *Job) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Job.ProtoReflect.Descriptor instead.
+func (*Job) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *Job) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *Job) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Job) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *Job) GetSpec() *JobSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+func (x *Job) GetStatus() *JobStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type JobSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The PipelineRun this job belongs to.
+	PipelineRun string `protobuf:"bytes,1,opt,name=pipeline_run,json=pipelineRun,proto3" json:"pipeline_run,omitempty"`
+	// The job as written in the file.
+	Job *PipelineJob `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
+	// The when after rules were applied. A job with no rules keeps its own.
+	When         string `protobuf:"bytes,3,opt,name=when,proto3" json:"when,omitempty"`
+	AllowFailure bool   `protobuf:"varint,4,opt,name=allow_failure,json=allowFailure,proto3" json:"allow_failure,omitempty"`
+	// Variables the job runs with: the run's, then the job's. No secret values.
+	Env map[string]string `protobuf:"bytes,5,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Set by PlayJob. The controller starts a manual job that was asked to run.
+	PlayRequested bool `protobuf:"varint,6,opt,name=play_requested,json=playRequested,proto3" json:"play_requested,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobSpec) Reset() {
+	*x = JobSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobSpec) ProtoMessage() {}
+
+func (x *JobSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobSpec.ProtoReflect.Descriptor instead.
+func (*JobSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *JobSpec) GetPipelineRun() string {
+	if x != nil {
+		return x.PipelineRun
+	}
+	return ""
+}
+
+func (x *JobSpec) GetJob() *PipelineJob {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
+func (x *JobSpec) GetWhen() string {
+	if x != nil {
+		return x.When
+	}
+	return ""
+}
+
+func (x *JobSpec) GetAllowFailure() bool {
+	if x != nil {
+		return x.AllowFailure
+	}
+	return false
+}
+
+func (x *JobSpec) GetEnv() map[string]string {
+	if x != nil {
+		return x.Env
+	}
+	return nil
+}
+
+func (x *JobSpec) GetPlayRequested() bool {
+	if x != nil {
+		return x.PlayRequested
+	}
+	return false
+}
+
+type JobStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// New, Pending, Running, Manual, Complete, Failed, Error, Cancelled or
+	// Skipped. Error is an infrastructure failure; Failed is a job that ran
+	// and failed.
+	Phase      string                 `protobuf:"bytes,1,opt,name=phase,proto3" json:"phase,omitempty"`
+	Message    string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	StartedAt  *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	Node       string                 `protobuf:"bytes,5,opt,name=node,proto3" json:"node,omitempty"`
+	ExitCode   int32                  `protobuf:"varint,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	// Tries so far, counting the first (retry).
+	Attempt int32 `protobuf:"varint,7,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	// Name of the log stream the runner writes.
+	LogRef        string `protobuf:"bytes,8,opt,name=log_ref,json=logRef,proto3" json:"log_ref,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobStatus) Reset() {
+	*x = JobStatus{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobStatus) ProtoMessage() {}
+
+func (x *JobStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobStatus.ProtoReflect.Descriptor instead.
+func (*JobStatus) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *JobStatus) GetPhase() string {
+	if x != nil {
+		return x.Phase
+	}
+	return ""
+}
+
+func (x *JobStatus) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *JobStatus) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *JobStatus) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
+func (x *JobStatus) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *JobStatus) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *JobStatus) GetAttempt() int32 {
+	if x != nil {
+		return x.Attempt
+	}
+	return 0
+}
+
+func (x *JobStatus) GetLogRef() string {
+	if x != nil {
+		return x.LogRef
+	}
+	return ""
+}
+
 var File_api_v1alpha1_resources_proto protoreflect.FileDescriptor
 
 const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\n" +
-	"\x1capi/v1alpha1/resources.proto\x12\x0eshoal.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdf\x02\n" +
+	"\x1capi/v1alpha1/resources.proto\x12\x0eshoal.v1alpha1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdf\x02\n" +
 	"\n" +
 	"ObjectMeta\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
@@ -5543,7 +6906,129 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\x05image\x18\x06 \x01(\tR\x05image\x12\x16\n" +
 	"\x06digest\x18\a \x01(\tR\x06digest\x12\x17\n" +
 	"\alog_ref\x18\b \x01(\tR\x06logRef\x12)\n" +
-	"\x10workload_updated\x18\t \x01(\tR\x0fworkloadUpdatedB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"\x10workload_updated\x18\t \x01(\tR\x0fworkloadUpdated\"\xe1\x01\n" +
+	"\bPipeline\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x120\n" +
+	"\x04spec\x18\x04 \x01(\v2\x1c.shoal.v1alpha1.PipelineSpecR\x04spec\x126\n" +
+	"\x06status\x18\x05 \x01(\v2\x1e.shoal.v1alpha1.PipelineStatusR\x06status\"w\n" +
+	"\fPipelineSpec\x12\x12\n" +
+	"\x04repo\x18\x01 \x01(\tR\x04repo\x12\x10\n" +
+	"\x03ref\x18\x02 \x01(\tR\x03ref\x12\x12\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\x12-\n" +
+	"\x12credentials_secret\x18\x04 \x01(\tR\x11credentialsSecret\"J\n" +
+	"\x0ePipelineStatus\x12\x19\n" +
+	"\blast_run\x18\x01 \x01(\tR\alastRun\x12\x1d\n" +
+	"\n" +
+	"last_phase\x18\x02 \x01(\tR\tlastPhase\"\xea\x01\n" +
+	"\vPipelineRun\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x123\n" +
+	"\x04spec\x18\x04 \x01(\v2\x1f.shoal.v1alpha1.PipelineRunSpecR\x04spec\x129\n" +
+	"\x06status\x18\x05 \x01(\v2!.shoal.v1alpha1.PipelineRunStatusR\x06status\"\x8f\x02\n" +
+	"\x0fPipelineRunSpec\x12\x1a\n" +
+	"\bpipeline\x18\x01 \x01(\tR\bpipeline\x126\n" +
+	"\x06source\x18\x02 \x01(\v2\x1e.shoal.v1alpha1.PipelineSourceR\x06source\x12\x18\n" +
+	"\atrigger\x18\x03 \x01(\tR\atrigger\x12\x16\n" +
+	"\x06commit\x18\x04 \x01(\tR\x06commit\x12\x10\n" +
+	"\x03ref\x18\x05 \x01(\tR\x03ref\x12\x14\n" +
+	"\x05trust\x18\x06 \x01(\tR\x05trust\x12)\n" +
+	"\x10cancel_requested\x18\a \x01(\bR\x0fcancelRequested\x12#\n" +
+	"\rchanged_paths\x18\b \x03(\tR\fchangedPaths\"\xbb\x01\n" +
+	"\x11PipelineRunStatus\x12\x14\n" +
+	"\x05phase\x18\x01 \x01(\tR\x05phase\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x129\n" +
+	"\n" +
+	"started_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12;\n" +
+	"\vfinished_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt\"\xe4\x01\n" +
+	"\x0ePipelineSource\x12\x16\n" +
+	"\x06stages\x18\x01 \x03(\tR\x06stages\x12K\n" +
+	"\tvariables\x18\x02 \x03(\v2-.shoal.v1alpha1.PipelineSource.VariablesEntryR\tvariables\x12/\n" +
+	"\x04jobs\x18\x03 \x03(\v2\x1b.shoal.v1alpha1.PipelineJobR\x04jobs\x1a<\n" +
+	"\x0eVariablesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfb\x06\n" +
+	"\vPipelineJob\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05stage\x18\x02 \x01(\tR\x05stage\x12\x14\n" +
+	"\x05needs\x18\x03 \x03(\tR\x05needs\x12\x14\n" +
+	"\x05image\x18\x04 \x01(\tR\x05image\x12\x16\n" +
+	"\x06script\x18\x05 \x03(\tR\x06script\x12H\n" +
+	"\tvariables\x18\x06 \x03(\v2*.shoal.v1alpha1.PipelineJob.VariablesEntryR\tvariables\x12\x12\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\x12\x12\n" +
+	"\x04when\x18\b \x01(\tR\x04when\x12#\n" +
+	"\rallow_failure\x18\t \x01(\bR\fallowFailure\x122\n" +
+	"\x05rules\x18\n" +
+	" \x03(\v2\x1c.shoal.v1alpha1.PipelineRuleR\x05rules\x123\n" +
+	"\atimeout\x18\v \x01(\v2\x19.google.protobuf.DurationR\atimeout\x12.\n" +
+	"\x05retry\x18\f \x01(\v2\x18.shoal.v1alpha1.JobRetryR\x05retry\x12.\n" +
+	"\x05cache\x18\r \x01(\v2\x18.shoal.v1alpha1.JobCacheR\x05cache\x12:\n" +
+	"\tartifacts\x18\x0e \x01(\v2\x1c.shoal.v1alpha1.JobArtifactsR\tartifacts\x12B\n" +
+	"\asecrets\x18\x0f \x03(\v2(.shoal.v1alpha1.PipelineJob.SecretsEntryR\asecrets\x12\x14\n" +
+	"\x05build\x18\x10 \x01(\tR\x05build\x121\n" +
+	"\x06deploy\x18\x11 \x01(\v2\x19.shoal.v1alpha1.JobDeployR\x06deploy\x12@\n" +
+	"\venvironment\x18\x12 \x01(\v2\x1e.shoal.v1alpha1.JobEnvironmentR\venvironment\x1a<\n" +
+	"\x0eVariablesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aU\n" +
+	"\fSecretsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12/\n" +
+	"\x05value\x18\x02 \x01(\v2\x19.shoal.v1alpha1.SecretRefR\x05value:\x028\x01\"Z\n" +
+	"\fPipelineRule\x12\x1c\n" +
+	"\tcondition\x18\x01 \x01(\tR\tcondition\x12\x18\n" +
+	"\achanges\x18\x02 \x03(\tR\achanges\x12\x12\n" +
+	"\x04when\x18\x03 \x01(\tR\x04when\"0\n" +
+	"\bJobRetry\x12\x10\n" +
+	"\x03max\x18\x01 \x01(\x05R\x03max\x12\x12\n" +
+	"\x04when\x18\x02 \x03(\tR\x04when\"2\n" +
+	"\bJobCache\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05paths\x18\x02 \x03(\tR\x05paths\"\\\n" +
+	"\fJobArtifacts\x12\x14\n" +
+	"\x05paths\x18\x01 \x03(\tR\x05paths\x126\n" +
+	"\texpire_in\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\bexpireIn\"5\n" +
+	"\tSecretRef\x12\x16\n" +
+	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\";\n" +
+	"\tJobDeploy\x12\x1a\n" +
+	"\bworkload\x18\x01 \x01(\tR\bworkload\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\"@\n" +
+	"\x0eJobEnvironment\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
+	"\bapproval\x18\x02 \x01(\tR\bapproval\"\xd2\x01\n" +
+	"\x03Job\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x12+\n" +
+	"\x04spec\x18\x04 \x01(\v2\x17.shoal.v1alpha1.JobSpecR\x04spec\x121\n" +
+	"\x06status\x18\x05 \x01(\v2\x19.shoal.v1alpha1.JobStatusR\x06status\"\xa7\x02\n" +
+	"\aJobSpec\x12!\n" +
+	"\fpipeline_run\x18\x01 \x01(\tR\vpipelineRun\x12-\n" +
+	"\x03job\x18\x02 \x01(\v2\x1b.shoal.v1alpha1.PipelineJobR\x03job\x12\x12\n" +
+	"\x04when\x18\x03 \x01(\tR\x04when\x12#\n" +
+	"\rallow_failure\x18\x04 \x01(\bR\fallowFailure\x122\n" +
+	"\x03env\x18\x05 \x03(\v2 .shoal.v1alpha1.JobSpec.EnvEntryR\x03env\x12%\n" +
+	"\x0eplay_requested\x18\x06 \x01(\bR\rplayRequested\x1a6\n" +
+	"\bEnvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x97\x02\n" +
+	"\tJobStatus\x12\x14\n" +
+	"\x05phase\x18\x01 \x01(\tR\x05phase\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x129\n" +
+	"\n" +
+	"started_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12;\n" +
+	"\vfinished_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt\x12\x12\n" +
+	"\x04node\x18\x05 \x01(\tR\x04node\x12\x1b\n" +
+	"\texit_code\x18\x06 \x01(\x05R\bexitCode\x12\x18\n" +
+	"\aattempt\x18\a \x01(\x05R\aattempt\x12\x17\n" +
+	"\alog_ref\x18\b \x01(\tR\x06logRefB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_resources_proto_rawDescOnce sync.Once
@@ -5557,7 +7042,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 96)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -5628,109 +7113,161 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*Build)(nil),                 // 66: shoal.v1alpha1.Build
 	(*BuildSpec)(nil),             // 67: shoal.v1alpha1.BuildSpec
 	(*BuildStatus)(nil),           // 68: shoal.v1alpha1.BuildStatus
-	nil,                           // 69: shoal.v1alpha1.ObjectMeta.LabelsEntry
-	nil,                           // 70: shoal.v1alpha1.NodeSpec.LabelsEntry
-	nil,                           // 71: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 72: shoal.v1alpha1.ConfigSpec.DataEntry
-	nil,                           // 73: shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
-	(*timestamppb.Timestamp)(nil), // 74: google.protobuf.Timestamp
+	(*Pipeline)(nil),              // 69: shoal.v1alpha1.Pipeline
+	(*PipelineSpec)(nil),          // 70: shoal.v1alpha1.PipelineSpec
+	(*PipelineStatus)(nil),        // 71: shoal.v1alpha1.PipelineStatus
+	(*PipelineRun)(nil),           // 72: shoal.v1alpha1.PipelineRun
+	(*PipelineRunSpec)(nil),       // 73: shoal.v1alpha1.PipelineRunSpec
+	(*PipelineRunStatus)(nil),     // 74: shoal.v1alpha1.PipelineRunStatus
+	(*PipelineSource)(nil),        // 75: shoal.v1alpha1.PipelineSource
+	(*PipelineJob)(nil),           // 76: shoal.v1alpha1.PipelineJob
+	(*PipelineRule)(nil),          // 77: shoal.v1alpha1.PipelineRule
+	(*JobRetry)(nil),              // 78: shoal.v1alpha1.JobRetry
+	(*JobCache)(nil),              // 79: shoal.v1alpha1.JobCache
+	(*JobArtifacts)(nil),          // 80: shoal.v1alpha1.JobArtifacts
+	(*SecretRef)(nil),             // 81: shoal.v1alpha1.SecretRef
+	(*JobDeploy)(nil),             // 82: shoal.v1alpha1.JobDeploy
+	(*JobEnvironment)(nil),        // 83: shoal.v1alpha1.JobEnvironment
+	(*Job)(nil),                   // 84: shoal.v1alpha1.Job
+	(*JobSpec)(nil),               // 85: shoal.v1alpha1.JobSpec
+	(*JobStatus)(nil),             // 86: shoal.v1alpha1.JobStatus
+	nil,                           // 87: shoal.v1alpha1.ObjectMeta.LabelsEntry
+	nil,                           // 88: shoal.v1alpha1.NodeSpec.LabelsEntry
+	nil,                           // 89: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 90: shoal.v1alpha1.ConfigSpec.DataEntry
+	nil,                           // 91: shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
+	nil,                           // 92: shoal.v1alpha1.PipelineSource.VariablesEntry
+	nil,                           // 93: shoal.v1alpha1.PipelineJob.VariablesEntry
+	nil,                           // 94: shoal.v1alpha1.PipelineJob.SecretsEntry
+	nil,                           // 95: shoal.v1alpha1.JobSpec.EnvEntry
+	(*timestamppb.Timestamp)(nil), // 96: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),   // 97: google.protobuf.Duration
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	74, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	74, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
-	69, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
-	0,  // 3: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	2,  // 4: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
-	15, // 5: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
-	4,  // 6: shoal.v1alpha1.WorkloadSpec.env:type_name -> shoal.v1alpha1.EnvVar
-	8,  // 7: shoal.v1alpha1.WorkloadSpec.ports:type_name -> shoal.v1alpha1.Port
-	9,  // 8: shoal.v1alpha1.WorkloadSpec.resources:type_name -> shoal.v1alpha1.Resources
-	10, // 9: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
-	14, // 10: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
-	7,  // 11: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	74, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
-	3,  // 13: shoal.v1alpha1.WorkloadSpec.volumes:type_name -> shoal.v1alpha1.VolumeMount
-	5,  // 14: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
-	6,  // 15: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
-	6,  // 16: shoal.v1alpha1.EnvSource.config:type_name -> shoal.v1alpha1.KeyRef
-	11, // 17: shoal.v1alpha1.HealthCheck.http:type_name -> shoal.v1alpha1.HTTPHealthCheck
-	12, // 18: shoal.v1alpha1.HealthCheck.tcp:type_name -> shoal.v1alpha1.TCPHealthCheck
-	13, // 19: shoal.v1alpha1.HealthCheck.exec:type_name -> shoal.v1alpha1.ExecHealthCheck
-	16, // 20: shoal.v1alpha1.WorkloadStatus.rollout:type_name -> shoal.v1alpha1.RolloutStatus
-	2,  // 21: shoal.v1alpha1.RolloutStatus.stable_template:type_name -> shoal.v1alpha1.WorkloadSpec
-	0,  // 22: shoal.v1alpha1.Replica.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	18, // 23: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
-	19, // 24: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
-	2,  // 25: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	74, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
-	32, // 27: shoal.v1alpha1.ReplicaSpec.job:type_name -> shoal.v1alpha1.DatabaseJob
-	74, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
-	33, // 29: shoal.v1alpha1.ReplicaStatus.job:type_name -> shoal.v1alpha1.DatabaseJobResult
-	0,  // 30: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	21, // 31: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
-	22, // 32: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	70, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
-	74, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
-	23, // 35: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
-	0,  // 36: shoal.v1alpha1.Volume.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	25, // 37: shoal.v1alpha1.Volume.spec:type_name -> shoal.v1alpha1.VolumeSpec
-	27, // 38: shoal.v1alpha1.Volume.status:type_name -> shoal.v1alpha1.VolumeStatus
-	26, // 39: shoal.v1alpha1.VolumeSpec.owner:type_name -> shoal.v1alpha1.VolumeOwner
-	0,  // 40: shoal.v1alpha1.Database.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	29, // 41: shoal.v1alpha1.Database.spec:type_name -> shoal.v1alpha1.DatabaseSpec
-	31, // 42: shoal.v1alpha1.Database.status:type_name -> shoal.v1alpha1.DatabaseStatus
-	9,  // 43: shoal.v1alpha1.DatabaseSpec.resources:type_name -> shoal.v1alpha1.Resources
-	30, // 44: shoal.v1alpha1.DatabaseSpec.backup:type_name -> shoal.v1alpha1.DatabaseBackup
-	74, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 46: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	36, // 47: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	71, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
-	0,  // 49: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	39, // 50: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	72, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
-	0,  // 52: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	41, // 53: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
-	43, // 54: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
-	42, // 55: shoal.v1alpha1.ServiceSpec.ports:type_name -> shoal.v1alpha1.ServicePort
-	0,  // 56: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	45, // 57: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
-	46, // 58: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
-	74, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
-	0,  // 60: shoal.v1alpha1.Certificate.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	48, // 61: shoal.v1alpha1.Certificate.spec:type_name -> shoal.v1alpha1.CertificateSpec
-	49, // 62: shoal.v1alpha1.Certificate.status:type_name -> shoal.v1alpha1.CertificateStatus
-	74, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
-	74, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
-	74, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
-	0,  // 66: shoal.v1alpha1.AcmeAccount.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	51, // 67: shoal.v1alpha1.AcmeAccount.spec:type_name -> shoal.v1alpha1.AcmeAccountSpec
-	52, // 68: shoal.v1alpha1.AcmeAccount.status:type_name -> shoal.v1alpha1.AcmeAccountStatus
-	0,  // 69: shoal.v1alpha1.AcmeChallenge.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	54, // 70: shoal.v1alpha1.AcmeChallenge.spec:type_name -> shoal.v1alpha1.AcmeChallengeSpec
-	74, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
-	74, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
-	0,  // 73: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	57, // 74: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	74, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
-	0,  // 76: shoal.v1alpha1.BuildConfig.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	60, // 77: shoal.v1alpha1.BuildConfig.spec:type_name -> shoal.v1alpha1.BuildConfigSpec
-	65, // 78: shoal.v1alpha1.BuildConfig.status:type_name -> shoal.v1alpha1.BuildConfigStatus
-	63, // 79: shoal.v1alpha1.BuildConfigSpec.git:type_name -> shoal.v1alpha1.GitSource
-	64, // 80: shoal.v1alpha1.BuildConfigSpec.output:type_name -> shoal.v1alpha1.BuildOutput
-	73, // 81: shoal.v1alpha1.BuildConfigSpec.build_args:type_name -> shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
-	61, // 82: shoal.v1alpha1.BuildConfigSpec.webhook:type_name -> shoal.v1alpha1.BuildWebhook
-	62, // 83: shoal.v1alpha1.BuildConfigSpec.on_success:type_name -> shoal.v1alpha1.BuildOnSuccess
-	0,  // 84: shoal.v1alpha1.Build.metadata:type_name -> shoal.v1alpha1.ObjectMeta
-	67, // 85: shoal.v1alpha1.Build.spec:type_name -> shoal.v1alpha1.BuildSpec
-	68, // 86: shoal.v1alpha1.Build.status:type_name -> shoal.v1alpha1.BuildStatus
-	60, // 87: shoal.v1alpha1.BuildSpec.source:type_name -> shoal.v1alpha1.BuildConfigSpec
-	74, // 88: shoal.v1alpha1.BuildStatus.started_at:type_name -> google.protobuf.Timestamp
-	74, // 89: shoal.v1alpha1.BuildStatus.finished_at:type_name -> google.protobuf.Timestamp
-	90, // [90:90] is the sub-list for method output_type
-	90, // [90:90] is the sub-list for method input_type
-	90, // [90:90] is the sub-list for extension type_name
-	90, // [90:90] is the sub-list for extension extendee
-	0,  // [0:90] is the sub-list for field type_name
+	96,  // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	96,  // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	87,  // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
+	0,   // 3: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	2,   // 4: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
+	15,  // 5: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
+	4,   // 6: shoal.v1alpha1.WorkloadSpec.env:type_name -> shoal.v1alpha1.EnvVar
+	8,   // 7: shoal.v1alpha1.WorkloadSpec.ports:type_name -> shoal.v1alpha1.Port
+	9,   // 8: shoal.v1alpha1.WorkloadSpec.resources:type_name -> shoal.v1alpha1.Resources
+	10,  // 9: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
+	14,  // 10: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
+	7,   // 11: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
+	96,  // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	3,   // 13: shoal.v1alpha1.WorkloadSpec.volumes:type_name -> shoal.v1alpha1.VolumeMount
+	5,   // 14: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
+	6,   // 15: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
+	6,   // 16: shoal.v1alpha1.EnvSource.config:type_name -> shoal.v1alpha1.KeyRef
+	11,  // 17: shoal.v1alpha1.HealthCheck.http:type_name -> shoal.v1alpha1.HTTPHealthCheck
+	12,  // 18: shoal.v1alpha1.HealthCheck.tcp:type_name -> shoal.v1alpha1.TCPHealthCheck
+	13,  // 19: shoal.v1alpha1.HealthCheck.exec:type_name -> shoal.v1alpha1.ExecHealthCheck
+	16,  // 20: shoal.v1alpha1.WorkloadStatus.rollout:type_name -> shoal.v1alpha1.RolloutStatus
+	2,   // 21: shoal.v1alpha1.RolloutStatus.stable_template:type_name -> shoal.v1alpha1.WorkloadSpec
+	0,   // 22: shoal.v1alpha1.Replica.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	18,  // 23: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
+	19,  // 24: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
+	2,   // 25: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
+	96,  // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	32,  // 27: shoal.v1alpha1.ReplicaSpec.job:type_name -> shoal.v1alpha1.DatabaseJob
+	96,  // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	33,  // 29: shoal.v1alpha1.ReplicaStatus.job:type_name -> shoal.v1alpha1.DatabaseJobResult
+	0,   // 30: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	21,  // 31: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
+	22,  // 32: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
+	88,  // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
+	96,  // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	23,  // 35: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
+	0,   // 36: shoal.v1alpha1.Volume.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	25,  // 37: shoal.v1alpha1.Volume.spec:type_name -> shoal.v1alpha1.VolumeSpec
+	27,  // 38: shoal.v1alpha1.Volume.status:type_name -> shoal.v1alpha1.VolumeStatus
+	26,  // 39: shoal.v1alpha1.VolumeSpec.owner:type_name -> shoal.v1alpha1.VolumeOwner
+	0,   // 40: shoal.v1alpha1.Database.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	29,  // 41: shoal.v1alpha1.Database.spec:type_name -> shoal.v1alpha1.DatabaseSpec
+	31,  // 42: shoal.v1alpha1.Database.status:type_name -> shoal.v1alpha1.DatabaseStatus
+	9,   // 43: shoal.v1alpha1.DatabaseSpec.resources:type_name -> shoal.v1alpha1.Resources
+	30,  // 44: shoal.v1alpha1.DatabaseSpec.backup:type_name -> shoal.v1alpha1.DatabaseBackup
+	96,  // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
+	0,   // 46: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	36,  // 47: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
+	89,  // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	0,   // 49: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	39,  // 50: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
+	90,  // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	0,   // 52: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	41,  // 53: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
+	43,  // 54: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
+	42,  // 55: shoal.v1alpha1.ServiceSpec.ports:type_name -> shoal.v1alpha1.ServicePort
+	0,   // 56: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	45,  // 57: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
+	46,  // 58: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
+	96,  // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
+	0,   // 60: shoal.v1alpha1.Certificate.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	48,  // 61: shoal.v1alpha1.Certificate.spec:type_name -> shoal.v1alpha1.CertificateSpec
+	49,  // 62: shoal.v1alpha1.Certificate.status:type_name -> shoal.v1alpha1.CertificateStatus
+	96,  // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
+	96,  // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
+	96,  // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
+	0,   // 66: shoal.v1alpha1.AcmeAccount.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	51,  // 67: shoal.v1alpha1.AcmeAccount.spec:type_name -> shoal.v1alpha1.AcmeAccountSpec
+	52,  // 68: shoal.v1alpha1.AcmeAccount.status:type_name -> shoal.v1alpha1.AcmeAccountStatus
+	0,   // 69: shoal.v1alpha1.AcmeChallenge.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	54,  // 70: shoal.v1alpha1.AcmeChallenge.spec:type_name -> shoal.v1alpha1.AcmeChallengeSpec
+	96,  // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
+	96,  // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	0,   // 73: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	57,  // 74: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
+	96,  // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	0,   // 76: shoal.v1alpha1.BuildConfig.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	60,  // 77: shoal.v1alpha1.BuildConfig.spec:type_name -> shoal.v1alpha1.BuildConfigSpec
+	65,  // 78: shoal.v1alpha1.BuildConfig.status:type_name -> shoal.v1alpha1.BuildConfigStatus
+	63,  // 79: shoal.v1alpha1.BuildConfigSpec.git:type_name -> shoal.v1alpha1.GitSource
+	64,  // 80: shoal.v1alpha1.BuildConfigSpec.output:type_name -> shoal.v1alpha1.BuildOutput
+	91,  // 81: shoal.v1alpha1.BuildConfigSpec.build_args:type_name -> shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
+	61,  // 82: shoal.v1alpha1.BuildConfigSpec.webhook:type_name -> shoal.v1alpha1.BuildWebhook
+	62,  // 83: shoal.v1alpha1.BuildConfigSpec.on_success:type_name -> shoal.v1alpha1.BuildOnSuccess
+	0,   // 84: shoal.v1alpha1.Build.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	67,  // 85: shoal.v1alpha1.Build.spec:type_name -> shoal.v1alpha1.BuildSpec
+	68,  // 86: shoal.v1alpha1.Build.status:type_name -> shoal.v1alpha1.BuildStatus
+	60,  // 87: shoal.v1alpha1.BuildSpec.source:type_name -> shoal.v1alpha1.BuildConfigSpec
+	96,  // 88: shoal.v1alpha1.BuildStatus.started_at:type_name -> google.protobuf.Timestamp
+	96,  // 89: shoal.v1alpha1.BuildStatus.finished_at:type_name -> google.protobuf.Timestamp
+	0,   // 90: shoal.v1alpha1.Pipeline.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	70,  // 91: shoal.v1alpha1.Pipeline.spec:type_name -> shoal.v1alpha1.PipelineSpec
+	71,  // 92: shoal.v1alpha1.Pipeline.status:type_name -> shoal.v1alpha1.PipelineStatus
+	0,   // 93: shoal.v1alpha1.PipelineRun.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	73,  // 94: shoal.v1alpha1.PipelineRun.spec:type_name -> shoal.v1alpha1.PipelineRunSpec
+	74,  // 95: shoal.v1alpha1.PipelineRun.status:type_name -> shoal.v1alpha1.PipelineRunStatus
+	75,  // 96: shoal.v1alpha1.PipelineRunSpec.source:type_name -> shoal.v1alpha1.PipelineSource
+	96,  // 97: shoal.v1alpha1.PipelineRunStatus.started_at:type_name -> google.protobuf.Timestamp
+	96,  // 98: shoal.v1alpha1.PipelineRunStatus.finished_at:type_name -> google.protobuf.Timestamp
+	92,  // 99: shoal.v1alpha1.PipelineSource.variables:type_name -> shoal.v1alpha1.PipelineSource.VariablesEntry
+	76,  // 100: shoal.v1alpha1.PipelineSource.jobs:type_name -> shoal.v1alpha1.PipelineJob
+	93,  // 101: shoal.v1alpha1.PipelineJob.variables:type_name -> shoal.v1alpha1.PipelineJob.VariablesEntry
+	77,  // 102: shoal.v1alpha1.PipelineJob.rules:type_name -> shoal.v1alpha1.PipelineRule
+	97,  // 103: shoal.v1alpha1.PipelineJob.timeout:type_name -> google.protobuf.Duration
+	78,  // 104: shoal.v1alpha1.PipelineJob.retry:type_name -> shoal.v1alpha1.JobRetry
+	79,  // 105: shoal.v1alpha1.PipelineJob.cache:type_name -> shoal.v1alpha1.JobCache
+	80,  // 106: shoal.v1alpha1.PipelineJob.artifacts:type_name -> shoal.v1alpha1.JobArtifacts
+	94,  // 107: shoal.v1alpha1.PipelineJob.secrets:type_name -> shoal.v1alpha1.PipelineJob.SecretsEntry
+	82,  // 108: shoal.v1alpha1.PipelineJob.deploy:type_name -> shoal.v1alpha1.JobDeploy
+	83,  // 109: shoal.v1alpha1.PipelineJob.environment:type_name -> shoal.v1alpha1.JobEnvironment
+	97,  // 110: shoal.v1alpha1.JobArtifacts.expire_in:type_name -> google.protobuf.Duration
+	0,   // 111: shoal.v1alpha1.Job.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	85,  // 112: shoal.v1alpha1.Job.spec:type_name -> shoal.v1alpha1.JobSpec
+	86,  // 113: shoal.v1alpha1.Job.status:type_name -> shoal.v1alpha1.JobStatus
+	76,  // 114: shoal.v1alpha1.JobSpec.job:type_name -> shoal.v1alpha1.PipelineJob
+	95,  // 115: shoal.v1alpha1.JobSpec.env:type_name -> shoal.v1alpha1.JobSpec.EnvEntry
+	96,  // 116: shoal.v1alpha1.JobStatus.started_at:type_name -> google.protobuf.Timestamp
+	96,  // 117: shoal.v1alpha1.JobStatus.finished_at:type_name -> google.protobuf.Timestamp
+	81,  // 118: shoal.v1alpha1.PipelineJob.SecretsEntry.value:type_name -> shoal.v1alpha1.SecretRef
+	119, // [119:119] is the sub-list for method output_type
+	119, // [119:119] is the sub-list for method input_type
+	119, // [119:119] is the sub-list for extension type_name
+	119, // [119:119] is the sub-list for extension extendee
+	0,   // [0:119] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_resources_proto_init() }
@@ -5748,7 +7285,7 @@ func file_api_v1alpha1_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   74,
+			NumMessages:   96,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

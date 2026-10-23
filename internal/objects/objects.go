@@ -182,3 +182,30 @@ func Build(r store.Record) (*v1alpha1.Build, error) {
 	}
 	return b, decode(r, b.Spec, b.Status)
 }
+
+// Pipeline decodes a Pipeline record.
+func Pipeline(r store.Record) (*v1alpha1.Pipeline, error) {
+	p := &v1alpha1.Pipeline{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindPipeline, Metadata: Meta(r),
+		Spec: &v1alpha1.PipelineSpec{}, Status: &v1alpha1.PipelineStatus{},
+	}
+	return p, decode(r, p.Spec, p.Status)
+}
+
+// PipelineRun decodes a PipelineRun record.
+func PipelineRun(r store.Record) (*v1alpha1.PipelineRun, error) {
+	p := &v1alpha1.PipelineRun{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindPipelineRun, Metadata: Meta(r),
+		Spec: &v1alpha1.PipelineRunSpec{}, Status: &v1alpha1.PipelineRunStatus{},
+	}
+	return p, decode(r, p.Spec, p.Status)
+}
+
+// Job decodes a Job record.
+func Job(r store.Record) (*v1alpha1.Job, error) {
+	j := &v1alpha1.Job{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindJob, Metadata: Meta(r),
+		Spec: &v1alpha1.JobSpec{}, Status: &v1alpha1.JobStatus{},
+	}
+	return j, decode(r, j.Spec, j.Status)
+}

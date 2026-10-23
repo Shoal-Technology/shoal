@@ -19,25 +19,29 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Control_Apply_FullMethodName           = "/shoal.v1alpha1.Control/Apply"
-	Control_Get_FullMethodName             = "/shoal.v1alpha1.Control/Get"
-	Control_List_FullMethodName            = "/shoal.v1alpha1.Control/List"
-	Control_Delete_FullMethodName          = "/shoal.v1alpha1.Control/Delete"
-	Control_SetNodeLabels_FullMethodName   = "/shoal.v1alpha1.Control/SetNodeLabels"
-	Control_CreateJoinToken_FullMethodName = "/shoal.v1alpha1.Control/CreateJoinToken"
-	Control_Logs_FullMethodName            = "/shoal.v1alpha1.Control/Logs"
-	Control_RestartWorkload_FullMethodName = "/shoal.v1alpha1.Control/RestartWorkload"
-	Control_ResetUIPassword_FullMethodName = "/shoal.v1alpha1.Control/ResetUIPassword"
-	Control_JoinCluster_FullMethodName     = "/shoal.v1alpha1.Control/JoinCluster"
-	Control_ClusterStatus_FullMethodName   = "/shoal.v1alpha1.Control/ClusterStatus"
-	Control_RemoveServer_FullMethodName    = "/shoal.v1alpha1.Control/RemoveServer"
-	Control_JoinBundle_FullMethodName      = "/shoal.v1alpha1.Control/JoinBundle"
-	Control_Backup_FullMethodName          = "/shoal.v1alpha1.Control/Backup"
-	Control_DatabaseBackups_FullMethodName = "/shoal.v1alpha1.Control/DatabaseBackups"
-	Control_BackupDatabase_FullMethodName  = "/shoal.v1alpha1.Control/BackupDatabase"
-	Control_StartBuild_FullMethodName      = "/shoal.v1alpha1.Control/StartBuild"
-	Control_CancelBuild_FullMethodName     = "/shoal.v1alpha1.Control/CancelBuild"
-	Control_BuildLogs_FullMethodName       = "/shoal.v1alpha1.Control/BuildLogs"
+	Control_Apply_FullMethodName             = "/shoal.v1alpha1.Control/Apply"
+	Control_Get_FullMethodName               = "/shoal.v1alpha1.Control/Get"
+	Control_List_FullMethodName              = "/shoal.v1alpha1.Control/List"
+	Control_Delete_FullMethodName            = "/shoal.v1alpha1.Control/Delete"
+	Control_SetNodeLabels_FullMethodName     = "/shoal.v1alpha1.Control/SetNodeLabels"
+	Control_CreateJoinToken_FullMethodName   = "/shoal.v1alpha1.Control/CreateJoinToken"
+	Control_Logs_FullMethodName              = "/shoal.v1alpha1.Control/Logs"
+	Control_RestartWorkload_FullMethodName   = "/shoal.v1alpha1.Control/RestartWorkload"
+	Control_ResetUIPassword_FullMethodName   = "/shoal.v1alpha1.Control/ResetUIPassword"
+	Control_JoinCluster_FullMethodName       = "/shoal.v1alpha1.Control/JoinCluster"
+	Control_ClusterStatus_FullMethodName     = "/shoal.v1alpha1.Control/ClusterStatus"
+	Control_RemoveServer_FullMethodName      = "/shoal.v1alpha1.Control/RemoveServer"
+	Control_JoinBundle_FullMethodName        = "/shoal.v1alpha1.Control/JoinBundle"
+	Control_Backup_FullMethodName            = "/shoal.v1alpha1.Control/Backup"
+	Control_DatabaseBackups_FullMethodName   = "/shoal.v1alpha1.Control/DatabaseBackups"
+	Control_BackupDatabase_FullMethodName    = "/shoal.v1alpha1.Control/BackupDatabase"
+	Control_StartBuild_FullMethodName        = "/shoal.v1alpha1.Control/StartBuild"
+	Control_CancelBuild_FullMethodName       = "/shoal.v1alpha1.Control/CancelBuild"
+	Control_BuildLogs_FullMethodName         = "/shoal.v1alpha1.Control/BuildLogs"
+	Control_StartPipelineRun_FullMethodName  = "/shoal.v1alpha1.Control/StartPipelineRun"
+	Control_CancelPipelineRun_FullMethodName = "/shoal.v1alpha1.Control/CancelPipelineRun"
+	Control_PlayJob_FullMethodName           = "/shoal.v1alpha1.Control/PlayJob"
+	Control_JobLogs_FullMethodName           = "/shoal.v1alpha1.Control/JobLogs"
 )
 
 // ControlClient is the client API for Control service.
@@ -98,6 +102,16 @@ type ControlClient interface {
 	CancelBuild(ctx context.Context, in *CancelBuildRequest, opts ...grpc.CallOption) (*CancelBuildResponse, error)
 	// BuildLogs returns the output of a Build, oldest line first.
 	BuildLogs(ctx context.Context, in *BuildLogsRequest, opts ...grpc.CallOption) (*BuildLogsResponse, error)
+	// StartPipelineRun creates a PipelineRun of a Pipeline (ADR 0022). The
+	// file is parsed and checked here; the controller expands the run.
+	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*StartPipelineRunResponse, error)
+	// CancelPipelineRun asks a run that has not finished to stop. A finished
+	// run is refused with FAILED_PRECONDITION.
+	CancelPipelineRun(ctx context.Context, in *CancelPipelineRunRequest, opts ...grpc.CallOption) (*CancelPipelineRunResponse, error)
+	// PlayJob starts a manual job. Any other job is refused.
+	PlayJob(ctx context.Context, in *PlayJobRequest, opts ...grpc.CallOption) (*PlayJobResponse, error)
+	// JobLogs returns the output of a job, oldest line first.
+	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (*JobLogsResponse, error)
 }
 
 type controlClient struct {
@@ -307,6 +321,46 @@ func (c *controlClient) BuildLogs(ctx context.Context, in *BuildLogsRequest, opt
 	return out, nil
 }
 
+func (c *controlClient) StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*StartPipelineRunResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartPipelineRunResponse)
+	err := c.cc.Invoke(ctx, Control_StartPipelineRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) CancelPipelineRun(ctx context.Context, in *CancelPipelineRunRequest, opts ...grpc.CallOption) (*CancelPipelineRunResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelPipelineRunResponse)
+	err := c.cc.Invoke(ctx, Control_CancelPipelineRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) PlayJob(ctx context.Context, in *PlayJobRequest, opts ...grpc.CallOption) (*PlayJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlayJobResponse)
+	err := c.cc.Invoke(ctx, Control_PlayJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (*JobLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JobLogsResponse)
+	err := c.cc.Invoke(ctx, Control_JobLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -365,6 +419,16 @@ type ControlServer interface {
 	CancelBuild(context.Context, *CancelBuildRequest) (*CancelBuildResponse, error)
 	// BuildLogs returns the output of a Build, oldest line first.
 	BuildLogs(context.Context, *BuildLogsRequest) (*BuildLogsResponse, error)
+	// StartPipelineRun creates a PipelineRun of a Pipeline (ADR 0022). The
+	// file is parsed and checked here; the controller expands the run.
+	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*StartPipelineRunResponse, error)
+	// CancelPipelineRun asks a run that has not finished to stop. A finished
+	// run is refused with FAILED_PRECONDITION.
+	CancelPipelineRun(context.Context, *CancelPipelineRunRequest) (*CancelPipelineRunResponse, error)
+	// PlayJob starts a manual job. Any other job is refused.
+	PlayJob(context.Context, *PlayJobRequest) (*PlayJobResponse, error)
+	// JobLogs returns the output of a job, oldest line first.
+	JobLogs(context.Context, *JobLogsRequest) (*JobLogsResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -431,6 +495,18 @@ func (UnimplementedControlServer) CancelBuild(context.Context, *CancelBuildReque
 }
 func (UnimplementedControlServer) BuildLogs(context.Context, *BuildLogsRequest) (*BuildLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BuildLogs not implemented")
+}
+func (UnimplementedControlServer) StartPipelineRun(context.Context, *StartPipelineRunRequest) (*StartPipelineRunResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartPipelineRun not implemented")
+}
+func (UnimplementedControlServer) CancelPipelineRun(context.Context, *CancelPipelineRunRequest) (*CancelPipelineRunResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelPipelineRun not implemented")
+}
+func (UnimplementedControlServer) PlayJob(context.Context, *PlayJobRequest) (*PlayJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PlayJob not implemented")
+}
+func (UnimplementedControlServer) JobLogs(context.Context, *JobLogsRequest) (*JobLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method JobLogs not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -788,6 +864,78 @@ func _Control_BuildLogs_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_StartPipelineRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartPipelineRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).StartPipelineRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_StartPipelineRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).StartPipelineRun(ctx, req.(*StartPipelineRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_CancelPipelineRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelPipelineRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).CancelPipelineRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_CancelPipelineRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).CancelPipelineRun(ctx, req.(*CancelPipelineRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_PlayJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PlayJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).PlayJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_PlayJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).PlayJob(ctx, req.(*PlayJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_JobLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).JobLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_JobLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).JobLogs(ctx, req.(*JobLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -866,6 +1014,22 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BuildLogs",
 			Handler:    _Control_BuildLogs_Handler,
+		},
+		{
+			MethodName: "StartPipelineRun",
+			Handler:    _Control_StartPipelineRun_Handler,
+		},
+		{
+			MethodName: "CancelPipelineRun",
+			Handler:    _Control_CancelPipelineRun_Handler,
+		},
+		{
+			MethodName: "PlayJob",
+			Handler:    _Control_PlayJob_Handler,
+		},
+		{
+			MethodName: "JobLogs",
+			Handler:    _Control_JobLogs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

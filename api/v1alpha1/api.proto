@@ -22,6 +22,9 @@ message Object {
     Database database = 9;
     BuildConfig build_config = 10;
     Build build = 11;
+    Pipeline pipeline = 12;
+    PipelineRun pipeline_run = 13;
+    Job job = 14;
   }
 }
 
@@ -79,6 +82,52 @@ service Control {
   rpc CancelBuild(CancelBuildRequest) returns (CancelBuildResponse);
   // BuildLogs returns the output of a Build, oldest line first.
   rpc BuildLogs(BuildLogsRequest) returns (BuildLogsResponse);
+  // StartPipelineRun creates a PipelineRun of a Pipeline (ADR 0022). The
+  // file is parsed and checked here; the controller expands the run.
+  rpc StartPipelineRun(StartPipelineRunRequest) returns (StartPipelineRunResponse);
+  // CancelPipelineRun asks a run that has not finished to stop. A finished
+  // run is refused with FAILED_PRECONDITION.
+  rpc CancelPipelineRun(CancelPipelineRunRequest) returns (CancelPipelineRunResponse);
+  // PlayJob starts a manual job. Any other job is refused.
+  rpc PlayJob(PlayJobRequest) returns (PlayJobResponse);
+  // JobLogs returns the output of a job, oldest line first.
+  rpc JobLogs(JobLogsRequest) returns (JobLogsResponse);
+}
+
+message StartPipelineRunRequest {
+  string pipeline = 1;
+  // Branch, tag or commit the run reads. Empty means the Pipeline's ref.
+  string ref = 2;
+  // The commit the file was read at. Required.
+  string commit = 3;
+  // The contents of the pipeline file at commit. At most 256 KiB.
+  string file = 4;
+  // Paths changed in the commit range, for changes rules.
+  repeated string changed_paths = 5;
+}
+
+message StartPipelineRunResponse {
+  string run = 1;
+}
+
+message CancelPipelineRunRequest {
+  string run = 1;
+}
+
+message CancelPipelineRunResponse {}
+
+message PlayJobRequest {
+  string job = 1;
+}
+
+message PlayJobResponse {}
+
+message JobLogsRequest {
+  string job = 1;
+}
+
+message JobLogsResponse {
+  repeated LogLine lines = 1;
 }
 
 message StartBuildRequest {

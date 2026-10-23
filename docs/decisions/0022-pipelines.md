@@ -3,8 +3,8 @@
 Status: Accepted under ADR 0019 (Phase 2, items GL-03 to GL-06, GL-08, GL-11,
 GL-15, GL-27, GL-29, GL-33, GL-37, GL-38, GL-42, GL-43 of the parity matrix).
 Builds (ADR 0021) are the prerequisite: a pipeline job that builds an image
-starts a Build and never runs a builder itself. Nothing in this ADR is
-implemented yet.
+starts a Build and never runs a builder itself. Pass A is implemented
+(see its implementation notes); passes B to D are not started.
 
 Accepted 2026-10-23 by the project owner.
 
@@ -480,6 +480,29 @@ Acceptance criteria:
   without reading the value.
 - A run's `spec.source` does not change when the file in git changes.
 
+Implementation notes (pass A, as built):
+
+- Code: `internal/pipeline` (the parser with line-numbered errors, the rules,
+  the `Runner` seam and a fake), `internal/controller/pipelines.go` (the pass:
+  expansion, the stage and needs decision, retry, timeout, cancel and the run's
+  phase), `internal/server/pipelines.go` (the four RPCs and the Secret check),
+  `cmd/shoal/pipeline.go` and `job.go`. The kinds are in `resources.proto`.
+- The CLI reads the file from the checkout at `--ref` and sends it with the
+  commit it was read at. The server does not clone until pass B. Runs started
+  this way are `protected` (only the admin key starts them in v1).
+- `JobSpec` carries the parsed job rather than repeating its fields. Its `when`
+  and `allow_failure` are the values after rules.
+- `build` and `deploy` are parsed and carried, and go through the `Runner` like
+  any job. A real Build started from a job is pass B; the deploy step is pass C.
+- `PlayJob` (section 12) is in pass A, because a manual job could otherwise
+  never finish.
+- A `needs` edge to a job that the rules left out of the run is ignored.
+- Anchors, aliases and `<<` merge keys are expanded before the checks. A file
+  that expands past 200,000 nodes is refused.
+- Not met in pass A: artifacts are parsed and carried, but nothing is collected
+  or expired, so the `expire_in` criterion has no test yet. The run's
+  `spec.source` is a copy taken at creation, so a later commit cannot change it,
+  but the test checks only that the copy is present.
 ### Pass B: container runner and triggers
 
 Scope: the containerd executor on agents, tag-based placement, the isolation
