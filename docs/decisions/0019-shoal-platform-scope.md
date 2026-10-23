@@ -1,7 +1,9 @@
 # 0019: Platform scope: Kubernetes, OpenShift and GitLab parity
 
-Status: Proposed. The feature-by-feature comparison is in
+Status: Accepted. The feature-by-feature comparison is in
 `docs/platform/parity-matrix.md`, which cites the upstream files it read.
+
+Accepted 2026-10-23 by the project owner.
 
 ## Context
 
