@@ -57,6 +57,7 @@ func (s *Server) RegistryHandler(ctx context.Context, opts RegistryOptions) (htt
 		Dir:           dir,
 		AnonymousPull: opts.AnonymousPull,
 		NodeExists:    s.registryNodeExists,
+		BuildScope:    s.builds.scope,
 		RecordTag:     s.recordImageTag,
 		ListTags:      s.listImageTags,
 	})

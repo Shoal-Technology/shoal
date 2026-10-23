@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Shoal-Technology/shoal/internal/build/buildkit"
 	"github.com/Shoal-Technology/shoal/internal/runtime"
 	"github.com/Shoal-Technology/shoal/internal/security"
 	"github.com/Shoal-Technology/shoal/internal/volume"
@@ -184,6 +185,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, desired []Assignment) ([]Rep
 	// Containers that are no longer assigned are stopped and removed.
 	for _, id := range slices.Sorted(maps.Keys(actual)) {
 		if want[id] {
+			continue
+		}
+		// A build's daemon is not a replica: the builder owns its container
+		// and removes it when the build ends (ADR 0021, pass B).
+		if _, ok := actual[id].Labels[buildkit.LabelBuild]; ok {
 			continue
 		}
 		if err := ctx.Err(); err != nil {

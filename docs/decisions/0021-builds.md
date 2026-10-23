@@ -1,10 +1,11 @@
 # 0021: Builds
 
 Status: Accepted under ADR 0019 (Phase 1, items OB-01 to OB-04, OB-20, OB-21
-and OB-45 of the parity matrix). Pass A is implemented: the two kinds, their
-validation, the controller with an `Executor` interface and a fake executor,
-the API, and the CLI. The server runs without an executor in pass A, so a
-started Build ends in phase Error until pass B adds the BuildKit executor. The
+and OB-45 of the parity matrix). Passes A and B are implemented. Pass A: the
+two kinds, their validation, the controller with an `Executor` interface, the
+API and the CLI. Pass B: the builder certificate (ADR 0020, amended), the
+build queue in the server, the builder agent, and the BuildKit executor. A
+started Build ends in phase Error when no builder node exists. Pass C and the
 follow-ups are in "Follow-ups".
 
 ## Context
@@ -132,10 +133,12 @@ type Executor interface {
 }
 ```
 
-`Config.Executor` is nil in pass A. The controller then sets each started
-Build to Error with the message "no build executor is configured on this
-server". `internal/build.Fake` is an in-memory executor for the tests. It
-records starts and cancels and lets a test finish a job.
+When `Config.Executor` is nil the controller sets each started Build to Error
+with the message "no build executor is configured on this server". The server
+passes its build queue (`buildDispatch`, `internal/server/buildqueue.go`), so
+this happens only in tests that use no executor. `internal/build.Fake` is an
+in-memory executor for the tests. It records starts and cancels and lets a
+test finish a job.
 
 ### 6. API and CLI
 
@@ -160,22 +163,160 @@ records starts and cancels and lets a test finish a job.
 - The appspec `build:` section, mapped to a BuildConfig. The appspec stays
   rejecting `build:` until then.
 
-## Pass B plan (not in this change)
+## Pass B (implemented)
 
-The BuildKit executor needs decisions that this ADR does not settle:
+Each decision below is the one this pass made. The file names point to the code.
 
-- **Placement.** Builders run on nodes with the label `shoal.dev/builder=true`.
-  This needs node selection (K-15), which the scheduler does not do yet.
-- **Push identity.** ADR 0020 gives node certificates pull access only. A
-  builder must push. The recommended route is a third certificate role,
-  `shoal:builder`, issued to a builder node and revoked with its Node object
-  as the node role is. Pass B needs this decided before it starts.
-- **Runtime.** `buildkitd`, rootless, as a pinned containerd task with the
-  versions of ADR 0006. The context comes from a git clone in a separate step.
-  The credentials Secret is resolved on the node from the snapshot, as env
-  secrets are.
-- **Logs.** Output goes through the `LogChunk` path (OB-20), with secret values
-  redacted.
+- **Placement.** A node labelled `shoal.dev/builder=true` is a builder
+  (`resource.BuilderLabel`). Placement is by claim, not by scheduler: each agent
+  polls the server every five seconds (`RunBuilder`, `internal/agent/builder.go`),
+  and the server gives the oldest queued Build to the first builder that asks
+  (`claim`, `internal/server/buildqueue.go`). The scheduler does not need K-15 for
+  this. The server refuses to queue a Build when no builder node exists.
+- **Push identity (amends ADR 0020, section 3).** A builder pushes with a
+  push certificate, role `shoal:builder`. Its O is the role, its CN is the Build
+  name, and its OU is the one repository it may use (`IssueBuilder`,
+  `SignBuilderCSR` and `IdentityFromCert` in `internal/security/pki.go`). The
+  server signs it when the claiming node asks with a CSR (`IssueBuildCertificate`,
+  `internal/server/agentbuild.go`). The certificate lives for
+  `BuildCertificateValidity`, two hours. That covers the 90-minute build timeout
+  and the push. The registry also checks each request against the Build: a
+  builder pulls or pushes only its own repository, and only while the Build is
+  claimed. A finished or cancelled Build loses access at once, before the
+  certificate expires (`principal` and `allowed`, `internal/registry/registry.go`).
+- **Queue and state.** `buildDispatch` implements `build.Executor`. It holds the
+  queue and the job states in memory. A server restart loses them, and the
+  controller then finds each Build unknown and sets it to Error, which ADR 0021
+  allows for a lost job. Logs are kept on disk under `<data-dir>/builds`, so
+  `BuildLogs` still serves them after a restart.
+- **RPCs.** Three Agent RPCs, all on node mTLS: `ClaimBuild`, `ReportBuild` and
+  `IssueBuildCertificate` (`api/v1alpha1/api.proto`). A builder can act only on a
+  Build that its node has claimed.
+- **Executor.** `buildkit.Run` (`internal/build/buildkit/buildkit.go`) does the
+  following. It clones the repository on the host with `git`. The credentials go
+  in the environment, through an askpass script or an ssh key file, and an ssh
+  host needs a `known_hosts`. It resolves the commit and expands the tag with
+  `resource.ExpandTag`. It checks that the context and the Dockerfile stay inside
+  the repository. It writes the daemon's registry configuration (the cluster CA
+  and the push key pair). It starts `moby/buildkit:v0.32.2-rootless`, pinned by
+  digest, as a container through the node's runtime. It waits for
+  `buildctl debug workers`, then runs `buildctl build` with
+  `--output type=image,push=true` and `--metadata-file`, and reads the digest
+  from that file. The container and the job directory are removed when the run
+  ends. The digest of the image was read from Docker Hub's registry API on
+  2026-10-23.
+- **Logs.** The builder reads `build.log` every two seconds, redacts the git
+  password, and sends the new lines with `ReportBuild`. Lines that fail to send
+  stay queued and go out with the next report.
+- **Results.** A builder reports Complete with the commit, the image and the
+  digest, or Failed with a message. It reports infrastructure failures as Failed
+  too, so Error is set only by the server (see the open questions).
+
+### Build container: privileges, process sandbox and network
+
+- **Privileges (decision, 2026-10-23, owner-approved).** The daemon container
+  is not privileged, gets no added capabilities, and keeps the seccomp and
+  AppArmor defaults of the runtime. It is the one exception to containerd's
+  default `no_new_privs`: its spec sets `AllowPrivilegeEscalation`
+  (`runtime.ContainerSpec`), and the containerd runtime then applies
+  `oci.WithNewPrivileges` (`privilegeOpts`). No other container sets the flag,
+  and the test `TestNoNewPrivilegesIsClearedOnlyForBuildDaemons` checks that
+  workloads keep it set. The daemon has no device.
+
+  **Why.** RootlessKit maps the user namespace with `newuidmap`, which gets
+  CAP_SETUID and CAP_SETGID from its file capabilities. containerd's
+  `no_new_privs` stops the kernel from granting file capabilities, so the map
+  fails with `newuidmap: Could not set caps` (seen in CI, 2026-10-23). This is
+  the same setting Kubernetes calls `allowPrivilegeEscalation`, which is true in
+  the upstream BuildKit rootless guides.
+
+  **Residual risk.** A setuid or file-capability binary in the build container
+  can gain capabilities, limited to containerd's default bounding set, inside
+  the unprivileged user namespace. The container has no added capabilities, so
+  that set is the defaults only; the escape it could lead to is what
+  `no_new_privs` normally prevents.
+
+  **Mitigations.** One daemon per build, removed when the build ends. The
+  network firewall described below, applied to the daemon's namespace. A
+  push certificate scoped to one repository and valid only while its Build
+  runs (`buildkit.Run`, `IssueBuildCertificate`, the registry check).
+- **Process sandbox (trade-off).** The daemon runs with
+  `--oci-worker-no-process-sandbox`, as BuildKit's Kubernetes examples do and
+  as its rootless docs describe for runtimes that cannot grant a
+  process-sandbox setting. The cost, from BuildKit's own docs: a RUN step that
+  does not exit can leave a process behind, and a RUN step can signal or
+  ptrace a process in the daemon container. Both are limited to the build's own
+  container, which is removed when the build ends.
+- **Network (decision, 2026-10-23, coordinator-approved).** The build daemon's
+  container has its own network namespace, which containerd pins for it
+  (`setNetNS`, and the test `TestBuildDaemonUsesItsOwnNetworkNamespace`). The
+  daemon runs `rootlesskit --net=host buildkitd`. In RootlessKit, `host` means
+  "share the container's namespace", not the node's. No device is added. The
+  rootless image's only other network driver, gvisor-tap-vsock, needs
+  `ip tuntap`, which its busybox `ip` lacks, and the image has no slirp4netns
+  or pasta.
+
+  The agent firewalls that namespace from the host before the daemon starts.
+  The daemon's shell waits for the gate file, which the agent creates only
+  after the rules are in place (`daemonSpec`, `isolate`, `isolationRules`). If
+  the rules cannot be applied, the build fails and the container is removed.
+
+  Blocked from the build (IPv4): every address of the node, and the private,
+  carrier-grade NAT, link-local and loopback ranges (10/8, 172.16/12,
+  192.168/16, 100.64/10, 169.254/16, 127/8). That covers the pod and service
+  networks, the WireGuard mesh, node-local services such as the Shoal API and
+  portal, and cloud metadata addresses. IPv6 is blocked except loopback.
+
+  Still reachable, on purpose: the registry endpoint (builds push there; its
+  access check still applies to RUN steps, which hold no certificate), DNS on
+  port 53 to any resolver, and the public internet. Loopback inside the build's
+  own namespace is reachable: nothing listens there except the daemon's own
+  socket.
+
+  Not blocked: a DNS resolver on a private address can be queried, so a RUN
+  step can resolve cluster names. Traffic to the node's public addresses is
+  blocked only where the agent can see them (its interface addresses).
+
+  The e2e checks this from the RUN steps of `hack/build-fixture/Dockerfile`: a
+  page on the node's address is unreachable; the Shoal API port and the portal
+  port are refused; and a public page is reachable. The build fails if any
+  check is wrong.
+
+Tests: `internal/security/builder_test.go` (scope round trip and refusals),
+`internal/registry/builder_test.go` (scope, revocation, certificates of other
+builds and repositories), `internal/server/buildqueue_test.go` (the executor
+contract and its refusals), `internal/build/buildkit/buildkit_test.go` (path
+containment, quoting, the daemon files, the run script, credentials kept out of
+argv and the URL, and a real clone of a local repository) and
+`internal/agent/builder_test.go` (log lines, redaction and retries).
+
+End to end: `hack/build-e2e.sh`, run by `.github/workflows/build-e2e.yml` on a
+GitHub-hosted runner. It starts a server with the registry, joins one agent
+with containerd and labels it a builder. It builds the BuildConfig
+`hack/build-fixture` from this repository at the branch under test, waits for
+Complete, lists the tag in the registry, deploys `shoal.local/web:<tag>` with a
+host port, and checks the page it serves. It never runs on the shared VPS.
+
+Open questions:
+
+1. **Rootless BuildKit under this containerd.** Resolved in part: the daemon
+   clears `no_new_privs` (see "Privileges" above), and the e2e checks that the
+   daemon starts and builds. The residual risk above is accepted by the owner.
+2. **Error or Failed for builder-side failures.** Pass B reports every
+   builder-side failure as Failed. Distinguishing an infrastructure failure
+   (Error) needs the builder to classify its errors.
+3. **Fixed timeout.** The build timeout is 90 minutes and cannot be changed.
+   Configurable timeouts are OB-18.
+4. **Queue durability.** A server restart drops the queue, and the queued Builds
+   end in Error. Persisting the queue needs a store kind.
+5. **One build per builder.** A builder runs one Build at a time.
+6. **Full clone.** Each build clones the whole repository. A shallow clone needs
+   the ref to be known first.
+7. **Daemon network (resolved, see "Network" under "Build container").** The
+   daemon runs with `--net=host`, which in RootlessKit means the container's own
+   namespace, not the node's. That namespace is firewalled from the host before
+   the daemon starts. An earlier design that shared the node's namespace is not
+   used.
 
 ## Consequences
 
@@ -183,9 +324,9 @@ The BuildKit executor needs decisions that this ADR does not settle:
   rollback can name a digest (OB-24 and OB-26 later).
 - A running build does not change when its config changes. The config is a
   template, and a run is a record.
-- Pass A ships with no executor, so the server cannot build yet. That is
-  deliberate: the state machine, the queue and the API are tested with a fake,
-  and no build runs on the shared VPS until pass B has a verified executor.
+- A cluster with no builder node cannot run a Build. The start ends in Error,
+  with the reason. Builds run on the shared VPS only through the CI workflow,
+  never on the VPS itself.
 - The phase names differ from the brief's Pending, Running, Succeeded, Failed,
   Cancelled. OB-02 asks for OpenShift's names, so the success phase is
   Complete. The names are constants in `internal/resource/build.go`, so
@@ -193,10 +334,11 @@ The BuildKit executor needs decisions that this ADR does not settle:
 
 ## Follow-ups
 
-- Pass B: the BuildKit executor, builder placement, the push identity, and
-  streamed logs (see the plan above).
+- Pass B open questions: see "Pass B (implemented)".
 - Pass C: done, see the addendum below. The appspec `build:` section is not
   done.
+- Follow mode for `shoal build logs` (OB-20), and redaction of Secret values
+  other than the git password.
 - Later: a run policy with latest-only (OB-16), resources and timeouts (OB-18),
   rerun (OB-19), Dockerfile-less builds (OB-08), and Project scoping (OB-36).
 

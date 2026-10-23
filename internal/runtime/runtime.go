@@ -39,6 +39,17 @@ type ContainerSpec struct {
 	// agent hashes this struct, and containers from before mounts existed
 	// must keep their hash.)
 	Mounts []Mount `json:",omitempty"`
+	// AllowPrivilegeEscalation clears the process's no_new_privs flag, which
+	// containerd sets by default. Only the build daemon sets it: RootlessKit
+	// needs setuid-style helpers to map its user namespace (ADR 0021). The zero
+	// value keeps the default for every workload.
+	AllowPrivilegeEscalation bool `json:",omitempty"`
+}
+
+// NetNSer is implemented by a runtime that can name a container's network
+// namespace. The builder firewalls its daemon's namespace through it (ADR 0021).
+type NetNSer interface {
+	NetNSPath(ctx context.Context, id string) (string, error)
 }
 
 // Mount bind-mounts a host directory into the container. It is read-only

@@ -987,10 +987,13 @@ var Join_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Agent_Sync_FullMethodName             = "/shoal.v1alpha1.Agent/Sync"
-	Agent_RenewCertificate_FullMethodName = "/shoal.v1alpha1.Agent/RenewCertificate"
-	Agent_UploadLogs_FullMethodName       = "/shoal.v1alpha1.Agent/UploadLogs"
-	Agent_NodeConfig_FullMethodName       = "/shoal.v1alpha1.Agent/NodeConfig"
+	Agent_Sync_FullMethodName                  = "/shoal.v1alpha1.Agent/Sync"
+	Agent_RenewCertificate_FullMethodName      = "/shoal.v1alpha1.Agent/RenewCertificate"
+	Agent_UploadLogs_FullMethodName            = "/shoal.v1alpha1.Agent/UploadLogs"
+	Agent_NodeConfig_FullMethodName            = "/shoal.v1alpha1.Agent/NodeConfig"
+	Agent_ClaimBuild_FullMethodName            = "/shoal.v1alpha1.Agent/ClaimBuild"
+	Agent_ReportBuild_FullMethodName           = "/shoal.v1alpha1.Agent/ReportBuild"
+	Agent_IssueBuildCertificate_FullMethodName = "/shoal.v1alpha1.Agent/IssueBuildCertificate"
 )
 
 // AgentClient is the client API for Agent service.
@@ -1013,6 +1016,16 @@ type AgentClient interface {
 	// subnet on first use). The agent needs them before it can run
 	// containers.
 	NodeConfig(ctx context.Context, in *NodeConfigRequest, opts ...grpc.CallOption) (*NodeConfigResponse, error)
+	// ClaimBuild hands the next queued Build to a builder node (ADR 0021,
+	// pass B). The response has no build when none is waiting or the node is
+	// not labelled shoal.dev/builder=true.
+	ClaimBuild(ctx context.Context, in *ClaimBuildRequest, opts ...grpc.CallOption) (*ClaimBuildResponse, error)
+	// ReportBuild carries a builder's log lines and, when phase is terminal,
+	// the result of the Build. The response says whether it was cancelled.
+	ReportBuild(ctx context.Context, in *ReportBuildRequest, opts ...grpc.CallOption) (*ReportBuildResponse, error)
+	// IssueBuildCertificate signs a builder's request for the push
+	// certificate of a Build it claimed (ADR 0020 section 3, ADR 0021 pass B).
+	IssueBuildCertificate(ctx context.Context, in *IssueBuildCertificateRequest, opts ...grpc.CallOption) (*IssueBuildCertificateResponse, error)
 }
 
 type agentClient struct {
@@ -1069,6 +1082,36 @@ func (c *agentClient) NodeConfig(ctx context.Context, in *NodeConfigRequest, opt
 	return out, nil
 }
 
+func (c *agentClient) ClaimBuild(ctx context.Context, in *ClaimBuildRequest, opts ...grpc.CallOption) (*ClaimBuildResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClaimBuildResponse)
+	err := c.cc.Invoke(ctx, Agent_ClaimBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) ReportBuild(ctx context.Context, in *ReportBuildRequest, opts ...grpc.CallOption) (*ReportBuildResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReportBuildResponse)
+	err := c.cc.Invoke(ctx, Agent_ReportBuild_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) IssueBuildCertificate(ctx context.Context, in *IssueBuildCertificateRequest, opts ...grpc.CallOption) (*IssueBuildCertificateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IssueBuildCertificateResponse)
+	err := c.cc.Invoke(ctx, Agent_IssueBuildCertificate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
@@ -1089,6 +1132,16 @@ type AgentServer interface {
 	// subnet on first use). The agent needs them before it can run
 	// containers.
 	NodeConfig(context.Context, *NodeConfigRequest) (*NodeConfigResponse, error)
+	// ClaimBuild hands the next queued Build to a builder node (ADR 0021,
+	// pass B). The response has no build when none is waiting or the node is
+	// not labelled shoal.dev/builder=true.
+	ClaimBuild(context.Context, *ClaimBuildRequest) (*ClaimBuildResponse, error)
+	// ReportBuild carries a builder's log lines and, when phase is terminal,
+	// the result of the Build. The response says whether it was cancelled.
+	ReportBuild(context.Context, *ReportBuildRequest) (*ReportBuildResponse, error)
+	// IssueBuildCertificate signs a builder's request for the push
+	// certificate of a Build it claimed (ADR 0020 section 3, ADR 0021 pass B).
+	IssueBuildCertificate(context.Context, *IssueBuildCertificateRequest) (*IssueBuildCertificateResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -1110,6 +1163,15 @@ func (UnimplementedAgentServer) UploadLogs(grpc.ClientStreamingServer[LogChunk, 
 }
 func (UnimplementedAgentServer) NodeConfig(context.Context, *NodeConfigRequest) (*NodeConfigResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method NodeConfig not implemented")
+}
+func (UnimplementedAgentServer) ClaimBuild(context.Context, *ClaimBuildRequest) (*ClaimBuildResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClaimBuild not implemented")
+}
+func (UnimplementedAgentServer) ReportBuild(context.Context, *ReportBuildRequest) (*ReportBuildResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReportBuild not implemented")
+}
+func (UnimplementedAgentServer) IssueBuildCertificate(context.Context, *IssueBuildCertificateRequest) (*IssueBuildCertificateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IssueBuildCertificate not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -1182,6 +1244,60 @@ func _Agent_NodeConfig_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_ClaimBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClaimBuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ClaimBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_ClaimBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ClaimBuild(ctx, req.(*ClaimBuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_ReportBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportBuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ReportBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_ReportBuild_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ReportBuild(ctx, req.(*ReportBuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_IssueBuildCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IssueBuildCertificateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).IssueBuildCertificate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_IssueBuildCertificate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).IssueBuildCertificate(ctx, req.(*IssueBuildCertificateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1196,6 +1312,18 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NodeConfig",
 			Handler:    _Agent_NodeConfig_Handler,
+		},
+		{
+			MethodName: "ClaimBuild",
+			Handler:    _Agent_ClaimBuild_Handler,
+		},
+		{
+			MethodName: "ReportBuild",
+			Handler:    _Agent_ReportBuild_Handler,
+		},
+		{
+			MethodName: "IssueBuildCertificate",
+			Handler:    _Agent_IssueBuildCertificate_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

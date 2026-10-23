@@ -76,6 +76,13 @@ const (
 // BuildName returns the name of a Build of config, given its random suffix.
 func BuildName(config, suffix string) string { return config + "-" + suffix }
 
+// BuilderLabel makes a node a builder: it runs Builds (ADR 0021, pass B). The
+// label's value must be "true".
+const BuilderLabel = "shoal.dev/builder"
+
+// IsBuilder reports whether a node's labels make it a builder.
+func IsBuilder(labels map[string]string) bool { return labels[BuilderLabel] == "true" }
+
 // DefaultBuildConfig fills in the defaults of a BuildConfig spec. name is the
 // object's name; it is the default repository.
 func DefaultBuildConfig(name string, s *v1alpha1.BuildConfigSpec) {
