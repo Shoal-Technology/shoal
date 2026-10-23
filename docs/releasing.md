@@ -89,5 +89,13 @@ token. Snapshot builds never sign.
   repository without a token, so it only works for anonymous users after the
   repository is made public. Making it public is the owner's decision.
 - The website copy of `install.sh` (`~/shoal-site/install.sh` on the VPS) is
-  updated by hand from `hack/install.sh` when the script changes. Its
-  `install.sh.sha256` must be updated at the same time.
+  synced by hand; `hack/install.sh` is the canonical copy. The site copy is
+  served byte for byte, so it must not be edited on the site. To sync after a
+  change to `hack/install.sh`:
+  1. Copy the file unchanged: `cp hack/install.sh ~/shoal-site/install.sh`.
+  2. Regenerate the checksum in the same directory:
+     `(cd ~/shoal-site && sha256sum install.sh > install.sh.sha256)`.
+  3. Check it: `(cd ~/shoal-site && sha256sum -c install.sh.sha256)`.
+  The `sha256sum` of `hack/install.sh` at the merged commit is the value the
+  site must serve; record it in the release PR. `test_install.sh` covers the
+  logic (the pre-release fallback and the missing-release error), not the copy.

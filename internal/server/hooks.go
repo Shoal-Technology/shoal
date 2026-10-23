@@ -25,6 +25,10 @@ import (
 const (
 	hookRateLimit  = 30
 	hookRateWindow = time.Minute
+
+	// hookDeliveryCacheSize is how many webhook deliveries are remembered, so a
+	// redelivery of one is answered without reading the store (issue #13).
+	hookDeliveryCacheSize = 1024
 )
 
 // hook answers a git host's webhook request for one BuildConfig.
@@ -92,10 +96,28 @@ func (p *portal) hook(w http.ResponseWriter, r *http.Request) {
 		hookReply(w, http.StatusAccepted, `{"status":"ignored"}`)
 		return
 	}
-	name, err := p.s.startWebhookBuild(ctx, cfg.GetSpec(), rec.Name, ev.Commit)
+	// A redelivery of a delivery already handled gets the Build it started.
+	deliveryKey := ""
+	if id := resource.WebhookDeliveryID(r.Header); id != "" {
+		deliveryKey = rec.UID + " " + id
+		if build, ok := p.deliveries.Get(deliveryKey); ok {
+			p.s.log.Info("webhook: delivery already handled", "config", rec.Name, "build", build)
+			hookReply(w, http.StatusAccepted, fmt.Sprintf(`{"status":"duplicate","build":%q}`, build))
+			return
+		}
+	}
+	name, dup, err := p.s.startWebhookBuild(ctx, cfg.GetSpec(), rec.Name, ev.Commit)
 	if err != nil {
 		p.s.log.Error("webhook: build not started", "config", rec.Name, "err", err)
 		hookReply(w, http.StatusInternalServerError, `{"error":"build not started"}`)
+		return
+	}
+	if deliveryKey != "" {
+		p.deliveries.Put(deliveryKey, name)
+	}
+	if dup {
+		p.s.log.Info("webhook: commit already built", "build", name, "config", rec.Name, "commit", ev.Commit)
+		hookReply(w, http.StatusAccepted, fmt.Sprintf(`{"status":"duplicate","build":%q}`, name))
 		return
 	}
 	p.s.log.Info("build started by webhook", "build", name, "config", rec.Name, "commit", ev.Commit)
@@ -104,16 +126,48 @@ func (p *portal) hook(w http.ResponseWriter, r *http.Request) {
 
 // startWebhookBuild starts a Build of config pinned to commit: the Build's
 // source names the commit instead of the branch, so the run builds exactly
-// what was pushed.
-func (s *Server) startWebhookBuild(ctx context.Context, cfg *v1alpha1.BuildConfigSpec, config, commit string) (string, error) {
+// what was pushed. If a Build of config already covers the commit, nothing is
+// started: dup is true and name is that existing Build. The check and the
+// create run under hookMu, so two deliveries of one push cannot both start a
+// Build.
+func (s *Server) startWebhookBuild(ctx context.Context, cfg *v1alpha1.BuildConfigSpec, config, commit string) (name string, dup bool, err error) {
+	s.hookMu.Lock()
+	defer s.hookMu.Unlock()
+	builds, err := s.buildsOf(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	if existing, ok := resource.FindDuplicateBuild(config, commit, builds); ok {
+		return existing, true, nil
+	}
 	if secret := cfg.GetCredentialsSecret(); secret != "" {
 		if err := s.checkBuildCredentials(ctx, cfg.GetGit().GetUrl(), secret); err != nil {
-			return "", err
+			return "", false, err
 		}
 	}
 	src := proto.CloneOf(cfg)
 	src.Git.Ref = commit
-	return s.createBuild(ctx, config, src, resource.BuildTriggerWebhook)
+	name, err = s.createBuild(ctx, config, src, resource.BuildTriggerWebhook)
+	return name, false, err
+}
+
+// buildsOf returns the Builds in the store. A Build that cannot be decoded is
+// logged and skipped: it cannot be matched, and it must not stop a push.
+func (s *Server) buildsOf(ctx context.Context) ([]*v1alpha1.Build, error) {
+	recs, err := s.store.List(ctx, v1alpha1.KindBuild)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	out := make([]*v1alpha1.Build, 0, len(recs))
+	for _, rec := range recs {
+		b, err := objects.Build(rec)
+		if err != nil {
+			s.log.Warn("webhook: skip undecodable build", "build", rec.Name, "err", err)
+			continue
+		}
+		out = append(out, b)
+	}
+	return out, nil
 }
 
 // buildConfigByUID returns the BuildConfig with the uid, if there is one.

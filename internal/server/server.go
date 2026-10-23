@@ -177,6 +177,8 @@ type Server struct {
 	logs   *logBroker
 	cidrs  *cidrAllocator
 	portal *portal
+	// hookMu serializes webhook builds, so two deliveries of one push cannot both start one (hooks.go).
+	hookMu sync.Mutex
 	grpc   *grpc.Server
 	// builds queues Builds for builder nodes and holds their state (ADR
 	// 0021, pass B). It is the controller's executor.

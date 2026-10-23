@@ -77,8 +77,14 @@ command -v curl >/dev/null 2>&1 || die "curl is required"
 if [ -n "${SHOAL_VERSION:-}" ]; then
 	tag="$SHOAL_VERSION"
 else
-	tag="$(curl -fsSL "$REPO_API/releases/latest" |
+	tag="$(curl -fsSL "$REPO_API/releases/latest" 2>/dev/null |
 		sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+	if [ -z "$tag" ]; then
+		# /releases/latest skips pre-releases; while only alpha builds exist, take the newest published one.
+		tag="$(curl -fsSL "$REPO_API/releases?per_page=10" 2>/dev/null |
+			sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
+		[ -z "$tag" ] || note "no stable release yet; installing pre-release $tag"
+	fi
 	[ -n "$tag" ] || die "could not read the latest release; set SHOAL_VERSION=vX.Y.Z"
 fi
 case "$tag" in
@@ -96,7 +102,9 @@ release_url="$DOWNLOAD_BASE/$tag"
 # Install directory: use it directly when writable (or when we are root),
 # otherwise use sudo.
 SUDO=""
-if [ "$(id -u)" -ne 0 ]; then
+if [ "$(id -u)" -eq 0 ]; then
+	[ "$DRY_RUN" -eq 1 ] || mkdir -p "$INSTALL_DIR" || die "could not create $INSTALL_DIR"
+else
 	if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
 		:
 	elif mkdir -p "$INSTALL_DIR" 2>/dev/null && [ -w "$INSTALL_DIR" ]; then
