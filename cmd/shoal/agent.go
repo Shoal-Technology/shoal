@@ -185,6 +185,10 @@ func startConnected(ctx context.Context, rf *runtimeFlags, nf *networkFlags, log
 	if err != nil {
 		return nil, nil, err
 	}
+	if addr := nc.GetRegistryAddress(); addr != "" {
+		// The node pulls shoal.local and <registry>/ images from the embedded registry (ADR 0020, pass B).
+		rf.opts.Registry = a.Registry(addr)
+	}
 	netNode, err := network.NewNode(network.NodeConfig{
 		PodCIDR: nc.GetPodCidr(), ClusterCIDR: nc.GetClusterCidr(), DNSDomain: nc.GetDnsDomain(),
 		WireguardInterface: nf.wgInterface, WireguardPort: nf.wgPort,

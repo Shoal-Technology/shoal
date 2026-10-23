@@ -313,6 +313,16 @@ func (c *Connected) currentCert() (*tls.Certificate, error) {
 	return c.cert, nil
 }
 
+// Registry returns the embedded registry at addr as this node reaches it
+// (ADR 0020, pass B): the cluster CA it already trusts, and the node's client
+// certificate, read again on each handshake so renewal takes effect.
+func (c *Connected) Registry(addr string) *runtime.Registry {
+	c.mu.Lock()
+	ca := c.ca
+	c.mu.Unlock()
+	return &runtime.Registry{Address: addr, CA: ca, ClientCertificate: c.currentCert}
+}
+
 // dial connects to the server the agent currently prefers (see pickServer).
 func (c *Connected) dial() (*grpc.ClientConn, error) {
 	return c.dialAddr(c.pickServer())

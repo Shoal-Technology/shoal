@@ -261,6 +261,10 @@ message NodeConfigResponse {
   string cluster_cidr = 2;
   // DNS domain of Services, e.g. "shoal".
   string dns_domain = 3;
+  // Address (host:port) of the embedded registry, as the agent dials it
+  // (ADR 0020, pass B). Empty when the registry is not enabled. The agent
+  // trusts it with the cluster CA it already has.
+  string registry_address = 4;
 }
 
 message AgentMessage {

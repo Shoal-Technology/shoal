@@ -93,8 +93,14 @@ func normalizeImage(ref string) (string, error) {
 	return named.String(), nil
 }
 
+// imageName is the containerd name of ref. The shoal.local alias is mapped to
+// the embedded registry first (ADR 0020, pass B), so pulls and lookups agree.
+func (r *containerdRuntime) imageName(ref string) (string, error) {
+	return normalizeImage(r.opts.Registry.MapImage(ref))
+}
+
 func (r *containerdRuntime) EnsureImage(ctx context.Context, ref string, auth []runtime.RegistryAuth) error {
-	name, err := normalizeImage(ref)
+	name, err := r.imageName(ref)
 	if err != nil {
 		return err
 	}
@@ -115,8 +121,8 @@ func (r *containerdRuntime) EnsureImage(ctx context.Context, ref string, auth []
 		return fmt.Errorf("get image %s: %w", name, err)
 	}
 	opts := []client.RemoteOpt{client.WithPullUnpack, client.WithPullSnapshotter(r.snapshotter)}
-	if len(auth) > 0 {
-		opts = append(opts, client.WithResolver(pullResolver(auth)))
+	if len(auth) > 0 || r.opts.Registry != nil {
+		opts = append(opts, client.WithResolver(pullResolver(auth, r.opts.Registry)))
 	}
 	if _, err := r.client.Pull(ctx, name, opts...); err != nil {
 		return fmt.Errorf("pull image %s: %w", name, err)
@@ -124,17 +130,33 @@ func (r *containerdRuntime) EnsureImage(ctx context.Context, ref string, auth []
 	return nil
 }
 
-// pullResolver returns a resolver that logs in to each registry in auth and
-// pulls anonymously from any other host.
-func pullResolver(auth []runtime.RegistryAuth) remotes.Resolver {
+// pullResolver returns a resolver for a pull; see registryHosts.
+func pullResolver(auth []runtime.RegistryAuth, reg *runtime.Registry) remotes.Resolver {
+	return docker.NewResolver(docker.ResolverOptions{Hosts: registryHosts(auth, reg)})
+}
+
+// registryHosts decides how each registry host is reached. Every host logs in
+// with the logins in auth (anonymously when there is none). The embedded
+// registry reg is the exception: it is reached over TLS with the cluster CA and
+// the node's client certificate, with no password (ADR 0020, pass B). No host
+// is reached without verification.
+func registryHosts(auth []runtime.RegistryAuth, reg *runtime.Registry) docker.RegistryHosts {
 	creds := func(host string) (string, string, error) {
 		user, pass := runtime.Credentials(auth, host)
 		return user, pass, nil
 	}
-	return docker.NewResolver(docker.ResolverOptions{
-		Hosts: docker.ConfigureDefaultRegistries(
-			docker.WithAuthorizer(docker.NewDockerAuthorizer(docker.WithAuthCreds(creds)))),
-	})
+	authorizer := docker.WithAuthorizer(docker.NewDockerAuthorizer(docker.WithAuthCreds(creds)))
+	defaults := docker.ConfigureDefaultRegistries(authorizer)
+	if reg == nil {
+		return defaults
+	}
+	shoal := docker.ConfigureDefaultRegistries(authorizer, docker.WithClient(reg.HTTPClient()))
+	return func(host string) ([]docker.RegistryHost, error) {
+		if host == reg.Address {
+			return shoal(host)
+		}
+		return defaults(host)
+	}
 }
 
 func (r *containerdRuntime) containerDir(id string) string {
@@ -151,7 +173,7 @@ func (r *containerdRuntime) Create(ctx context.Context, spec runtime.ContainerSp
 	} else if !errdefs.IsNotFound(err) {
 		return fmt.Errorf("create %s: %w", spec.ID, err)
 	}
-	name, err := normalizeImage(spec.Image)
+	name, err := r.imageName(spec.Image)
 	if err != nil {
 		return err
 	}

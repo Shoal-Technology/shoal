@@ -70,7 +70,7 @@ joins without a token: a complete single-node cluster in one process.`,
 			srv, err := server.New(ctx, server.Config{DataDir: dataDir, AdvertiseAddress: advertise, Log: log,
 				ClusterCIDR: clusterCIDR, ServiceCIDR: serviceCIDR, EncryptionKeyFile: keyFile,
 				StoreBackend: storeBackend, RaftBindAddr: raftBind, RaftNodeID: raftNodeID,
-				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle, RestoreFrom: restoreFrom, Version: version,
+				RaftJoinAddr: raftJoin, RaftAdvertiseAddr: raftAdvertise, RaftJoinBundle: raftJoinBundle, RestoreFrom: restoreFrom, Version: version, RegistryListen: registryListen,
 				AcmeDirectory: acmeDir(acmeDisable, acmeDirectory), AcmeEmail: acmeEmail, AcmeCARoots: acmeCARoots, AcmeAcceptTOS: acmeAcceptTOS})
 			if err != nil {
 				return err

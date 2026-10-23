@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"sync"
 
@@ -108,7 +109,8 @@ func (s *Server) podCIDR(ctx context.Context, node string) (string, error) {
 	return "", status.Error(codes.Aborted, "node changed concurrently, try again")
 }
 
-// NodeConfig returns the calling node's network settings.
+// NodeConfig returns the calling node's network settings and, when the
+// embedded registry is on, the address agents pull from (ADR 0020, pass B).
 func (a *agentService) NodeConfig(ctx context.Context, _ *v1alpha1.NodeConfigRequest) (*v1alpha1.NodeConfigResponse, error) {
 	c, err := a.node(ctx)
 	if err != nil {
@@ -118,9 +120,34 @@ func (a *agentService) NodeConfig(ctx context.Context, _ *v1alpha1.NodeConfigReq
 	if err != nil {
 		return nil, apiError(err)
 	}
+	regAddr, err := registryAddress(a.s.cfg.AdvertiseAddress, a.s.cfg.RegistryListen)
+	if err != nil {
+		return nil, apiError(err)
+	}
 	return &v1alpha1.NodeConfigResponse{
-		PodCidr:     cidr,
-		ClusterCidr: a.s.cidrs.cluster.String(),
-		DnsDomain:   v1alpha1.DNSDomain,
+		PodCidr:         cidr,
+		ClusterCidr:     a.s.cidrs.cluster.String(),
+		DnsDomain:       v1alpha1.DNSDomain,
+		RegistryAddress: regAddr,
 	}, nil
+}
+
+// registryAddress is the host:port agents dial for the embedded registry: the
+// host of the advertise address with the port of the registry listener. It is
+// empty when the registry is off. The registry certificate names the advertise
+// host (servingCert), so the agent's TLS check passes on this address. The
+// listener must be reachable at that host from every node.
+func registryAddress(advertise, listen string) (string, error) {
+	if listen == "" {
+		return "", nil
+	}
+	_, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return "", fmt.Errorf("registry listen address %q: %w", listen, err)
+	}
+	host, _, err := net.SplitHostPort(advertise)
+	if err != nil {
+		return "", fmt.Errorf("advertise address %q: %w", advertise, err)
+	}
+	return net.JoinHostPort(host, port), nil
 }

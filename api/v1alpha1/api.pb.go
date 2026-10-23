@@ -1715,9 +1715,13 @@ type NodeConfigResponse struct {
 	// All container subnets (traffic within it is not masqueraded).
 	ClusterCidr string `protobuf:"bytes,2,opt,name=cluster_cidr,json=clusterCidr,proto3" json:"cluster_cidr,omitempty"`
 	// DNS domain of Services, e.g. "shoal".
-	DnsDomain     string `protobuf:"bytes,3,opt,name=dns_domain,json=dnsDomain,proto3" json:"dns_domain,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DnsDomain string `protobuf:"bytes,3,opt,name=dns_domain,json=dnsDomain,proto3" json:"dns_domain,omitempty"`
+	// Address (host:port) of the embedded registry, as the agent dials it
+	// (ADR 0020, pass B). Empty when the registry is not enabled. The agent
+	// trusts it with the cluster CA it already has.
+	RegistryAddress string `protobuf:"bytes,4,opt,name=registry_address,json=registryAddress,proto3" json:"registry_address,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *NodeConfigResponse) Reset() {
@@ -1767,6 +1771,13 @@ func (x *NodeConfigResponse) GetClusterCidr() string {
 func (x *NodeConfigResponse) GetDnsDomain() string {
 	if x != nil {
 		return x.DnsDomain
+	}
+	return ""
+}
+
+func (x *NodeConfigResponse) GetRegistryAddress() string {
+	if x != nil {
+		return x.RegistryAddress
 	}
 	return ""
 }
@@ -3509,12 +3520,13 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\fJoinResponse\x12 \n" +
 	"\vcertificate\x18\x01 \x01(\fR\vcertificate\x12%\n" +
 	"\x0eca_certificate\x18\x02 \x01(\fR\rcaCertificate\"\x13\n" +
-	"\x11NodeConfigRequest\"q\n" +
+	"\x11NodeConfigRequest\"\x9c\x01\n" +
 	"\x12NodeConfigResponse\x12\x19\n" +
 	"\bpod_cidr\x18\x01 \x01(\tR\apodCidr\x12!\n" +
 	"\fcluster_cidr\x18\x02 \x01(\tR\vclusterCidr\x12\x1d\n" +
 	"\n" +
-	"dns_domain\x18\x03 \x01(\tR\tdnsDomain\"P\n" +
+	"dns_domain\x18\x03 \x01(\tR\tdnsDomain\x12)\n" +
+	"\x10registry_address\x18\x04 \x01(\tR\x0fregistryAddress\"P\n" +
 	"\fAgentMessage\x129\n" +
 	"\theartbeat\x18\x01 \x01(\v2\x19.shoal.v1alpha1.HeartbeatH\x00R\theartbeatB\x05\n" +
 	"\x03msg\"\xa1\x03\n" +
