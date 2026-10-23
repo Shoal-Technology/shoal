@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"slices"
 	"strings"
@@ -27,7 +28,7 @@ start" makes one run of it, a Build. The Builds of a config run one at a time,
 oldest first, and the last 10 finished Builds of each config are kept. A server
 with no build executor marks each Build as Error.`,
 	}
-	cmd.AddCommand(newBuildCreateConfigCmd(), newBuildStartCmd(), newBuildLsCmd(), newBuildLogsCmd(), newBuildCancelCmd())
+	cmd.AddCommand(newBuildCreateConfigCmd(), newBuildStartCmd(), newBuildLsCmd(), newBuildLogsCmd(), newBuildCancelCmd(), newBuildWebhookURLCmd())
 	return cmd
 }
 
@@ -172,6 +173,90 @@ func newBuildCancelCmd() *cobra.Command {
 	}
 	cf.register(cmd.Flags())
 	return cmd
+}
+
+func newBuildWebhookURLCmd() *cobra.Command {
+	var (
+		cf      clientFlags
+		baseURL string
+	)
+	cmd := &cobra.Command{
+		Use:   "webhook-url CONFIG",
+		Short: "Print the webhook URL of a BuildConfig and how to set it up in the git host",
+		Long: `Print the URL that a git host calls to start a Build of CONFIG (ADR 0021,
+pass C), with what to set in the host. The secret's value is never printed: it
+is the webhook-secret key of the Secret named in the output.
+
+The URL is on the portal, which listens on port 7444 by default. The git host
+must reach it and trust its certificate, so give the portal a certificate that
+browsers and git hosts trust (shoal server --ui-cert and --ui-key).`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := cf.connect()
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			ctx, cancel := c.ctx(cmd.Context())
+			defer cancel()
+			obj, err := c.control.Get(ctx, &v1alpha1.GetRequest{Kind: v1alpha1.KindBuildConfig, Name: args[0]})
+			if err != nil {
+				return err
+			}
+			cfg := obj.GetBuildConfig()
+			if cfg.GetSpec().GetWebhook() == nil {
+				return fmt.Errorf("build/%s has no webhook: set spec.webhook in its manifest", args[0])
+			}
+			base := baseURL
+			if base == "" {
+				host := c.server
+				if h, _, err := net.SplitHostPort(c.server); err == nil {
+					host = h
+				}
+				if host == "" {
+					return errors.New("the server host is unknown: pass --base-url")
+				}
+				base = "https://" + net.JoinHostPort(host, "7444")
+			}
+			url := strings.TrimSuffix(base, "/") + resource.WebhookPath(cfg.GetMetadata().GetUid())
+			return printWebhookSetup(cmd.OutOrStdout(), url, cfg)
+		},
+	}
+	cf.register(cmd.Flags())
+	cmd.Flags().StringVar(&baseURL, "base-url", "", "address of the portal as the git host reaches it, e.g. https://shoal.example.com:7444 (default: the server's host on port 7444)")
+	return cmd
+}
+
+// printWebhookSetup prints the URL and what to configure for the config's
+// provider. It never prints the secret: only the Secret's name and key.
+func printWebhookSetup(w io.Writer, url string, cfg *v1alpha1.BuildConfig) error {
+	hook := cfg.GetSpec().GetWebhook()
+	secret := hook.GetSecret()
+	fmt.Fprintf(w, "URL:     %s\n", url)
+	fmt.Fprintf(w, "Secret:  %s, key %s\n", secret, resource.WebhookSecretKey)
+	fmt.Fprintf(w, "Branch:  %s\n", resource.WebhookBranch(cfg.GetSpec()))
+	fmt.Fprintf(w, "Set the secret once with: shoal secret create %s %s=<value>\n\n", secret, resource.WebhookSecretKey)
+	switch hook.GetProvider() {
+	case resource.WebhookGitHub:
+		fmt.Fprintln(w, "GitHub (repository settings, Webhooks, Add webhook):")
+		fmt.Fprintln(w, "  Payload URL: the URL above. Content type: application/json.")
+		fmt.Fprintln(w, "  Secret: the value of the webhook-secret key. Events: Just the push event.")
+	case resource.WebhookGitLab:
+		fmt.Fprintln(w, "GitLab (project settings, Webhooks):")
+		fmt.Fprintln(w, "  URL: the URL above. Secret token: the value of the webhook-secret key.")
+		fmt.Fprintln(w, "  Trigger: Push events.")
+	case resource.WebhookGitea:
+		fmt.Fprintln(w, "Gitea (repository settings, Webhooks, Gitea):")
+		fmt.Fprintln(w, "  Target URL: the URL above. Secret: the value of the webhook-secret key.")
+		fmt.Fprintln(w, "  Trigger on: Push events.")
+	case resource.WebhookGeneric:
+		fmt.Fprintln(w, "Generic: POST a JSON body to the URL above:")
+		fmt.Fprintf(w, "  {\"ref\": \"refs/heads/%s\", \"commit\": \"<full commit sha>\"}\n", resource.WebhookBranch(cfg.GetSpec()))
+		fmt.Fprintln(w, "  with Content-Type application/json and the header")
+		fmt.Fprintln(w, "  X-Shoal-Signature-256: sha256=<hex HMAC-SHA256 of the body, keyed with the secret value>.")
+	}
+	fmt.Fprintln(w, "\nRequests are limited to 1 MiB and 30 per minute per config. Other events are answered 202 and ignored.")
+	return nil
 }
 
 // readManifestFile reads a manifest from a file, or from stdin for "-".

@@ -21,6 +21,7 @@ const (
 	MaxBuildHistory = 10
 
 	// BuildTriggerManual is the trigger of a Build started with StartBuild.
+	// BuildTriggerWebhook (webhook.go) is the trigger of one started by a push.
 	BuildTriggerManual = "manual"
 
 	DefaultGitRef      = "HEAD"
@@ -153,6 +154,12 @@ func ValidateBuildConfig(name string, s *v1alpha1.BuildConfigSpec) error {
 	}
 	if size > maxBuildArgBytes {
 		bad("spec.buildArgs", "%d bytes, at most %d", size, maxBuildArgBytes)
+	}
+	if w := s.GetWebhook(); w != nil {
+		errs = append(errs, validateWebhook(w, g.GetRef()))
+	}
+	if u := s.GetOnSuccess().GetUpdateWorkload(); u != "" && !ValidName(u, 63) {
+		bad("spec.onSuccess.updateWorkload", "invalid Workload name %q", u)
 	}
 	return errors.Join(errs...)
 }

@@ -42,27 +42,37 @@ func (c *controlService) StartBuild(ctx context.Context, req *v1alpha1.StartBuil
 			return nil, err
 		}
 	}
-	specB, err := objects.Encode(&v1alpha1.BuildSpec{Config: name, Source: cfg.GetSpec(), Trigger: resource.BuildTriggerManual})
+	bname, err := c.s.createBuild(ctx, name, cfg.GetSpec(), resource.BuildTriggerManual)
 	if err != nil {
-		return nil, apiError(err)
+		return nil, err
+	}
+	return &v1alpha1.StartBuildResponse{Build: bname}, nil
+}
+
+// createBuild stores a new Build of config with the given spec and trigger,
+// and returns its name. The controller starts it.
+func (s *Server) createBuild(ctx context.Context, config string, source *v1alpha1.BuildConfigSpec, trigger string) (string, error) {
+	specB, err := objects.Encode(&v1alpha1.BuildSpec{Config: config, Source: source, Trigger: trigger})
+	if err != nil {
+		return "", apiError(err)
 	}
 	statusB, err := objects.Encode(&v1alpha1.BuildStatus{Phase: resource.BuildNew, Message: "waiting to start"})
 	if err != nil {
-		return nil, apiError(err)
+		return "", apiError(err)
 	}
 	for range 5 {
-		bname := resource.BuildName(name, randomBuildSuffix())
-		_, err := c.s.store.Create(ctx, store.Record{Kind: v1alpha1.KindBuild, Name: bname, Spec: specB, Status: statusB})
+		bname := resource.BuildName(config, randomBuildSuffix())
+		_, err := s.store.Create(ctx, store.Record{Kind: v1alpha1.KindBuild, Name: bname, Spec: specB, Status: statusB})
 		if errors.Is(err, store.ErrExists) {
 			continue
 		}
 		if err != nil {
-			return nil, apiError(err)
+			return "", apiError(err)
 		}
-		c.s.log.Info("build requested", "build", bname, "config", name)
-		return &v1alpha1.StartBuildResponse{Build: bname}, nil
+		s.log.Info("build requested", "build", bname, "config", config, "trigger", trigger)
+		return bname, nil
 	}
-	return nil, status.Error(codes.Internal, "no free build name")
+	return "", status.Error(codes.Internal, "no free build name")
 }
 
 // CancelBuild asks a Build that has not finished to stop. The controller
