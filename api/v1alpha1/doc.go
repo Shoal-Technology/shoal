@@ -20,8 +20,11 @@ const (
 	KindDatabase    = "Database"
 	KindBuildConfig = "BuildConfig"
 	KindBuild       = "Build"
-	KindJoinToken   = "JoinToken" // internal
-	KindUIAuth      = "UIAuth"    // internal
+	// KindProject and KindResourceQuota are the tenancy kinds (ADR 0023).
+	KindProject       = "Project"
+	KindResourceQuota = "ResourceQuota"
+	KindJoinToken     = "JoinToken" // internal
+	KindUIAuth        = "UIAuth"    // internal
 
 	// Internal kinds for automatic TLS (ADR 0015, pass C). Not user-appliable.
 	KindCertificate   = "Certificate"

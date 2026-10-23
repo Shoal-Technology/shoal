@@ -36,7 +36,11 @@ type ObjectMeta struct {
 	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Labels are key-value pairs set by the user in metadata.labels (ADR 0017).
 	// Keys and values follow the Kubernetes label rules; see internal/resource.
-	Labels        map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Labels map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The Project the object belongs to (ADR 0023). Set on writes: empty keeps
+	// the object's current project, or uses "default" for a new object. Read
+	// back as "default" for every object without a project.
+	Project       string `protobuf:"bytes,8,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -118,6 +122,13 @@ func (x *ObjectMeta) GetLabels() map[string]string {
 		return x.Labels
 	}
 	return nil
+}
+
+func (x *ObjectMeta) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
 }
 
 // Workload is a set of identical replicas of one container.
@@ -5094,11 +5105,278 @@ func (x *BuildStatus) GetWorkloadUpdated() string {
 	return ""
 }
 
+// Project scopes names, quotas and, later, roles (ADR 0023). It is
+// cluster-scoped. The "default" project always exists.
+type Project struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *ProjectSpec           `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Project) Reset() {
+	*x = Project{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Project) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Project) ProtoMessage() {}
+
+func (x *Project) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Project.ProtoReflect.Descriptor instead.
+func (*Project) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *Project) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *Project) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Project) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *Project) GetSpec() *ProjectSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+type ProjectSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Shown in the portal. At most 200 bytes.
+	DisplayName string `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	// At most 200 bytes.
+	Description   string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProjectSpec) Reset() {
+	*x = ProjectSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectSpec) ProtoMessage() {}
+
+func (x *ProjectSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectSpec.ProtoReflect.Descriptor instead.
+func (*ProjectSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *ProjectSpec) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *ProjectSpec) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+// ResourceQuota caps the total usage of the project-scoped objects in one
+// project (ADR 0023, section 7). The quota is checked when objects are
+// applied. An empty field is unlimited.
+type ResourceQuota struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiVersion    string                 `protobuf:"bytes,1,opt,name=api_version,json=apiVersion,proto3" json:"api_version,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Metadata      *ObjectMeta            `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Spec          *ResourceQuotaSpec     `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResourceQuota) Reset() {
+	*x = ResourceQuota{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceQuota) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceQuota) ProtoMessage() {}
+
+func (x *ResourceQuota) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceQuota.ProtoReflect.Descriptor instead.
+func (*ResourceQuota) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *ResourceQuota) GetApiVersion() string {
+	if x != nil {
+		return x.ApiVersion
+	}
+	return ""
+}
+
+func (x *ResourceQuota) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ResourceQuota) GetMetadata() *ObjectMeta {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *ResourceQuota) GetSpec() *ResourceQuotaSpec {
+	if x != nil {
+		return x.Spec
+	}
+	return nil
+}
+
+type ResourceQuotaSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Sum over Workloads of replicas times resources.cpu, e.g. "4" or "2000m".
+	Cpu string `protobuf:"bytes,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// Sum over Workloads of replicas times resources.memory, e.g. "8Gi".
+	Memory string `protobuf:"bytes,2,opt,name=memory,proto3" json:"memory,omitempty"`
+	// Number of Workloads. Unset is unlimited; 0 allows none.
+	Workloads *int32 `protobuf:"varint,3,opt,name=workloads,proto3,oneof" json:"workloads,omitempty"`
+	// Sum of Volume sizes, e.g. "100Gi".
+	Storage       string `protobuf:"bytes,4,opt,name=storage,proto3" json:"storage,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResourceQuotaSpec) Reset() {
+	*x = ResourceQuotaSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceQuotaSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceQuotaSpec) ProtoMessage() {}
+
+func (x *ResourceQuotaSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceQuotaSpec.ProtoReflect.Descriptor instead.
+func (*ResourceQuotaSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *ResourceQuotaSpec) GetCpu() string {
+	if x != nil {
+		return x.Cpu
+	}
+	return ""
+}
+
+func (x *ResourceQuotaSpec) GetMemory() string {
+	if x != nil {
+		return x.Memory
+	}
+	return ""
+}
+
+func (x *ResourceQuotaSpec) GetWorkloads() int32 {
+	if x != nil && x.Workloads != nil {
+		return *x.Workloads
+	}
+	return 0
+}
+
+func (x *ResourceQuotaSpec) GetStorage() string {
+	if x != nil {
+		return x.Storage
+	}
+	return ""
+}
+
 var File_api_v1alpha1_resources_proto protoreflect.FileDescriptor
 
 const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\n" +
-	"\x1capi/v1alpha1/resources.proto\x12\x0eshoal.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdf\x02\n" +
+	"\x1capi/v1alpha1/resources.proto\x12\x0eshoal.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf9\x02\n" +
 	"\n" +
 	"ObjectMeta\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
@@ -5111,7 +5389,8 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12>\n" +
-	"\x06labels\x18\a \x03(\v2&.shoal.v1alpha1.ObjectMeta.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\a \x03(\v2&.shoal.v1alpha1.ObjectMeta.LabelsEntryR\x06labels\x12\x18\n" +
+	"\aproject\x18\b \x01(\tR\aproject\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe1\x01\n" +
@@ -5543,7 +5822,29 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"\x05image\x18\x06 \x01(\tR\x05image\x12\x16\n" +
 	"\x06digest\x18\a \x01(\tR\x06digest\x12\x17\n" +
 	"\alog_ref\x18\b \x01(\tR\x06logRef\x12)\n" +
-	"\x10workload_updated\x18\t \x01(\tR\x0fworkloadUpdatedB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"\x10workload_updated\x18\t \x01(\tR\x0fworkloadUpdated\"\xa7\x01\n" +
+	"\aProject\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x12/\n" +
+	"\x04spec\x18\x04 \x01(\v2\x1b.shoal.v1alpha1.ProjectSpecR\x04spec\"R\n" +
+	"\vProjectSpec\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"\xb3\x01\n" +
+	"\rResourceQuota\x12\x1f\n" +
+	"\vapi_version\x18\x01 \x01(\tR\n" +
+	"apiVersion\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x126\n" +
+	"\bmetadata\x18\x03 \x01(\v2\x1a.shoal.v1alpha1.ObjectMetaR\bmetadata\x125\n" +
+	"\x04spec\x18\x04 \x01(\v2!.shoal.v1alpha1.ResourceQuotaSpecR\x04spec\"\x88\x01\n" +
+	"\x11ResourceQuotaSpec\x12\x10\n" +
+	"\x03cpu\x18\x01 \x01(\tR\x03cpu\x12\x16\n" +
+	"\x06memory\x18\x02 \x01(\tR\x06memory\x12!\n" +
+	"\tworkloads\x18\x03 \x01(\x05H\x00R\tworkloads\x88\x01\x01\x12\x18\n" +
+	"\astorage\x18\x04 \x01(\tR\astorageB\f\n" +
+	"\n" +
+	"_workloadsB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_resources_proto_rawDescOnce sync.Once
@@ -5557,7 +5858,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 78)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -5628,17 +5929,21 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*Build)(nil),                 // 66: shoal.v1alpha1.Build
 	(*BuildSpec)(nil),             // 67: shoal.v1alpha1.BuildSpec
 	(*BuildStatus)(nil),           // 68: shoal.v1alpha1.BuildStatus
-	nil,                           // 69: shoal.v1alpha1.ObjectMeta.LabelsEntry
-	nil,                           // 70: shoal.v1alpha1.NodeSpec.LabelsEntry
-	nil,                           // 71: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 72: shoal.v1alpha1.ConfigSpec.DataEntry
-	nil,                           // 73: shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
-	(*timestamppb.Timestamp)(nil), // 74: google.protobuf.Timestamp
+	(*Project)(nil),               // 69: shoal.v1alpha1.Project
+	(*ProjectSpec)(nil),           // 70: shoal.v1alpha1.ProjectSpec
+	(*ResourceQuota)(nil),         // 71: shoal.v1alpha1.ResourceQuota
+	(*ResourceQuotaSpec)(nil),     // 72: shoal.v1alpha1.ResourceQuotaSpec
+	nil,                           // 73: shoal.v1alpha1.ObjectMeta.LabelsEntry
+	nil,                           // 74: shoal.v1alpha1.NodeSpec.LabelsEntry
+	nil,                           // 75: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 76: shoal.v1alpha1.ConfigSpec.DataEntry
+	nil,                           // 77: shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
+	(*timestamppb.Timestamp)(nil), // 78: google.protobuf.Timestamp
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	74, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	74, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
-	69, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
+	78, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	78, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	73, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
 	0,  // 3: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	2,  // 4: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
 	15, // 5: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
@@ -5648,7 +5953,7 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	10, // 9: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
 	14, // 10: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
 	7,  // 11: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	74, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	78, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
 	3,  // 13: shoal.v1alpha1.WorkloadSpec.volumes:type_name -> shoal.v1alpha1.VolumeMount
 	5,  // 14: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
 	6,  // 15: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
@@ -5662,15 +5967,15 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	18, // 23: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
 	19, // 24: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
 	2,  // 25: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	74, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	78, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
 	32, // 27: shoal.v1alpha1.ReplicaSpec.job:type_name -> shoal.v1alpha1.DatabaseJob
-	74, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	78, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
 	33, // 29: shoal.v1alpha1.ReplicaStatus.job:type_name -> shoal.v1alpha1.DatabaseJobResult
 	0,  // 30: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	21, // 31: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
 	22, // 32: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	70, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
-	74, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	74, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
+	78, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
 	23, // 35: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
 	0,  // 36: shoal.v1alpha1.Volume.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	25, // 37: shoal.v1alpha1.Volume.spec:type_name -> shoal.v1alpha1.VolumeSpec
@@ -5681,13 +5986,13 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	31, // 42: shoal.v1alpha1.Database.status:type_name -> shoal.v1alpha1.DatabaseStatus
 	9,  // 43: shoal.v1alpha1.DatabaseSpec.resources:type_name -> shoal.v1alpha1.Resources
 	30, // 44: shoal.v1alpha1.DatabaseSpec.backup:type_name -> shoal.v1alpha1.DatabaseBackup
-	74, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
+	78, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 46: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	36, // 47: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	71, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	75, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
 	0,  // 49: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	39, // 50: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	72, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	76, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
 	0,  // 52: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	41, // 53: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
 	43, // 54: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
@@ -5695,42 +6000,46 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	0,  // 56: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	45, // 57: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
 	46, // 58: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
-	74, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
+	78, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
 	0,  // 60: shoal.v1alpha1.Certificate.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	48, // 61: shoal.v1alpha1.Certificate.spec:type_name -> shoal.v1alpha1.CertificateSpec
 	49, // 62: shoal.v1alpha1.Certificate.status:type_name -> shoal.v1alpha1.CertificateStatus
-	74, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
-	74, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
-	74, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
+	78, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
+	78, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
+	78, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
 	0,  // 66: shoal.v1alpha1.AcmeAccount.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	51, // 67: shoal.v1alpha1.AcmeAccount.spec:type_name -> shoal.v1alpha1.AcmeAccountSpec
 	52, // 68: shoal.v1alpha1.AcmeAccount.status:type_name -> shoal.v1alpha1.AcmeAccountStatus
 	0,  // 69: shoal.v1alpha1.AcmeChallenge.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	54, // 70: shoal.v1alpha1.AcmeChallenge.spec:type_name -> shoal.v1alpha1.AcmeChallengeSpec
-	74, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
-	74, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	78, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
+	78, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
 	0,  // 73: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	57, // 74: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	74, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	78, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 76: shoal.v1alpha1.BuildConfig.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	60, // 77: shoal.v1alpha1.BuildConfig.spec:type_name -> shoal.v1alpha1.BuildConfigSpec
 	65, // 78: shoal.v1alpha1.BuildConfig.status:type_name -> shoal.v1alpha1.BuildConfigStatus
 	63, // 79: shoal.v1alpha1.BuildConfigSpec.git:type_name -> shoal.v1alpha1.GitSource
 	64, // 80: shoal.v1alpha1.BuildConfigSpec.output:type_name -> shoal.v1alpha1.BuildOutput
-	73, // 81: shoal.v1alpha1.BuildConfigSpec.build_args:type_name -> shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
+	77, // 81: shoal.v1alpha1.BuildConfigSpec.build_args:type_name -> shoal.v1alpha1.BuildConfigSpec.BuildArgsEntry
 	61, // 82: shoal.v1alpha1.BuildConfigSpec.webhook:type_name -> shoal.v1alpha1.BuildWebhook
 	62, // 83: shoal.v1alpha1.BuildConfigSpec.on_success:type_name -> shoal.v1alpha1.BuildOnSuccess
 	0,  // 84: shoal.v1alpha1.Build.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	67, // 85: shoal.v1alpha1.Build.spec:type_name -> shoal.v1alpha1.BuildSpec
 	68, // 86: shoal.v1alpha1.Build.status:type_name -> shoal.v1alpha1.BuildStatus
 	60, // 87: shoal.v1alpha1.BuildSpec.source:type_name -> shoal.v1alpha1.BuildConfigSpec
-	74, // 88: shoal.v1alpha1.BuildStatus.started_at:type_name -> google.protobuf.Timestamp
-	74, // 89: shoal.v1alpha1.BuildStatus.finished_at:type_name -> google.protobuf.Timestamp
-	90, // [90:90] is the sub-list for method output_type
-	90, // [90:90] is the sub-list for method input_type
-	90, // [90:90] is the sub-list for extension type_name
-	90, // [90:90] is the sub-list for extension extendee
-	0,  // [0:90] is the sub-list for field type_name
+	78, // 88: shoal.v1alpha1.BuildStatus.started_at:type_name -> google.protobuf.Timestamp
+	78, // 89: shoal.v1alpha1.BuildStatus.finished_at:type_name -> google.protobuf.Timestamp
+	0,  // 90: shoal.v1alpha1.Project.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	70, // 91: shoal.v1alpha1.Project.spec:type_name -> shoal.v1alpha1.ProjectSpec
+	0,  // 92: shoal.v1alpha1.ResourceQuota.metadata:type_name -> shoal.v1alpha1.ObjectMeta
+	72, // 93: shoal.v1alpha1.ResourceQuota.spec:type_name -> shoal.v1alpha1.ResourceQuotaSpec
+	94, // [94:94] is the sub-list for method output_type
+	94, // [94:94] is the sub-list for method input_type
+	94, // [94:94] is the sub-list for extension type_name
+	94, // [94:94] is the sub-list for extension extendee
+	0,  // [0:94] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_resources_proto_init() }
@@ -5742,13 +6051,14 @@ func file_api_v1alpha1_resources_proto_init() {
 	file_api_v1alpha1_resources_proto_msgTypes[14].OneofWrappers = []any{}
 	file_api_v1alpha1_resources_proto_msgTypes[29].OneofWrappers = []any{}
 	file_api_v1alpha1_resources_proto_msgTypes[45].OneofWrappers = []any{}
+	file_api_v1alpha1_resources_proto_msgTypes[72].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   74,
+			NumMessages:   78,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

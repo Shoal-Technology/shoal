@@ -17,6 +17,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // A Database expands into four objects it owns (ADR 0016, section 3.2):
@@ -133,7 +134,8 @@ func (c *Controller) expandDatabase(ctx context.Context, d *v1alpha1.Database, a
 		}
 	}
 
-	labels := ownedLabels(app)
+	// Owned objects are in the Database's project, so that quotas count them there (ADR 0023, section 2).
+	labels := tenancy.WithProject(ownedLabels(app), d.GetMetadata().GetProject())
 	dataName, credName := name+dbDataSuffix, name+dbCredsSuffix
 	dbName := database.DBName(name)
 

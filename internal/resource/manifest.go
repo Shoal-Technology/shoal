@@ -83,10 +83,16 @@ func decodeDoc(doc []byte) (*v1alpha1.Object, error) {
 	case v1alpha1.KindBuildConfig:
 		b := &v1alpha1.BuildConfig{}
 		obj, msg, stringy = &v1alpha1.Object{Kind: &v1alpha1.Object_BuildConfig{BuildConfig: b}}, b, "buildArgs"
+	case v1alpha1.KindProject:
+		p := &v1alpha1.Project{}
+		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Project{Project: p}}, p
+	case v1alpha1.KindResourceQuota:
+		q := &v1alpha1.ResourceQuota{}
+		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_ResourceQuota{ResourceQuota: q}}, q
 	case "":
 		return nil, fmt.Errorf("kind is required")
 	default:
-		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Database, BuildConfig, Secret, Config)", head.Kind)
+		return nil, fmt.Errorf("kind %q cannot be applied (supported: Workload, Service, Route, Volume, Database, BuildConfig, Secret, Config, Project, ResourceQuota)", head.Kind)
 	}
 	if stringy != "" {
 		if j, err = valuesAsStrings(j, stringy); err != nil {
@@ -164,6 +170,10 @@ func Inner(obj *v1alpha1.Object) proto.Message {
 		return k.Build
 	case *v1alpha1.Object_Route:
 		return k.Route
+	case *v1alpha1.Object_Project:
+		return k.Project
+	case *v1alpha1.Object_ResourceQuota:
+		return k.ResourceQuota
 	}
 	return nil
 }

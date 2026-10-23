@@ -22,6 +22,8 @@ message Object {
     Database database = 9;
     BuildConfig build_config = 10;
     Build build = 11;
+    Project project = 12;
+    ResourceQuota resource_quota = 13;
   }
 }
 
@@ -212,10 +214,16 @@ message ApplyResult {
 message GetRequest {
   string kind = 1;
   string name = 2;
+  // For project-scoped kinds: the object must be in this project (ADR 0023).
+  // Empty finds the object in any project.
+  string project = 3;
 }
 
 message ListRequest {
   string kind = 1;
+  // For project-scoped kinds: list only this project's objects. Empty lists
+  // all projects.
+  string project = 2;
 }
 
 message ListResponse {
@@ -225,6 +233,8 @@ message ListResponse {
 message DeleteRequest {
   string kind = 1;
   string name = 2;
+  // As for GetRequest.
+  string project = 3;
 }
 
 message DeleteResponse {}

@@ -12,13 +12,14 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/authz"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/security"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 const (
@@ -39,12 +40,6 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 	}
 	// Validate everything first, so a bad object doesn't leave the batch
 	// half-applied.
-	type prepared struct {
-		kind, name string
-		spec       []byte
-		msg        proto.Message
-		labels     map[string]string
-	}
 	var (
 		objs []prepared
 		errs []error
@@ -59,7 +54,32 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 		if err != nil {
 			return nil, apiError(err)
 		}
-		objs = append(objs, prepared{kind, name, b, spec, resource.ObjectLabels(obj)})
+		objs = append(objs, prepared{
+			kind: kind, name: name, spec: b, msg: spec,
+			labels:    resource.ObjectLabels(obj),
+			requested: resource.ObjectProject(obj),
+		})
+	}
+	// Each object's project (ADR 0023, section 2), and the check that the
+	// caller may write it (section 6). The check runs before anything is
+	// written, so a refused object leaves the store as it was.
+	for i := range objs {
+		o := &objs[i]
+		userErr, err := c.s.resolveProject(ctx, o)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		if userErr != nil {
+			errs = append(errs, userErr)
+			continue
+		}
+		verb := authz.VerbUpdate
+		if !o.exists {
+			verb = authz.VerbCreate
+		}
+		if err := c.s.authzCheck(ctx, authzCall{Method: "Apply", Verb: verb, Kind: o.kind, Project: o.project, Name: o.name}); err != nil {
+			return nil, err
+		}
 	}
 	// Objects a Database owns are changed through the Database (ADR 0016, pass C).
 	for _, o := range objs {
@@ -97,6 +117,12 @@ func (c *controlService) Apply(ctx context.Context, req *v1alpha1.ApplyRequest) 
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	// Quotas are checked before anything is reserved or written (ADR 0023,
+	// section 7), so a refusal needs no release.
+	if err := c.s.checkQuotas(ctx, objs); err != nil {
+		return nil, err
 	}
 
 	// Volume claims taken by this apply, per workload, until it is applied.
@@ -435,9 +461,26 @@ func (c *controlService) Get(ctx context.Context, req *v1alpha1.GetRequest) (*v1
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
-	r, err := c.s.store.Get(ctx, req.GetKind(), req.GetName())
+	kind, name := req.GetKind(), req.GetName()
+	r, err := c.s.store.Get(ctx, kind, name)
+	if errors.Is(err, store.ErrNotFound) && kind == v1alpha1.KindProject && name == tenancy.DefaultProject {
+		if err := c.s.authzCheck(ctx, authzCall{Method: "Get", Verb: authz.VerbGet, Kind: kind, Name: name}); err != nil {
+			return nil, err
+		}
+		return defaultProjectObject(), nil
+	}
 	if err != nil {
 		return nil, apiError(err)
+	}
+	project, _, err := c.s.recordProject(ctx, kind, name)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	if req.GetProject() != "" && tenancy.ProjectScoped(kind) && project != req.GetProject() {
+		return nil, status.Errorf(codes.NotFound, "%s %q not found in project %q", kind, name, req.GetProject())
+	}
+	if err := c.s.authzCheck(ctx, authzCall{Method: "Get", Verb: authz.VerbGet, Kind: kind, Project: project, Name: name}); err != nil {
+		return nil, err
 	}
 	obj, err := c.toObject(r)
 	return obj, apiError(err)
@@ -447,19 +490,37 @@ func (c *controlService) List(ctx context.Context, req *v1alpha1.ListRequest) (*
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
 	}
-	recs, err := c.s.store.List(ctx, req.GetKind())
+	kind := req.GetKind()
+	if err := c.s.authzCheck(ctx, authzCall{Method: "List", Verb: authz.VerbList, Kind: kind, Project: req.GetProject()}); err != nil {
+		return nil, err
+	}
+	recs, err := c.s.store.List(ctx, kind)
 	if err != nil {
 		return nil, apiError(err)
 	}
 	resp := &v1alpha1.ListResponse{Items: make([]*v1alpha1.Object, 0, len(recs))}
 	for _, r := range recs {
+		if req.GetProject() != "" && tenancy.ProjectScoped(kind) && tenancy.ProjectOf(r.Labels) != req.GetProject() {
+			continue
+		}
 		obj, err := c.toObject(r)
 		if err != nil {
 			return nil, apiError(err)
 		}
 		resp.Items = append(resp.Items, obj)
 	}
+	if kind == v1alpha1.KindProject && (req.GetProject() == "" || req.GetProject() == tenancy.DefaultProject) && !slices.ContainsFunc(resp.Items, isDefaultProject) {
+		resp.Items = append(resp.Items, defaultProjectObject())
+		slices.SortFunc(resp.Items, func(a, b *v1alpha1.Object) int {
+			return cmp.Compare(a.GetProject().GetMetadata().GetName(), b.GetProject().GetMetadata().GetName())
+		})
+	}
 	return resp, nil
+}
+
+// isDefaultProject reports whether obj is the default project.
+func isDefaultProject(obj *v1alpha1.Object) bool {
+	return obj.GetProject().GetMetadata().GetName() == tenancy.DefaultProject
 }
 
 func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest) (*v1alpha1.DeleteResponse, error) {
@@ -468,6 +529,23 @@ func (c *controlService) Delete(ctx context.Context, req *v1alpha1.DeleteRequest
 	}
 	if err := checkKind(req.GetKind()); err != nil {
 		return nil, err
+	}
+	project, found, err := c.s.recordProject(ctx, req.GetKind(), req.GetName())
+	if err != nil {
+		return nil, apiError(err)
+	}
+	if found && req.GetProject() != "" && project != req.GetProject() {
+		return nil, status.Errorf(codes.NotFound, "%s %q not found in project %q", req.GetKind(), req.GetName(), req.GetProject())
+	}
+	if err := c.s.authzCheck(ctx, authzCall{Method: "Delete", Verb: authz.VerbDelete, Kind: req.GetKind(), Project: project, Name: req.GetName()}); err != nil {
+		return nil, err
+	}
+	if req.GetKind() == v1alpha1.KindProject {
+		if err := c.s.deleteProject(ctx, req.GetName()); err != nil {
+			return nil, err
+		}
+		c.s.log.Info("object deleted", "kind", req.GetKind(), "name", req.GetName())
+		return &v1alpha1.DeleteResponse{}, nil
 	}
 	if owner, err := c.s.ownerOf(ctx, req.GetKind(), req.GetName()); err != nil {
 		return nil, apiError(err)
@@ -637,6 +715,18 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 			return nil, err
 		}
 		return &v1alpha1.Object{Kind: &v1alpha1.Object_Build{Build: b}}, nil
+	case v1alpha1.KindProject:
+		p, err := objects.Project(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_Project{Project: p}}, nil
+	case v1alpha1.KindResourceQuota:
+		q, err := objects.ResourceQuota(r)
+		if err != nil {
+			return nil, err
+		}
+		return &v1alpha1.Object{Kind: &v1alpha1.Object_ResourceQuota{ResourceQuota: q}}, nil
 	}
 	return nil, fmt.Errorf("unexpected kind %q", r.Kind)
 }
@@ -646,10 +736,11 @@ func (c *controlService) toObject(r store.Record) (*v1alpha1.Object, error) {
 func checkKind(kind string) error {
 	switch kind {
 	case v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica,
-		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume, v1alpha1.KindDatabase, v1alpha1.KindBuildConfig, v1alpha1.KindBuild:
+		v1alpha1.KindSecret, v1alpha1.KindConfig, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindVolume, v1alpha1.KindDatabase, v1alpha1.KindBuildConfig, v1alpha1.KindBuild,
+		v1alpha1.KindProject, v1alpha1.KindResourceQuota:
 		return nil
 	}
-	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, BuildConfig, Build, Secret or Config)", kind)
+	return status.Errorf(codes.InvalidArgument, "unknown kind %q (want Workload, Replica, Node, Service, Route, Volume, Database, BuildConfig, Build, Secret, Config, Project or ResourceQuota)", kind)
 }
 
 // RestartWorkload sets spec.restartedAt, which changes the template and so

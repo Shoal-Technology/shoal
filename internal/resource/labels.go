@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Label limits keep labels small: they are stored with every object and
@@ -33,6 +34,10 @@ func ValidateLabels(labels map[string]string) error {
 		errs = append(errs, fmt.Errorf("metadata.labels: %d labels, at most %d", len(labels), MaxLabels))
 	}
 	for k, v := range labels {
+		if k == tenancy.LabelProject {
+			errs = append(errs, fmt.Errorf("metadata.labels: %s is reserved: set metadata.project instead", k))
+			continue
+		}
 		prefix, name, hasPrefix := strings.Cut(k, "/")
 		if !hasPrefix {
 			prefix, name = "", k
@@ -80,8 +85,18 @@ func metadataOf(obj *v1alpha1.Object) *v1alpha1.ObjectMeta {
 		return k.BuildConfig.GetMetadata()
 	case *v1alpha1.Object_Build:
 		return k.Build.GetMetadata()
+	case *v1alpha1.Object_Project:
+		return k.Project.GetMetadata()
+	case *v1alpha1.Object_ResourceQuota:
+		return k.ResourceQuota.GetMetadata()
 	}
 	return nil
+}
+
+// ObjectProject returns the project named in an object's metadata, or "" when
+// the object names none (ADR 0023). The server decides the project of a write.
+func ObjectProject(obj *v1alpha1.Object) string {
+	return metadataOf(obj).GetProject()
 }
 
 // Requirement is one term of a label selector: key=value, key!=value, key

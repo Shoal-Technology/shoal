@@ -91,8 +91,22 @@ func prepare(obj *v1alpha1.Object) (kind, name string, spec proto.Message, err e
 		}
 		DefaultVolume(s)
 		return v1alpha1.KindVolume, name, s, ValidateVolume(name, s)
+	case *v1alpha1.Object_Project:
+		name := k.Project.GetMetadata().GetName()
+		s := proto.CloneOf(k.Project.GetSpec())
+		if s == nil {
+			s = &v1alpha1.ProjectSpec{}
+		}
+		return v1alpha1.KindProject, name, s, ValidateProject(name, s)
+	case *v1alpha1.Object_ResourceQuota:
+		name := k.ResourceQuota.GetMetadata().GetName()
+		s := proto.CloneOf(k.ResourceQuota.GetSpec())
+		if s == nil {
+			s = &v1alpha1.ResourceQuotaSpec{}
+		}
+		return v1alpha1.KindResourceQuota, name, s, ValidateResourceQuota(name, s)
 	}
-	return "", "", nil, errors.New("only Workload, Service, Route, Volume, Database, BuildConfig, Secret and Config objects can be applied")
+	return "", "", nil, errors.New("only Workload, Service, Route, Volume, Database, BuildConfig, Secret, Config, Project and ResourceQuota objects can be applied")
 }
 
 func validateData(name string, data map[string]string) error {

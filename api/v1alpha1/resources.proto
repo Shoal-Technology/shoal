@@ -20,6 +20,10 @@ message ObjectMeta {
   // Labels are key-value pairs set by the user in metadata.labels (ADR 0017).
   // Keys and values follow the Kubernetes label rules; see internal/resource.
   map<string, string> labels = 7;
+  // The Project the object belongs to (ADR 0023). Set on writes: empty keeps
+  // the object's current project, or uses "default" for a new object. Read
+  // back as "default" for every object without a project.
+  string project = 8;
 }
 
 // Workload is a set of identical replicas of one container.
@@ -727,4 +731,41 @@ message BuildStatus {
   string log_ref = 8;
   // The Workload whose image was set to this Build's digest (OB-45). Set once.
   string workload_updated = 9;
+}
+
+// Project scopes names, quotas and, later, roles (ADR 0023). It is
+// cluster-scoped. The "default" project always exists.
+message Project {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  ProjectSpec spec = 4;
+}
+
+message ProjectSpec {
+  // Shown in the portal. At most 200 bytes.
+  string display_name = 1;
+  // At most 200 bytes.
+  string description = 2;
+}
+
+// ResourceQuota caps the total usage of the project-scoped objects in one
+// project (ADR 0023, section 7). The quota is checked when objects are
+// applied. An empty field is unlimited.
+message ResourceQuota {
+  string api_version = 1;
+  string kind = 2;
+  ObjectMeta metadata = 3;
+  ResourceQuotaSpec spec = 4;
+}
+
+message ResourceQuotaSpec {
+  // Sum over Workloads of replicas times resources.cpu, e.g. "4" or "2000m".
+  string cpu = 1;
+  // Sum over Workloads of replicas times resources.memory, e.g. "8Gi".
+  string memory = 2;
+  // Number of Workloads. Unset is unlimited; 0 allows none.
+  optional int32 workloads = 3;
+  // Sum of Volume sizes, e.g. "100Gi".
+  string storage = 4;
 }

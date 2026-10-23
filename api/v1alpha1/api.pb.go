@@ -39,6 +39,8 @@ type Object struct {
 	//	*Object_Database
 	//	*Object_BuildConfig
 	//	*Object_Build
+	//	*Object_Project
+	//	*Object_ResourceQuota
 	Kind          isObject_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -180,6 +182,24 @@ func (x *Object) GetBuild() *Build {
 	return nil
 }
 
+func (x *Object) GetProject() *Project {
+	if x != nil {
+		if x, ok := x.Kind.(*Object_Project); ok {
+			return x.Project
+		}
+	}
+	return nil
+}
+
+func (x *Object) GetResourceQuota() *ResourceQuota {
+	if x != nil {
+		if x, ok := x.Kind.(*Object_ResourceQuota); ok {
+			return x.ResourceQuota
+		}
+	}
+	return nil
+}
+
 type isObject_Kind interface {
 	isObject_Kind()
 }
@@ -228,6 +248,14 @@ type Object_Build struct {
 	Build *Build `protobuf:"bytes,11,opt,name=build,proto3,oneof"`
 }
 
+type Object_Project struct {
+	Project *Project `protobuf:"bytes,12,opt,name=project,proto3,oneof"`
+}
+
+type Object_ResourceQuota struct {
+	ResourceQuota *ResourceQuota `protobuf:"bytes,13,opt,name=resource_quota,json=resourceQuota,proto3,oneof"`
+}
+
 func (*Object_Workload) isObject_Kind() {}
 
 func (*Object_Node) isObject_Kind() {}
@@ -249,6 +277,10 @@ func (*Object_Database) isObject_Kind() {}
 func (*Object_BuildConfig) isObject_Kind() {}
 
 func (*Object_Build) isObject_Kind() {}
+
+func (*Object_Project) isObject_Kind() {}
+
+func (*Object_ResourceQuota) isObject_Kind() {}
 
 type StartBuildRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1493,9 +1525,12 @@ func (x *ApplyResult) GetAction() string {
 }
 
 type GetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// For project-scoped kinds: the object must be in this project (ADR 0023).
+	// Empty finds the object in any project.
+	Project       string `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1544,9 +1579,19 @@ func (x *GetRequest) GetName() string {
 	return ""
 }
 
+func (x *GetRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
 type ListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	// For project-scoped kinds: list only this project's objects. Empty lists
+	// all projects.
+	Project       string `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1584,6 +1629,13 @@ func (*ListRequest) Descriptor() ([]byte, []int) {
 func (x *ListRequest) GetKind() string {
 	if x != nil {
 		return x.Kind
+	}
+	return ""
+}
+
+func (x *ListRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -1633,9 +1685,11 @@ func (x *ListResponse) GetItems() []*Object {
 }
 
 type DeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// As for GetRequest.
+	Project       string `protobuf:"bytes,3,opt,name=project,proto3" json:"project,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1680,6 +1734,13 @@ func (x *DeleteRequest) GetKind() string {
 func (x *DeleteRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *DeleteRequest) GetProject() string {
+	if x != nil {
+		return x.Project
 	}
 	return ""
 }
@@ -4141,7 +4202,7 @@ var File_api_v1alpha1_api_proto protoreflect.FileDescriptor
 
 const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\n" +
-	"\x16api/v1alpha1/api.proto\x12\x0eshoal.v1alpha1\x1a\x1capi/v1alpha1/resources.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcc\x04\n" +
+	"\x16api/v1alpha1/api.proto\x12\x0eshoal.v1alpha1\x1a\x1capi/v1alpha1/resources.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc9\x05\n" +
 	"\x06Object\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.shoal.v1alpha1.WorkloadH\x00R\bworkload\x12*\n" +
 	"\x04node\x18\x02 \x01(\v2\x14.shoal.v1alpha1.NodeH\x00R\x04node\x123\n" +
@@ -4154,7 +4215,9 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\bdatabase\x18\t \x01(\v2\x18.shoal.v1alpha1.DatabaseH\x00R\bdatabase\x12@\n" +
 	"\fbuild_config\x18\n" +
 	" \x01(\v2\x1b.shoal.v1alpha1.BuildConfigH\x00R\vbuildConfig\x12-\n" +
-	"\x05build\x18\v \x01(\v2\x15.shoal.v1alpha1.BuildH\x00R\x05buildB\x06\n" +
+	"\x05build\x18\v \x01(\v2\x15.shoal.v1alpha1.BuildH\x00R\x05build\x123\n" +
+	"\aproject\x18\f \x01(\v2\x17.shoal.v1alpha1.ProjectH\x00R\aproject\x12F\n" +
+	"\x0eresource_quota\x18\r \x01(\v2\x1d.shoal.v1alpha1.ResourceQuotaH\x00R\rresourceQuotaB\x06\n" +
 	"\x04kind\"+\n" +
 	"\x11StartBuildRequest\x12\x16\n" +
 	"\x06config\x18\x01 \x01(\tR\x06config\"*\n" +
@@ -4217,18 +4280,21 @@ const file_api_v1alpha1_api_proto_rawDesc = "" +
 	"\vApplyResult\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
-	"\x06action\x18\x03 \x01(\tR\x06action\"4\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\"N\n" +
 	"\n" +
 	"GetRequest\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"!\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aproject\x18\x03 \x01(\tR\aproject\";\n" +
 	"\vListRequest\x12\x12\n" +
-	"\x04kind\x18\x01 \x01(\tR\x04kind\"<\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\"<\n" +
 	"\fListResponse\x12,\n" +
-	"\x05items\x18\x01 \x03(\v2\x16.shoal.v1alpha1.ObjectR\x05items\"7\n" +
+	"\x05items\x18\x01 \x03(\v2\x16.shoal.v1alpha1.ObjectR\x05items\"Q\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x10\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aproject\x18\x03 \x01(\tR\aproject\"\x10\n" +
 	"\x0eDeleteResponse\"\x82\x01\n" +
 	"\x16CreateJoinTokenRequest\x12+\n" +
 	"\x03ttl\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\x12\x19\n" +
@@ -4543,17 +4609,19 @@ var file_api_v1alpha1_api_proto_goTypes = []any{
 	(*Database)(nil),                      // 80: shoal.v1alpha1.Database
 	(*BuildConfig)(nil),                   // 81: shoal.v1alpha1.BuildConfig
 	(*Build)(nil),                         // 82: shoal.v1alpha1.Build
-	(*DatabaseBackupRecord)(nil),          // 83: shoal.v1alpha1.DatabaseBackupRecord
-	(*durationpb.Duration)(nil),           // 84: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),         // 85: google.protobuf.Timestamp
-	(*BuildConfigSpec)(nil),               // 86: shoal.v1alpha1.BuildConfigSpec
-	(*NodeCapacity)(nil),                  // 87: shoal.v1alpha1.NodeCapacity
-	(*ReplicaStatus)(nil),                 // 88: shoal.v1alpha1.ReplicaStatus
-	(*WorkloadSpec)(nil),                  // 89: shoal.v1alpha1.WorkloadSpec
-	(*EnvVar)(nil),                        // 90: shoal.v1alpha1.EnvVar
-	(*DatabaseJob)(nil),                   // 91: shoal.v1alpha1.DatabaseJob
-	(*RegistryCredential)(nil),            // 92: shoal.v1alpha1.RegistryCredential
-	(*ServicePort)(nil),                   // 93: shoal.v1alpha1.ServicePort
+	(*Project)(nil),                       // 83: shoal.v1alpha1.Project
+	(*ResourceQuota)(nil),                 // 84: shoal.v1alpha1.ResourceQuota
+	(*DatabaseBackupRecord)(nil),          // 85: shoal.v1alpha1.DatabaseBackupRecord
+	(*durationpb.Duration)(nil),           // 86: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),         // 87: google.protobuf.Timestamp
+	(*BuildConfigSpec)(nil),               // 88: shoal.v1alpha1.BuildConfigSpec
+	(*NodeCapacity)(nil),                  // 89: shoal.v1alpha1.NodeCapacity
+	(*ReplicaStatus)(nil),                 // 90: shoal.v1alpha1.ReplicaStatus
+	(*WorkloadSpec)(nil),                  // 91: shoal.v1alpha1.WorkloadSpec
+	(*EnvVar)(nil),                        // 92: shoal.v1alpha1.EnvVar
+	(*DatabaseJob)(nil),                   // 93: shoal.v1alpha1.DatabaseJob
+	(*RegistryCredential)(nil),            // 94: shoal.v1alpha1.RegistryCredential
+	(*ServicePort)(nil),                   // 95: shoal.v1alpha1.ServicePort
 }
 var file_api_v1alpha1_api_proto_depIdxs = []int32{
 	72, // 0: shoal.v1alpha1.Object.workload:type_name -> shoal.v1alpha1.Workload
@@ -4567,104 +4635,106 @@ var file_api_v1alpha1_api_proto_depIdxs = []int32{
 	80, // 8: shoal.v1alpha1.Object.database:type_name -> shoal.v1alpha1.Database
 	81, // 9: shoal.v1alpha1.Object.build_config:type_name -> shoal.v1alpha1.BuildConfig
 	82, // 10: shoal.v1alpha1.Object.build:type_name -> shoal.v1alpha1.Build
-	62, // 11: shoal.v1alpha1.BuildLogsResponse.lines:type_name -> shoal.v1alpha1.LogLine
-	83, // 12: shoal.v1alpha1.DatabaseBackupsResponse.backups:type_name -> shoal.v1alpha1.DatabaseBackupRecord
-	83, // 13: shoal.v1alpha1.BackupDatabaseResponse.backup:type_name -> shoal.v1alpha1.DatabaseBackupRecord
-	13, // 14: shoal.v1alpha1.ClusterStatusResponse.members:type_name -> shoal.v1alpha1.ClusterMember
-	0,  // 15: shoal.v1alpha1.ApplyRequest.objects:type_name -> shoal.v1alpha1.Object
-	26, // 16: shoal.v1alpha1.ApplyResponse.results:type_name -> shoal.v1alpha1.ApplyResult
-	0,  // 17: shoal.v1alpha1.ListResponse.items:type_name -> shoal.v1alpha1.Object
-	84, // 18: shoal.v1alpha1.CreateJoinTokenRequest.ttl:type_name -> google.protobuf.Duration
-	85, // 19: shoal.v1alpha1.CreateJoinTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
-	86, // 20: shoal.v1alpha1.ClaimBuildResponse.source:type_name -> shoal.v1alpha1.BuildConfigSpec
-	38, // 21: shoal.v1alpha1.ClaimBuildResponse.credentials:type_name -> shoal.v1alpha1.BuildCredentials
-	62, // 22: shoal.v1alpha1.ReportBuildRequest.lines:type_name -> shoal.v1alpha1.LogLine
-	46, // 23: shoal.v1alpha1.AgentMessage.heartbeat:type_name -> shoal.v1alpha1.Heartbeat
-	87, // 24: shoal.v1alpha1.Heartbeat.capacity:type_name -> shoal.v1alpha1.NodeCapacity
-	47, // 25: shoal.v1alpha1.Heartbeat.replicas:type_name -> shoal.v1alpha1.ReplicaReport
-	88, // 26: shoal.v1alpha1.ReplicaReport.status:type_name -> shoal.v1alpha1.ReplicaStatus
-	64, // 27: shoal.v1alpha1.ServerMessage.config:type_name -> shoal.v1alpha1.SyncConfig
-	55, // 28: shoal.v1alpha1.ServerMessage.assignments:type_name -> shoal.v1alpha1.AssignmentSnapshot
-	60, // 29: shoal.v1alpha1.ServerMessage.logs:type_name -> shoal.v1alpha1.LogRequest
-	49, // 30: shoal.v1alpha1.ServerMessage.routes:type_name -> shoal.v1alpha1.RouteSnapshot
-	52, // 31: shoal.v1alpha1.RouteSnapshot.routes:type_name -> shoal.v1alpha1.EdgeRoute
-	50, // 32: shoal.v1alpha1.RouteSnapshot.challenges:type_name -> shoal.v1alpha1.EdgeChallenge
-	51, // 33: shoal.v1alpha1.RouteSnapshot.certificates:type_name -> shoal.v1alpha1.EdgeCertificate
-	69, // 34: shoal.v1alpha1.SetNodeLabelsRequest.set:type_name -> shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
-	70, // 35: shoal.v1alpha1.SetNodeLabelsResponse.labels:type_name -> shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
-	56, // 36: shoal.v1alpha1.AssignmentSnapshot.assignments:type_name -> shoal.v1alpha1.Assignment
-	58, // 37: shoal.v1alpha1.AssignmentSnapshot.services:type_name -> shoal.v1alpha1.ServiceRoute
-	59, // 38: shoal.v1alpha1.AssignmentSnapshot.peers:type_name -> shoal.v1alpha1.MeshPeer
-	79, // 39: shoal.v1alpha1.AssignmentSnapshot.volumes:type_name -> shoal.v1alpha1.Volume
-	89, // 40: shoal.v1alpha1.Assignment.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	90, // 41: shoal.v1alpha1.Assignment.env:type_name -> shoal.v1alpha1.EnvVar
-	57, // 42: shoal.v1alpha1.Assignment.mounts:type_name -> shoal.v1alpha1.ResolvedMount
-	91, // 43: shoal.v1alpha1.Assignment.job:type_name -> shoal.v1alpha1.DatabaseJob
-	92, // 44: shoal.v1alpha1.Assignment.registry_credentials:type_name -> shoal.v1alpha1.RegistryCredential
-	71, // 45: shoal.v1alpha1.ResolvedMount.files:type_name -> shoal.v1alpha1.ResolvedMount.FilesEntry
-	93, // 46: shoal.v1alpha1.ServiceRoute.ports:type_name -> shoal.v1alpha1.ServicePort
-	62, // 47: shoal.v1alpha1.LogChunk.lines:type_name -> shoal.v1alpha1.LogLine
-	85, // 48: shoal.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
-	84, // 49: shoal.v1alpha1.SyncConfig.heartbeat_interval:type_name -> google.protobuf.Duration
-	24, // 50: shoal.v1alpha1.Control.Apply:input_type -> shoal.v1alpha1.ApplyRequest
-	27, // 51: shoal.v1alpha1.Control.Get:input_type -> shoal.v1alpha1.GetRequest
-	28, // 52: shoal.v1alpha1.Control.List:input_type -> shoal.v1alpha1.ListRequest
-	30, // 53: shoal.v1alpha1.Control.Delete:input_type -> shoal.v1alpha1.DeleteRequest
-	53, // 54: shoal.v1alpha1.Control.SetNodeLabels:input_type -> shoal.v1alpha1.SetNodeLabelsRequest
-	32, // 55: shoal.v1alpha1.Control.CreateJoinToken:input_type -> shoal.v1alpha1.CreateJoinTokenRequest
-	23, // 56: shoal.v1alpha1.Control.Logs:input_type -> shoal.v1alpha1.LogsRequest
-	20, // 57: shoal.v1alpha1.Control.RestartWorkload:input_type -> shoal.v1alpha1.RestartWorkloadRequest
-	21, // 58: shoal.v1alpha1.Control.ResetUIPassword:input_type -> shoal.v1alpha1.ResetUIPasswordRequest
-	18, // 59: shoal.v1alpha1.Control.JoinCluster:input_type -> shoal.v1alpha1.JoinClusterRequest
-	11, // 60: shoal.v1alpha1.Control.ClusterStatus:input_type -> shoal.v1alpha1.ClusterStatusRequest
-	14, // 61: shoal.v1alpha1.Control.RemoveServer:input_type -> shoal.v1alpha1.RemoveServerRequest
-	16, // 62: shoal.v1alpha1.Control.JoinBundle:input_type -> shoal.v1alpha1.JoinBundleRequest
-	67, // 63: shoal.v1alpha1.Control.Backup:input_type -> shoal.v1alpha1.BackupRequest
-	7,  // 64: shoal.v1alpha1.Control.DatabaseBackups:input_type -> shoal.v1alpha1.DatabaseBackupsRequest
-	9,  // 65: shoal.v1alpha1.Control.BackupDatabase:input_type -> shoal.v1alpha1.BackupDatabaseRequest
-	1,  // 66: shoal.v1alpha1.Control.StartBuild:input_type -> shoal.v1alpha1.StartBuildRequest
-	3,  // 67: shoal.v1alpha1.Control.CancelBuild:input_type -> shoal.v1alpha1.CancelBuildRequest
-	5,  // 68: shoal.v1alpha1.Control.BuildLogs:input_type -> shoal.v1alpha1.BuildLogsRequest
-	34, // 69: shoal.v1alpha1.Join.Join:input_type -> shoal.v1alpha1.JoinRequest
-	45, // 70: shoal.v1alpha1.Agent.Sync:input_type -> shoal.v1alpha1.AgentMessage
-	65, // 71: shoal.v1alpha1.Agent.RenewCertificate:input_type -> shoal.v1alpha1.RenewCertificateRequest
-	61, // 72: shoal.v1alpha1.Agent.UploadLogs:input_type -> shoal.v1alpha1.LogChunk
-	43, // 73: shoal.v1alpha1.Agent.NodeConfig:input_type -> shoal.v1alpha1.NodeConfigRequest
-	36, // 74: shoal.v1alpha1.Agent.ClaimBuild:input_type -> shoal.v1alpha1.ClaimBuildRequest
-	39, // 75: shoal.v1alpha1.Agent.ReportBuild:input_type -> shoal.v1alpha1.ReportBuildRequest
-	41, // 76: shoal.v1alpha1.Agent.IssueBuildCertificate:input_type -> shoal.v1alpha1.IssueBuildCertificateRequest
-	25, // 77: shoal.v1alpha1.Control.Apply:output_type -> shoal.v1alpha1.ApplyResponse
-	0,  // 78: shoal.v1alpha1.Control.Get:output_type -> shoal.v1alpha1.Object
-	29, // 79: shoal.v1alpha1.Control.List:output_type -> shoal.v1alpha1.ListResponse
-	31, // 80: shoal.v1alpha1.Control.Delete:output_type -> shoal.v1alpha1.DeleteResponse
-	54, // 81: shoal.v1alpha1.Control.SetNodeLabels:output_type -> shoal.v1alpha1.SetNodeLabelsResponse
-	33, // 82: shoal.v1alpha1.Control.CreateJoinToken:output_type -> shoal.v1alpha1.CreateJoinTokenResponse
-	62, // 83: shoal.v1alpha1.Control.Logs:output_type -> shoal.v1alpha1.LogLine
-	26, // 84: shoal.v1alpha1.Control.RestartWorkload:output_type -> shoal.v1alpha1.ApplyResult
-	22, // 85: shoal.v1alpha1.Control.ResetUIPassword:output_type -> shoal.v1alpha1.ResetUIPasswordResponse
-	19, // 86: shoal.v1alpha1.Control.JoinCluster:output_type -> shoal.v1alpha1.JoinClusterResponse
-	12, // 87: shoal.v1alpha1.Control.ClusterStatus:output_type -> shoal.v1alpha1.ClusterStatusResponse
-	15, // 88: shoal.v1alpha1.Control.RemoveServer:output_type -> shoal.v1alpha1.RemoveServerResponse
-	17, // 89: shoal.v1alpha1.Control.JoinBundle:output_type -> shoal.v1alpha1.JoinBundleResponse
-	68, // 90: shoal.v1alpha1.Control.Backup:output_type -> shoal.v1alpha1.BackupResponse
-	8,  // 91: shoal.v1alpha1.Control.DatabaseBackups:output_type -> shoal.v1alpha1.DatabaseBackupsResponse
-	10, // 92: shoal.v1alpha1.Control.BackupDatabase:output_type -> shoal.v1alpha1.BackupDatabaseResponse
-	2,  // 93: shoal.v1alpha1.Control.StartBuild:output_type -> shoal.v1alpha1.StartBuildResponse
-	4,  // 94: shoal.v1alpha1.Control.CancelBuild:output_type -> shoal.v1alpha1.CancelBuildResponse
-	6,  // 95: shoal.v1alpha1.Control.BuildLogs:output_type -> shoal.v1alpha1.BuildLogsResponse
-	35, // 96: shoal.v1alpha1.Join.Join:output_type -> shoal.v1alpha1.JoinResponse
-	48, // 97: shoal.v1alpha1.Agent.Sync:output_type -> shoal.v1alpha1.ServerMessage
-	66, // 98: shoal.v1alpha1.Agent.RenewCertificate:output_type -> shoal.v1alpha1.RenewCertificateResponse
-	63, // 99: shoal.v1alpha1.Agent.UploadLogs:output_type -> shoal.v1alpha1.UploadLogsResponse
-	44, // 100: shoal.v1alpha1.Agent.NodeConfig:output_type -> shoal.v1alpha1.NodeConfigResponse
-	37, // 101: shoal.v1alpha1.Agent.ClaimBuild:output_type -> shoal.v1alpha1.ClaimBuildResponse
-	40, // 102: shoal.v1alpha1.Agent.ReportBuild:output_type -> shoal.v1alpha1.ReportBuildResponse
-	42, // 103: shoal.v1alpha1.Agent.IssueBuildCertificate:output_type -> shoal.v1alpha1.IssueBuildCertificateResponse
-	77, // [77:104] is the sub-list for method output_type
-	50, // [50:77] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	83, // 11: shoal.v1alpha1.Object.project:type_name -> shoal.v1alpha1.Project
+	84, // 12: shoal.v1alpha1.Object.resource_quota:type_name -> shoal.v1alpha1.ResourceQuota
+	62, // 13: shoal.v1alpha1.BuildLogsResponse.lines:type_name -> shoal.v1alpha1.LogLine
+	85, // 14: shoal.v1alpha1.DatabaseBackupsResponse.backups:type_name -> shoal.v1alpha1.DatabaseBackupRecord
+	85, // 15: shoal.v1alpha1.BackupDatabaseResponse.backup:type_name -> shoal.v1alpha1.DatabaseBackupRecord
+	13, // 16: shoal.v1alpha1.ClusterStatusResponse.members:type_name -> shoal.v1alpha1.ClusterMember
+	0,  // 17: shoal.v1alpha1.ApplyRequest.objects:type_name -> shoal.v1alpha1.Object
+	26, // 18: shoal.v1alpha1.ApplyResponse.results:type_name -> shoal.v1alpha1.ApplyResult
+	0,  // 19: shoal.v1alpha1.ListResponse.items:type_name -> shoal.v1alpha1.Object
+	86, // 20: shoal.v1alpha1.CreateJoinTokenRequest.ttl:type_name -> google.protobuf.Duration
+	87, // 21: shoal.v1alpha1.CreateJoinTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	88, // 22: shoal.v1alpha1.ClaimBuildResponse.source:type_name -> shoal.v1alpha1.BuildConfigSpec
+	38, // 23: shoal.v1alpha1.ClaimBuildResponse.credentials:type_name -> shoal.v1alpha1.BuildCredentials
+	62, // 24: shoal.v1alpha1.ReportBuildRequest.lines:type_name -> shoal.v1alpha1.LogLine
+	46, // 25: shoal.v1alpha1.AgentMessage.heartbeat:type_name -> shoal.v1alpha1.Heartbeat
+	89, // 26: shoal.v1alpha1.Heartbeat.capacity:type_name -> shoal.v1alpha1.NodeCapacity
+	47, // 27: shoal.v1alpha1.Heartbeat.replicas:type_name -> shoal.v1alpha1.ReplicaReport
+	90, // 28: shoal.v1alpha1.ReplicaReport.status:type_name -> shoal.v1alpha1.ReplicaStatus
+	64, // 29: shoal.v1alpha1.ServerMessage.config:type_name -> shoal.v1alpha1.SyncConfig
+	55, // 30: shoal.v1alpha1.ServerMessage.assignments:type_name -> shoal.v1alpha1.AssignmentSnapshot
+	60, // 31: shoal.v1alpha1.ServerMessage.logs:type_name -> shoal.v1alpha1.LogRequest
+	49, // 32: shoal.v1alpha1.ServerMessage.routes:type_name -> shoal.v1alpha1.RouteSnapshot
+	52, // 33: shoal.v1alpha1.RouteSnapshot.routes:type_name -> shoal.v1alpha1.EdgeRoute
+	50, // 34: shoal.v1alpha1.RouteSnapshot.challenges:type_name -> shoal.v1alpha1.EdgeChallenge
+	51, // 35: shoal.v1alpha1.RouteSnapshot.certificates:type_name -> shoal.v1alpha1.EdgeCertificate
+	69, // 36: shoal.v1alpha1.SetNodeLabelsRequest.set:type_name -> shoal.v1alpha1.SetNodeLabelsRequest.SetEntry
+	70, // 37: shoal.v1alpha1.SetNodeLabelsResponse.labels:type_name -> shoal.v1alpha1.SetNodeLabelsResponse.LabelsEntry
+	56, // 38: shoal.v1alpha1.AssignmentSnapshot.assignments:type_name -> shoal.v1alpha1.Assignment
+	58, // 39: shoal.v1alpha1.AssignmentSnapshot.services:type_name -> shoal.v1alpha1.ServiceRoute
+	59, // 40: shoal.v1alpha1.AssignmentSnapshot.peers:type_name -> shoal.v1alpha1.MeshPeer
+	79, // 41: shoal.v1alpha1.AssignmentSnapshot.volumes:type_name -> shoal.v1alpha1.Volume
+	91, // 42: shoal.v1alpha1.Assignment.template:type_name -> shoal.v1alpha1.WorkloadSpec
+	92, // 43: shoal.v1alpha1.Assignment.env:type_name -> shoal.v1alpha1.EnvVar
+	57, // 44: shoal.v1alpha1.Assignment.mounts:type_name -> shoal.v1alpha1.ResolvedMount
+	93, // 45: shoal.v1alpha1.Assignment.job:type_name -> shoal.v1alpha1.DatabaseJob
+	94, // 46: shoal.v1alpha1.Assignment.registry_credentials:type_name -> shoal.v1alpha1.RegistryCredential
+	71, // 47: shoal.v1alpha1.ResolvedMount.files:type_name -> shoal.v1alpha1.ResolvedMount.FilesEntry
+	95, // 48: shoal.v1alpha1.ServiceRoute.ports:type_name -> shoal.v1alpha1.ServicePort
+	62, // 49: shoal.v1alpha1.LogChunk.lines:type_name -> shoal.v1alpha1.LogLine
+	87, // 50: shoal.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
+	86, // 51: shoal.v1alpha1.SyncConfig.heartbeat_interval:type_name -> google.protobuf.Duration
+	24, // 52: shoal.v1alpha1.Control.Apply:input_type -> shoal.v1alpha1.ApplyRequest
+	27, // 53: shoal.v1alpha1.Control.Get:input_type -> shoal.v1alpha1.GetRequest
+	28, // 54: shoal.v1alpha1.Control.List:input_type -> shoal.v1alpha1.ListRequest
+	30, // 55: shoal.v1alpha1.Control.Delete:input_type -> shoal.v1alpha1.DeleteRequest
+	53, // 56: shoal.v1alpha1.Control.SetNodeLabels:input_type -> shoal.v1alpha1.SetNodeLabelsRequest
+	32, // 57: shoal.v1alpha1.Control.CreateJoinToken:input_type -> shoal.v1alpha1.CreateJoinTokenRequest
+	23, // 58: shoal.v1alpha1.Control.Logs:input_type -> shoal.v1alpha1.LogsRequest
+	20, // 59: shoal.v1alpha1.Control.RestartWorkload:input_type -> shoal.v1alpha1.RestartWorkloadRequest
+	21, // 60: shoal.v1alpha1.Control.ResetUIPassword:input_type -> shoal.v1alpha1.ResetUIPasswordRequest
+	18, // 61: shoal.v1alpha1.Control.JoinCluster:input_type -> shoal.v1alpha1.JoinClusterRequest
+	11, // 62: shoal.v1alpha1.Control.ClusterStatus:input_type -> shoal.v1alpha1.ClusterStatusRequest
+	14, // 63: shoal.v1alpha1.Control.RemoveServer:input_type -> shoal.v1alpha1.RemoveServerRequest
+	16, // 64: shoal.v1alpha1.Control.JoinBundle:input_type -> shoal.v1alpha1.JoinBundleRequest
+	67, // 65: shoal.v1alpha1.Control.Backup:input_type -> shoal.v1alpha1.BackupRequest
+	7,  // 66: shoal.v1alpha1.Control.DatabaseBackups:input_type -> shoal.v1alpha1.DatabaseBackupsRequest
+	9,  // 67: shoal.v1alpha1.Control.BackupDatabase:input_type -> shoal.v1alpha1.BackupDatabaseRequest
+	1,  // 68: shoal.v1alpha1.Control.StartBuild:input_type -> shoal.v1alpha1.StartBuildRequest
+	3,  // 69: shoal.v1alpha1.Control.CancelBuild:input_type -> shoal.v1alpha1.CancelBuildRequest
+	5,  // 70: shoal.v1alpha1.Control.BuildLogs:input_type -> shoal.v1alpha1.BuildLogsRequest
+	34, // 71: shoal.v1alpha1.Join.Join:input_type -> shoal.v1alpha1.JoinRequest
+	45, // 72: shoal.v1alpha1.Agent.Sync:input_type -> shoal.v1alpha1.AgentMessage
+	65, // 73: shoal.v1alpha1.Agent.RenewCertificate:input_type -> shoal.v1alpha1.RenewCertificateRequest
+	61, // 74: shoal.v1alpha1.Agent.UploadLogs:input_type -> shoal.v1alpha1.LogChunk
+	43, // 75: shoal.v1alpha1.Agent.NodeConfig:input_type -> shoal.v1alpha1.NodeConfigRequest
+	36, // 76: shoal.v1alpha1.Agent.ClaimBuild:input_type -> shoal.v1alpha1.ClaimBuildRequest
+	39, // 77: shoal.v1alpha1.Agent.ReportBuild:input_type -> shoal.v1alpha1.ReportBuildRequest
+	41, // 78: shoal.v1alpha1.Agent.IssueBuildCertificate:input_type -> shoal.v1alpha1.IssueBuildCertificateRequest
+	25, // 79: shoal.v1alpha1.Control.Apply:output_type -> shoal.v1alpha1.ApplyResponse
+	0,  // 80: shoal.v1alpha1.Control.Get:output_type -> shoal.v1alpha1.Object
+	29, // 81: shoal.v1alpha1.Control.List:output_type -> shoal.v1alpha1.ListResponse
+	31, // 82: shoal.v1alpha1.Control.Delete:output_type -> shoal.v1alpha1.DeleteResponse
+	54, // 83: shoal.v1alpha1.Control.SetNodeLabels:output_type -> shoal.v1alpha1.SetNodeLabelsResponse
+	33, // 84: shoal.v1alpha1.Control.CreateJoinToken:output_type -> shoal.v1alpha1.CreateJoinTokenResponse
+	62, // 85: shoal.v1alpha1.Control.Logs:output_type -> shoal.v1alpha1.LogLine
+	26, // 86: shoal.v1alpha1.Control.RestartWorkload:output_type -> shoal.v1alpha1.ApplyResult
+	22, // 87: shoal.v1alpha1.Control.ResetUIPassword:output_type -> shoal.v1alpha1.ResetUIPasswordResponse
+	19, // 88: shoal.v1alpha1.Control.JoinCluster:output_type -> shoal.v1alpha1.JoinClusterResponse
+	12, // 89: shoal.v1alpha1.Control.ClusterStatus:output_type -> shoal.v1alpha1.ClusterStatusResponse
+	15, // 90: shoal.v1alpha1.Control.RemoveServer:output_type -> shoal.v1alpha1.RemoveServerResponse
+	17, // 91: shoal.v1alpha1.Control.JoinBundle:output_type -> shoal.v1alpha1.JoinBundleResponse
+	68, // 92: shoal.v1alpha1.Control.Backup:output_type -> shoal.v1alpha1.BackupResponse
+	8,  // 93: shoal.v1alpha1.Control.DatabaseBackups:output_type -> shoal.v1alpha1.DatabaseBackupsResponse
+	10, // 94: shoal.v1alpha1.Control.BackupDatabase:output_type -> shoal.v1alpha1.BackupDatabaseResponse
+	2,  // 95: shoal.v1alpha1.Control.StartBuild:output_type -> shoal.v1alpha1.StartBuildResponse
+	4,  // 96: shoal.v1alpha1.Control.CancelBuild:output_type -> shoal.v1alpha1.CancelBuildResponse
+	6,  // 97: shoal.v1alpha1.Control.BuildLogs:output_type -> shoal.v1alpha1.BuildLogsResponse
+	35, // 98: shoal.v1alpha1.Join.Join:output_type -> shoal.v1alpha1.JoinResponse
+	48, // 99: shoal.v1alpha1.Agent.Sync:output_type -> shoal.v1alpha1.ServerMessage
+	66, // 100: shoal.v1alpha1.Agent.RenewCertificate:output_type -> shoal.v1alpha1.RenewCertificateResponse
+	63, // 101: shoal.v1alpha1.Agent.UploadLogs:output_type -> shoal.v1alpha1.UploadLogsResponse
+	44, // 102: shoal.v1alpha1.Agent.NodeConfig:output_type -> shoal.v1alpha1.NodeConfigResponse
+	37, // 103: shoal.v1alpha1.Agent.ClaimBuild:output_type -> shoal.v1alpha1.ClaimBuildResponse
+	40, // 104: shoal.v1alpha1.Agent.ReportBuild:output_type -> shoal.v1alpha1.ReportBuildResponse
+	42, // 105: shoal.v1alpha1.Agent.IssueBuildCertificate:output_type -> shoal.v1alpha1.IssueBuildCertificateResponse
+	79, // [79:106] is the sub-list for method output_type
+	52, // [52:79] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_api_v1alpha1_api_proto_init() }
@@ -4685,6 +4755,8 @@ func file_api_v1alpha1_api_proto_init() {
 		(*Object_Database)(nil),
 		(*Object_BuildConfig)(nil),
 		(*Object_Build)(nil),
+		(*Object_Project)(nil),
+		(*Object_ResourceQuota)(nil),
 	}
 	file_api_v1alpha1_api_proto_msgTypes[45].OneofWrappers = []any{
 		(*AgentMessage_Heartbeat)(nil),

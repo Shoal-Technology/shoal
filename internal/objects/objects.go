@@ -3,13 +3,13 @@ package objects
 
 import (
 	"fmt"
-	"maps"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // Specs are encoded deterministically, so an unchanged spec encodes to the
@@ -34,8 +34,36 @@ func Meta(r store.Record) *v1alpha1.ObjectMeta {
 		Revision:   r.Revision,
 		CreatedAt:  timestamppb.New(r.CreatedAt),
 		UpdatedAt:  timestamppb.New(r.UpdatedAt),
-		Labels:     maps.Clone(r.Labels),
+		Labels:     tenancy.WithoutProject(r.Labels),
+		Project:    project(r),
 	}
+}
+
+// project returns the project a record belongs to, or "" for a cluster-wide
+// kind. Only the project-scoped kinds have one (ADR 0023).
+func project(r store.Record) string {
+	if !tenancy.ProjectScoped(r.Kind) {
+		return ""
+	}
+	return tenancy.ProjectOf(r.Labels)
+}
+
+// Project decodes a Project record.
+func Project(r store.Record) (*v1alpha1.Project, error) {
+	p := &v1alpha1.Project{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindProject, Metadata: Meta(r),
+		Spec: &v1alpha1.ProjectSpec{},
+	}
+	return p, decode(r, p.Spec, nil)
+}
+
+// ResourceQuota decodes a ResourceQuota record.
+func ResourceQuota(r store.Record) (*v1alpha1.ResourceQuota, error) {
+	q := &v1alpha1.ResourceQuota{
+		ApiVersion: v1alpha1.APIVersion, Kind: v1alpha1.KindResourceQuota, Metadata: Meta(r),
+		Spec: &v1alpha1.ResourceQuotaSpec{},
+	}
+	return q, decode(r, q.Spec, nil)
 }
 
 func decode(r store.Record, spec, status proto.Message) error {

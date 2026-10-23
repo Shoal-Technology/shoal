@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/authz"
 	"github.com/Shoal-Technology/shoal/internal/controller"
 	"github.com/Shoal-Technology/shoal/internal/security"
 	"github.com/Shoal-Technology/shoal/internal/store"
@@ -100,6 +101,11 @@ type Config struct {
 	// Version is the server version recorded in backups.
 	Version string
 
+	// AuthzMode is "audit" (default) or "enforce". In audit mode a call the
+	// roles of ADR 0023 would deny is logged and allowed. In enforce mode it is
+	// refused. Pass A ships audit mode.
+	AuthzMode string
+
 	// leaderGate is a test hook that records which nodes run the leader
 	// tasks. Nil in production.
 	leaderGate *leaderGate
@@ -168,15 +174,17 @@ func (c *Config) setDefaults() {
 
 // Server is the control plane.
 type Server struct {
-	cfg    Config
-	log    *slog.Logger
-	store  store.Store
-	ca     *security.CA
-	nodes  *nodeTracker
-	ctrl   *controller.Controller
-	logs   *logBroker
-	cidrs  *cidrAllocator
-	portal *portal
+	cfg   Config
+	log   *slog.Logger
+	store store.Store
+	ca    *security.CA
+	// authzMode is how denied API calls are handled (ADR 0023, section 6).
+	authzMode authz.Mode
+	nodes     *nodeTracker
+	ctrl      *controller.Controller
+	logs      *logBroker
+	cidrs     *cidrAllocator
+	portal    *portal
 	// hookMu serializes webhook builds, so two deliveries of one push cannot both start one (hooks.go).
 	hookMu sync.Mutex
 	grpc   *grpc.Server
@@ -218,6 +226,11 @@ func AdminConfigPath(dataDir string) string { return filepath.Join(dataDir, "adm
 // the gRPC server. Call Serve, then Close.
 func New(ctx context.Context, cfg Config) (*Server, error) {
 	cfg.setDefaults()
+	// Checked before anything is opened, so a bad mode leaves nothing behind.
+	authzMode, err := authz.ParseMode(cfg.AuthzMode)
+	if err != nil {
+		return nil, err
+	}
 	if cfg.DataDir == "" || cfg.AdvertiseAddress == "" || cfg.Log == nil {
 		return nil, errors.New("server: DataDir, AdvertiseAddress and Log are required")
 	}
@@ -330,16 +343,17 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	regAddr, _ := registryAddress(cfg.AdvertiseAddress, cfg.RegistryListen)
 	builds := newBuildDispatch(st, cfg.Log, cfg.DataDir, cfg.Now, regAddr)
 	s := &Server{
-		cidrs:    cidrs,
-		cfg:      cfg,
-		log:      cfg.Log,
-		store:    st,
-		raft:     raftStore,
-		exporter: exp,
-		gate:     cfg.leaderGate,
-		ca:       ca,
-		nodes:    newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
-		builds:   builds,
+		authzMode: authzMode,
+		cidrs:     cidrs,
+		cfg:       cfg,
+		log:       cfg.Log,
+		store:     st,
+		raft:      raftStore,
+		exporter:  exp,
+		gate:      cfg.leaderGate,
+		ca:        ca,
+		nodes:     newNodeTracker(st, cfg.Log, cfg.Now, cfg.NodeNotReadyAfter, cfg.NodeStatusPersistEvery),
+		builds:    builds,
 		ctrl: controller.New(controller.Config{
 			Store: st, Log: cfg.Log, Now: cfg.Now, EvictAfter: cfg.EvictAfter, Interval: cfg.ControllerInterval,
 			ServiceCIDR: cidrs.services, Executor: builds,
