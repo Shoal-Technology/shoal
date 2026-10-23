@@ -201,7 +201,11 @@ func TestTokens(t *testing.T) {
 		t.Fatalf("ParseToken = %q, %q, %v", gotID, gotSecret, err)
 	}
 	hash := HashSecret(secret)
-	if !SecretMatches(hash, secret) || SecretMatches(hash, secret[:len(secret)-1]+"x") {
+	// Swap the last character for the next one in the alphabet, so the
+	// wrong secret always differs from the real one.
+	last := strings.IndexByte(tokenAlphabet, secret[len(secret)-1])
+	wrong := secret[:len(secret)-1] + string(tokenAlphabet[(last+1)%len(tokenAlphabet)])
+	if !SecretMatches(hash, secret) || SecretMatches(hash, wrong) {
 		t.Fatal("SecretMatches gives wrong answers")
 	}
 	for _, bad := range []string{"", "abc", id, id + ".", "ABCDEF.0123456789abcdef", id + "." + secret + "x"} {
