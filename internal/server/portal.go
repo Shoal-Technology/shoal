@@ -63,6 +63,8 @@ type portal struct {
 	sessions map[string]time.Time   // sha256(token) -> expiry
 	failures map[string][]time.Time // client IP -> recent failed logins
 	hookHits map[string][]time.Time // BuildConfig uid -> recent webhook requests (hooks.go)
+	// deliveries remembers the Build each recent webhook delivery started (hooks.go).
+	deliveries *resource.DeliveryCache
 }
 
 // ensureUIPassword creates the portal's admin password on first start. It
@@ -163,7 +165,7 @@ func (c *controlService) ResetUIPassword(ctx context.Context, _ *v1alpha1.ResetU
 // PortalHandler returns the web portal: static UI and JSON API.
 func (s *Server) PortalHandler() http.Handler {
 	if s.portal == nil {
-		s.portal = &portal{s: s, ctl: &controlService{s: s}, sessions: map[string]time.Time{}, failures: map[string][]time.Time{}, hookHits: map[string][]time.Time{}}
+		s.portal = &portal{s: s, ctl: &controlService{s: s}, sessions: map[string]time.Time{}, failures: map[string][]time.Time{}, hookHits: map[string][]time.Time{}, deliveries: resource.NewDeliveryCache(hookDeliveryCacheSize)}
 	}
 	p := s.portal
 	mux := http.NewServeMux()
