@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/remotes"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/containerd/v2/defaults"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/netns"
@@ -91,7 +93,7 @@ func normalizeImage(ref string) (string, error) {
 	return named.String(), nil
 }
 
-func (r *containerdRuntime) EnsureImage(ctx context.Context, ref string) error {
+func (r *containerdRuntime) EnsureImage(ctx context.Context, ref string, auth []runtime.RegistryAuth) error {
 	name, err := normalizeImage(ref)
 	if err != nil {
 		return err
@@ -112,10 +114,27 @@ func (r *containerdRuntime) EnsureImage(ctx context.Context, ref string) error {
 	case !errdefs.IsNotFound(err):
 		return fmt.Errorf("get image %s: %w", name, err)
 	}
-	if _, err := r.client.Pull(ctx, name, client.WithPullUnpack, client.WithPullSnapshotter(r.snapshotter)); err != nil {
+	opts := []client.RemoteOpt{client.WithPullUnpack, client.WithPullSnapshotter(r.snapshotter)}
+	if len(auth) > 0 {
+		opts = append(opts, client.WithResolver(pullResolver(auth)))
+	}
+	if _, err := r.client.Pull(ctx, name, opts...); err != nil {
 		return fmt.Errorf("pull image %s: %w", name, err)
 	}
 	return nil
+}
+
+// pullResolver returns a resolver that logs in to each registry in auth and
+// pulls anonymously from any other host.
+func pullResolver(auth []runtime.RegistryAuth) remotes.Resolver {
+	creds := func(host string) (string, string, error) {
+		user, pass := runtime.Credentials(auth, host)
+		return user, pass, nil
+	}
+	return docker.NewResolver(docker.ResolverOptions{
+		Hosts: docker.ConfigureDefaultRegistries(
+			docker.WithAuthorizer(docker.NewDockerAuthorizer(docker.WithAuthCreds(creds)))),
+	})
 }
 
 func (r *containerdRuntime) containerDir(id string) string {

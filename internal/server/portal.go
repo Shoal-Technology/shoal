@@ -501,6 +501,7 @@ func (p *portal) patchData(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.PathValue("name")
 	data := map[string]string{}
+	var secretType string
 	rec, err := p.s.store.Get(r.Context(), kind, name)
 	switch {
 	case err == nil && kind == v1alpha1.KindSecret:
@@ -510,6 +511,7 @@ func (p *portal) patchData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data = s.Spec.GetData()
+		secretType = s.Spec.GetType()
 	case err == nil:
 		c, err := objects.Config(rec)
 		if err != nil {
@@ -532,7 +534,7 @@ func (p *portal) patchData(w http.ResponseWriter, r *http.Request) {
 	}
 	obj := &v1alpha1.Object{Kind: &v1alpha1.Object_Config{Config: &v1alpha1.Config{Metadata: &v1alpha1.ObjectMeta{Name: name}, Spec: &v1alpha1.ConfigSpec{Data: data}}}}
 	if kind == v1alpha1.KindSecret {
-		obj = &v1alpha1.Object{Kind: &v1alpha1.Object_Secret{Secret: &v1alpha1.Secret{Metadata: &v1alpha1.ObjectMeta{Name: name}, Spec: &v1alpha1.SecretSpec{Data: data}}}}
+		obj = &v1alpha1.Object{Kind: &v1alpha1.Object_Secret{Secret: &v1alpha1.Secret{Metadata: &v1alpha1.ObjectMeta{Name: name}, Spec: &v1alpha1.SecretSpec{Data: data, Type: secretType}}}}
 	}
 	if _, err := p.ctl.Apply(r.Context(), &v1alpha1.ApplyRequest{Objects: []*v1alpha1.Object{obj}}); err != nil {
 		p.writeRPCError(w, err)

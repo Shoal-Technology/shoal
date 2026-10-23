@@ -392,7 +392,7 @@ func (r *Reconciler) reconcileOne(ctx context.Context, a Assignment, c runtime.C
 				st.Message = msg
 				return st, nil
 			}
-			ready, err := r.puller.ensure(ctx, a.Spec.Image)
+			ready, err := r.puller.ensure(ctx, a.Spec.Image, a.PullAuth)
 			if err != nil {
 				r.recordAttempt(id)
 				fill(&st, c)
@@ -514,7 +514,7 @@ func (r *Reconciler) startAndReport(ctx context.Context, id string) (ReplicaStat
 // create creates the container once its image is available. It returns
 // false, without error, while the image is still being pulled.
 func (r *Reconciler) create(ctx context.Context, a Assignment) (bool, error) {
-	ready, err := r.puller.ensure(ctx, a.Spec.Image)
+	ready, err := r.puller.ensure(ctx, a.Spec.Image, a.PullAuth)
 	if err != nil || !ready {
 		return false, err
 	}

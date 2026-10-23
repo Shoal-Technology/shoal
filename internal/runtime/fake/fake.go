@@ -25,6 +25,7 @@ type Runtime struct {
 	logs       map[string][]runtime.LogEntry // by container ID
 	execs      map[string]func([]string) runtime.ExecResult
 	execCalls  []ExecCall
+	pullAuth   map[string][]runtime.RegistryAuth // by image: the logins of the last pull
 	calls      []string
 }
 
@@ -60,6 +61,7 @@ func New(now func() time.Time) *Runtime {
 		images:     map[string]bool{},
 		containers: map[string]*container{},
 		failures:   map[string]error{},
+		pullAuth:   map[string][]runtime.RegistryAuth{},
 		held:       map[string]chan struct{}{},
 		crashing:   map[string]bool{},
 		logs:       map[string][]runtime.LogEntry{},
@@ -211,7 +213,14 @@ func (r *Runtime) failure(op, id string) error {
 	return r.failures[op+" *"]
 }
 
-func (r *Runtime) EnsureImage(ctx context.Context, ref string) error {
+// PullAuth returns the logins that the last pull of ref was made with.
+func (r *Runtime) PullAuth(ref string) []runtime.RegistryAuth {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.pullAuth[ref]
+}
+
+func (r *Runtime) EnsureImage(ctx context.Context, ref string, auth []runtime.RegistryAuth) error {
 	r.mu.Lock()
 	if r.images[ref] {
 		r.mu.Unlock()
@@ -221,6 +230,7 @@ func (r *Runtime) EnsureImage(ctx context.Context, ref string) error {
 		r.mu.Unlock()
 		return err
 	}
+	r.pullAuth[ref] = auth
 	hold := r.held[ref]
 	r.mu.Unlock()
 	if hold != nil {

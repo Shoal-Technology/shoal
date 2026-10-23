@@ -99,6 +99,7 @@ func ValidateWorkload(w *v1alpha1.Workload) error {
 	}
 
 	validateEnvAndFiles(s, bad)
+	validatePullSecrets(s, bad)
 	validateVolumeMounts(s, bad)
 	seenEnv := map[string]bool{}
 	for i, e := range s.GetEnv() {

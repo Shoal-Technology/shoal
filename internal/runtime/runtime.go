@@ -146,7 +146,8 @@ func (c *CappedBuffer) Truncated() bool {
 // Runtime manages containers on a single node.
 type Runtime interface {
 	// EnsureImage makes the image available locally, pulling it if missing.
-	EnsureImage(ctx context.Context, ref string) error
+	// auth holds the logins the pull may use; nil pulls anonymously.
+	EnsureImage(ctx context.Context, ref string, auth []RegistryAuth) error
 	// Create creates a container without starting it. The image must already
 	// be present. Returns ErrAlreadyExists if the ID is taken.
 	Create(ctx context.Context, spec ContainerSpec) error
