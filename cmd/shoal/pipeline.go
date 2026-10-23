@@ -285,13 +285,13 @@ func newPipelineDecideCmd(use, short string, reject bool) *cobra.Command {
 			defer cancel()
 			job := resource.JobName(args[0], args[1])
 			if reject {
-				if _, err := c.control.RejectJob(ctx, &v1alpha1.RejectJobRequest{Job: job, Comment: comment}); err != nil {
+				if _, err := c.control.RejectJob(ctx, &v1alpha1.RejectJobRequest{Job: job, Comment: comment, Project: currentProject}); err != nil {
 					return err
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "job/%s rejected\n", job)
 				return nil
 			}
-			if _, err := c.control.ApproveJob(ctx, &v1alpha1.ApproveJobRequest{Job: job, Comment: comment}); err != nil {
+			if _, err := c.control.ApproveJob(ctx, &v1alpha1.ApproveJobRequest{Job: job, Comment: comment, Project: currentProject}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "job/%s approved\n", job)

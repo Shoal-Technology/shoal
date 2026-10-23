@@ -120,17 +120,21 @@ func TestEnvironmentsOfAFileAreChecked(t *testing.T) {
 			Deploy: &v1alpha1.JobDeploy{Workload: workload, From: "build"},
 		}}}
 	}
-	if err := c.s.checkPipelineEnvironments(ctx, deploy("production", "web"), resource.TrustProtected); err != nil {
+	if err := c.s.checkPipelineEnvironments(ctx, "", deploy("production", "web"), resource.TrustProtected); err != nil {
 		t.Fatalf("a deploy of a listed workload: %v", err)
 	}
-	if status.Code(c.s.checkPipelineEnvironments(ctx, deploy("production", "api"), resource.TrustProtected)) != codes.FailedPrecondition {
+	if status.Code(c.s.checkPipelineEnvironments(ctx, "", deploy("production", "api"), resource.TrustProtected)) != codes.FailedPrecondition {
 		t.Fatal("a workload the environment does not list was accepted")
 	}
-	if status.Code(c.s.checkPipelineEnvironments(ctx, deploy("staging", "web"), resource.TrustProtected)) != codes.FailedPrecondition {
+	if status.Code(c.s.checkPipelineEnvironments(ctx, "", deploy("staging", "web"), resource.TrustProtected)) != codes.FailedPrecondition {
 		t.Fatal("an environment that does not exist was accepted")
 	}
+	// An environment of another project is not the run's: it does not exist here.
+	if status.Code(c.s.checkPipelineEnvironments(ctx, "team-a", deploy("production", "web"), resource.TrustProtected)) != codes.FailedPrecondition {
+		t.Fatal("an environment of another project was accepted")
+	}
 	// A same-repo run never reaches an environment: its jobs are created Skipped.
-	if err := c.s.checkPipelineEnvironments(ctx, deploy("staging", "web"), resource.TrustSameRepo); err != nil {
+	if err := c.s.checkPipelineEnvironments(ctx, "", deploy("staging", "web"), resource.TrustSameRepo); err != nil {
 		t.Fatalf("a same-repo run was checked against environments: %v", err)
 	}
 }

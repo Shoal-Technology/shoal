@@ -20,7 +20,20 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/runtime"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
+
+// envKey is the store key of the environment a job names. The environment is
+// in the job's project, as the Workloads it sets are (ADR 0023).
+func envKey(j *pipelineJob) string {
+	return tenancy.Key(tenancy.KeyProject(j.rec.Name), j.obj.GetSpec().GetJob().GetEnvironment().GetName())
+}
+
+// workloadKey is the store key of the Workload a deploy step sets, in the job's
+// project. A deploy never reaches a Workload of another project.
+func workloadKey(j *pipelineJob) string {
+	return tenancy.Key(tenancy.KeyProject(j.rec.Name), j.obj.GetSpec().GetJob().GetDeploy().GetWorkload())
+}
 
 // Environments, approvals and deploy steps (ADR 0022, pass C, section 10).
 //
@@ -43,7 +56,7 @@ func runningDeploys(runs map[string]*pipelineRun) map[string]string {
 		for _, j := range run.jobs {
 			job := j.obj.GetSpec().GetJob()
 			if job.GetDeploy() != nil && j.phase() == resource.PhaseRunning {
-				busy[job.GetEnvironment().GetName()] = j.rec.Name
+				busy[envKey(j)] = j.rec.Name
 			}
 		}
 	}
@@ -92,7 +105,7 @@ func (c *Controller) decideApprovals(ctx context.Context, run *pipelineRun, now 
 		if j.phase() != resource.PhaseManual || job.GetEnvironment() == nil {
 			continue
 		}
-		env, err := c.loadEnvironment(ctx, job.GetEnvironment().GetName())
+		env, err := c.loadEnvironment(ctx, envKey(j))
 		if errors.Is(err, store.ErrNotFound) {
 			continue // startJob reports the missing environment
 		}
@@ -172,6 +185,7 @@ func (c *Controller) startDeploy(ctx context.Context, run *pipelineRun, j *pipel
 	job := j.obj.GetSpec().GetJob()
 	d := job.GetDeploy()
 	envName := job.GetEnvironment().GetName()
+	lock := envKey(j)
 	if env == nil {
 		return c.setJobPhase(ctx, j, resource.PhaseError, "a deploy step needs an environment", now)
 	}
@@ -179,7 +193,7 @@ func (c *Controller) startDeploy(ctx context.Context, run *pipelineRun, j *pipel
 		return c.setJobPhase(ctx, j, resource.PhaseFailed,
 			fmt.Sprintf("workload %s is not one of the workloads of environment %s", d.GetWorkload(), envName), now)
 	}
-	if holder, ok := busy[envName]; ok && holder != j.rec.Name {
+	if holder, ok := busy[lock]; ok && holder != j.rec.Name {
 		return c.setJobPhase(ctx, j, resource.PhasePending,
 			fmt.Sprintf("waiting for environment %s: job %s is deploying", envName, holder), now)
 	}
@@ -200,7 +214,7 @@ func (c *Controller) startDeploy(ctx context.Context, run *pipelineRun, j *pipel
 	if err := c.writeJobStatus(ctx, j, st); err != nil {
 		return err
 	}
-	busy[envName] = j.rec.Name
+	busy[lock] = j.rec.Name
 	if err := c.authorizeDeploy(ctx, resource.ActionDeploy, run.rec.Name, j.rec.Name, token, d.GetWorkload()); err != nil {
 		return c.finishDeploy(ctx, j, resource.PhaseFailed, err.Error(), now)
 	}
@@ -239,7 +253,7 @@ func (c *Controller) deployImage(ctx context.Context, run *pipelineRun, from str
 // that failed part way retries it.
 func (c *Controller) setDeployImage(ctx context.Context, j *pipelineJob, now time.Time) error {
 	d := j.obj.GetSpec().GetJob().GetDeploy()
-	gen, err := c.setWorkloadImage(ctx, d.GetWorkload(), j.obj.GetStatus().GetImage())
+	gen, err := c.setWorkloadImage(ctx, workloadKey(j), j.obj.GetStatus().GetImage())
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		return c.finishDeploy(ctx, j, resource.PhaseFailed, fmt.Sprintf("workload %s not found", d.GetWorkload()), now)
@@ -260,7 +274,7 @@ func (c *Controller) checkDeploy(ctx context.Context, run *pipelineRun, j *pipel
 	if st.GetWorkloadGeneration() == 0 {
 		return c.setDeployImage(ctx, j, now)
 	}
-	wrec, err := c.st.Get(ctx, v1alpha1.KindWorkload, d.GetWorkload())
+	wrec, err := c.st.Get(ctx, v1alpha1.KindWorkload, workloadKey(j))
 	if errors.Is(err, store.ErrNotFound) {
 		return c.finishDeploy(ctx, j, resource.PhaseFailed, fmt.Sprintf("workload %s not found", d.GetWorkload()), now)
 	}
@@ -309,7 +323,7 @@ func (c *Controller) finishDeploy(ctx context.Context, j *pipelineJob, phase, ms
 		return err
 	}
 	c.log.Info("deploy finished", "job", j.rec.Name, "phase", phase)
-	return c.recordDeployment(ctx, job.GetEnvironment().GetName(), &v1alpha1.EnvironmentDeployment{
+	return c.recordDeployment(ctx, envKey(j), &v1alpha1.EnvironmentDeployment{
 		Run: j.obj.GetSpec().GetPipelineRun(), Job: job.GetName(), Workload: job.GetDeploy().GetWorkload(),
 		Image: st.GetImage(), Digest: st.GetDigest(), Phase: phase, Message: msg,
 		ApprovedBy: resource.ApprovedBy(j.obj.GetSpec().GetApprovals()), At: timestamppb.New(now),

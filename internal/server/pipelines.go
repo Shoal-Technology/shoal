@@ -61,7 +61,7 @@ func (c *controlService) StartPipelineRun(ctx context.Context, req *v1alpha1.Sta
 	if err := c.s.checkPipelineSecrets(ctx, project, src); err != nil {
 		return nil, err
 	}
-	if err := c.s.checkPipelineEnvironments(ctx, src, resource.TrustProtected); err != nil {
+	if err := c.s.checkPipelineEnvironments(ctx, project, src, resource.TrustProtected); err != nil {
 		return nil, err
 	}
 	ref := req.GetRef()
@@ -147,7 +147,7 @@ func (s *Server) checkPipelineSecrets(ctx context.Context, project string, src *
 // run of trust. A deploy step names a Workload that its environment lists (ADR
 // 0022, section 10). Only a protected run needs the check: any other run creates
 // these jobs Skipped (the controller does that).
-func (s *Server) checkPipelineEnvironments(ctx context.Context, src *v1alpha1.PipelineSource, trust string) error {
+func (s *Server) checkPipelineEnvironments(ctx context.Context, project string, src *v1alpha1.PipelineSource, trust string) error {
 	if trust != resource.TrustProtected {
 		return nil
 	}
@@ -161,7 +161,7 @@ func (s *Server) checkPipelineEnvironments(ctx context.Context, src *v1alpha1.Pi
 		if envName == "" {
 			continue
 		}
-		rec, err := s.store.Get(ctx, v1alpha1.KindEnvironment, envName)
+		rec, err := s.store.Get(ctx, v1alpha1.KindEnvironment, tenancy.Key(project, envName))
 		if errors.Is(err, store.ErrNotFound) {
 			errs = append(errs, fmt.Errorf("job %s: environment %q does not exist", job.GetName(), envName))
 			continue
@@ -190,7 +190,7 @@ const maxApprovalComment = 500
 // (ADR 0022, section 10). The approver is the caller. The controller starts the
 // job once the environment's approvals are recorded.
 func (c *controlService) ApproveJob(ctx context.Context, req *v1alpha1.ApproveJobRequest) (*v1alpha1.ApproveJobResponse, error) {
-	if err := c.decideJob(ctx, req.GetJob(), resource.DecisionApproved, req.GetComment()); err != nil {
+	if err := c.decideJob(ctx, req.GetJob(), req.GetProject(), resource.DecisionApproved, req.GetComment()); err != nil {
 		return nil, err
 	}
 	return &v1alpha1.ApproveJobResponse{}, nil
@@ -199,7 +199,7 @@ func (c *controlService) ApproveJob(ctx context.Context, req *v1alpha1.ApproveJo
 // RejectJob records a rejection of a job at an environment's gate. The job ends
 // Cancelled.
 func (c *controlService) RejectJob(ctx context.Context, req *v1alpha1.RejectJobRequest) (*v1alpha1.RejectJobResponse, error) {
-	if err := c.decideJob(ctx, req.GetJob(), resource.DecisionRejected, req.GetComment()); err != nil {
+	if err := c.decideJob(ctx, req.GetJob(), req.GetProject(), resource.DecisionRejected, req.GetComment()); err != nil {
 		return nil, err
 	}
 	return &v1alpha1.RejectJobResponse{}, nil
@@ -208,14 +208,14 @@ func (c *controlService) RejectJob(ctx context.Context, req *v1alpha1.RejectJobR
 // decideJob records an approval or a rejection of a gated job. Only the caller
 // that the job is asked of may decide; with the admin key that is the admin
 // (ADR 0023 B2 adds the project role check here).
-func (c *controlService) decideJob(ctx context.Context, name, decision, comment string) error {
+func (c *controlService) decideJob(ctx context.Context, name, project, decision, comment string) error {
 	if name == "" {
 		return status.Error(codes.InvalidArgument, "job is required")
 	}
 	if len(comment) > maxApprovalComment {
 		return status.Errorf(codes.InvalidArgument, "comment is at most %d bytes", maxApprovalComment)
 	}
-	rec, err := c.s.store.Get(ctx, v1alpha1.KindJob, name)
+	rec, err := c.s.findObject(ctx, v1alpha1.KindJob, name, project)
 	if err != nil {
 		return apiError(err)
 	}
@@ -245,7 +245,7 @@ func (c *controlService) decideJob(ctx context.Context, name, decision, comment 
 	j.Spec.Approvals = append(approvals, &v1alpha1.JobApproval{
 		Decision: decision, By: by, At: timestamppb.New(c.s.now()), Comment: comment,
 	})
-	if err := c.updateSpec(ctx, v1alpha1.KindJob, name, j.Spec, rec.Generation); err != nil {
+	if err := c.updateSpec(ctx, v1alpha1.KindJob, rec.Name, j.Spec, rec.Generation); err != nil {
 		return err
 	}
 	c.s.log.Info("pipeline job decided", "job", name, "decision", decision, "by", by)

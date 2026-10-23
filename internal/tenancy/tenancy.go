@@ -36,6 +36,7 @@ var scoped = map[string]bool{
 	"Pipeline":      true,
 	"PipelineRun":   true,
 	"Job":           true,
+	"Environment":   true,
 }
 
 // keySep joins an object name and its project in a store key. Object names

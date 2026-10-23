@@ -713,8 +713,10 @@ Implementation notes (pass C, as built):
 - Open question 4 is decided: the grace period is zero. The token stops when its
   job or its run ends.
 - Not in pass C, or not met:
-  - Environments are not Project-scoped. The Environment key is the name, as
-    other kinds were before ADR 0023 B1. B1 changes the key when it lands.
+  - Environments are project-scoped (ADR 0023 B1, `tenancy.Key`). A deploy job
+    reads its environment and sets its Workloads in the job's own project only.
+    `resource.References` lists an environment's Workloads, so a cross-project
+    apply that names one is refused. Test: `TestDeployStaysInTheRunsProject`.
   - Approver identity is the caller's certificate name. With the admin key alone,
     the approvers are one name, so an environment that needs two approvals can
     only get them from two identities. That needs the project roles of ADR 0023

@@ -54,6 +54,12 @@ func References(kind string, spec proto.Message) []Reference {
 		add(v1alpha1.KindWorkload, s.GetOnSuccess().GetUpdateWorkload())
 	case *v1alpha1.PipelineSpec:
 		add(v1alpha1.KindSecret, s.GetCredentialsSecret())
+	case *v1alpha1.EnvironmentSpec:
+		// The deploy targets of an environment (ADR 0022, section 10). A deploy
+		// job may only set these, so they must be in the environment's project.
+		for _, w := range s.GetWorkloads() {
+			add(v1alpha1.KindWorkload, w)
+		}
 	}
 	return out
 }

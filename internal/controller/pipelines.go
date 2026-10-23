@@ -305,7 +305,7 @@ func (c *Controller) startJob(ctx context.Context, run *pipelineRun, j *pipeline
 	envName := job.GetEnvironment().GetName()
 	var env *v1alpha1.EnvironmentSpec
 	if envName != "" {
-		e, err := c.loadEnvironment(ctx, envName)
+		e, err := c.loadEnvironment(ctx, envKey(j))
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			return c.setJobPhase(ctx, j, resource.PhaseError, fmt.Sprintf("environment %s does not exist", envName), now)

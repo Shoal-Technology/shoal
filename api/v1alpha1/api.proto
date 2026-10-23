@@ -142,16 +142,19 @@ message PlayJobRequest {
 message PlayJobResponse {}
 
 message ApproveJobRequest {
-  // The Job's record name: the run name and the job name joined by a dash.
+  // The Job's name: the run name and the job name joined by a dash.
   string job = 1;
   // Free text shown with the decision. At most 500 bytes.
   string comment = 2;
+  // Project of the Job (ADR 0023, pass B1). Empty finds it in any project.
+  string project = 3;
 }
 message ApproveJobResponse {}
 
 message RejectJobRequest {
   string job = 1;
   string comment = 2;
+  string project = 3;
 }
 message RejectJobResponse {}
 

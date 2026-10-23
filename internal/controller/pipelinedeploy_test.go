@@ -13,6 +13,7 @@ import (
 	"github.com/Shoal-Technology/shoal/internal/pipeline"
 	"github.com/Shoal-Technology/shoal/internal/resource"
 	"github.com/Shoal-Technology/shoal/internal/store"
+	"github.com/Shoal-Technology/shoal/internal/tenancy"
 )
 
 // newDigest is the digest a build pushes in these tests. rolloutDigest is the
@@ -238,6 +239,76 @@ func TestDeploySetsWorkloadToBuildDigest(t *testing.T) {
 	}
 	if got := e.runPhase(t); got != resource.PhaseComplete {
 		t.Fatalf("run is %s, want Complete", got)
+	}
+}
+
+// TestDeployStaysInTheRunsProject: a deploy in team-a sets team-a's Workload,
+// read through team-a's environment, and never a Workload of the default
+// project that has the same name (ADR 0023).
+func TestDeployStaysInTheRunsProject(t *testing.T) {
+	e, f := newPipelineEnv(t)
+	const proj = "team-a"
+	key := func(name string) string { return tenancy.Key(proj, name) }
+	put := func(kind, name string, labels map[string]string, spec proto.Message) {
+		t.Helper()
+		enc, err := objects.Encode(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.st.Create(ctx, store.Record{Kind: kind, Name: name, Spec: enc, Labels: labels}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	teamLabels := tenancy.WithProject(nil, proj)
+
+	e.workload("web", 1) // the default project's web, which must not change
+	put(v1alpha1.KindWorkload, key("web"), teamLabels, &v1alpha1.WorkloadSpec{Image: "nginx:1.27", Replicas: proto.Int32(1)})
+	put(v1alpha1.KindEnvironment, key("production"), teamLabels, &v1alpha1.EnvironmentSpec{Workloads: []string{"web"}})
+	put(v1alpha1.KindBuild, key("app-bld1"), teamLabels, &v1alpha1.BuildSpec{
+		Config: "web", Source: &v1alpha1.BuildConfigSpec{Output: &v1alpha1.BuildOutput{Repository: "app"}},
+	})
+
+	src, err := pipeline.Parse([]byte(deployFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	specB, err := objects.Encode(&v1alpha1.PipelineRunSpec{
+		Pipeline: "app", Source: src, Trigger: "manual", Commit: "0123456789", Ref: "main", Trust: "protected",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	statusB, err := objects.Encode(&v1alpha1.PipelineRunStatus{Phase: "New"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := key(pipeRun)
+	if _, err := e.st.Create(ctx, store.Record{Kind: v1alpha1.KindPipelineRun, Name: run, Spec: specB, Status: statusB, Labels: teamLabels}); err != nil {
+		t.Fatal(err)
+	}
+
+	pass(t, e) // expands the run into team-a's jobs
+	pass(t, e) // the build starts
+	f.Finish(key(jobName("build-web")), pipeline.Status{State: pipeline.Succeeded, Build: key("app-bld1"), Image: "app:1", Digest: newDigest})
+	pass(t, e) // the build completes
+	pass(t, e) // the deploy starts
+
+	rec, err := e.st.Get(ctx, v1alpha1.KindJob, key(jobName("deploy-production")))
+	if err != nil {
+		t.Fatalf("team-a's deploy job: %v", err)
+	}
+	if j, _ := objects.Job(rec); j.GetStatus().GetPhase() != resource.PhaseRunning {
+		t.Fatalf("team-a's deploy is %s, want Running", j.GetStatus().GetPhase())
+	}
+	teamWL, err := e.st.Get(ctx, v1alpha1.KindWorkload, key("web"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, _ := objects.Workload(teamWL); w.GetSpec().GetImage() != "shoal.local/app@"+newDigest {
+		t.Fatalf("team-a's web image = %q, want the build digest", w.GetSpec().GetImage())
+	}
+	if got := e.workloadImage(); got != "nginx:1.27" {
+		t.Fatalf("the default project's web changed to %q", got)
 	}
 }
 
