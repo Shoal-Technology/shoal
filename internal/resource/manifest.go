@@ -86,6 +86,9 @@ func decodeDoc(doc []byte) (*v1alpha1.Object, error) {
 	case v1alpha1.KindPipeline:
 		p := &v1alpha1.Pipeline{}
 		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Pipeline{Pipeline: p}}, p
+	case v1alpha1.KindEnvironment:
+		e := &v1alpha1.Environment{}
+		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Environment{Environment: e}}, e
 	case v1alpha1.KindProject:
 		p := &v1alpha1.Project{}
 		obj, msg = &v1alpha1.Object{Kind: &v1alpha1.Object_Project{Project: p}}, p
@@ -178,6 +181,14 @@ func Inner(obj *v1alpha1.Object) proto.Message {
 		return k.Project
 	case *v1alpha1.Object_ResourceQuota:
 		return k.ResourceQuota
+	case *v1alpha1.Object_Environment:
+		return k.Environment
+	case *v1alpha1.Object_Pipeline:
+		return k.Pipeline
+	case *v1alpha1.Object_PipelineRun:
+		return k.PipelineRun
+	case *v1alpha1.Object_Job:
+		return k.Job
 	}
 	return nil
 }

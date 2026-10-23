@@ -1,0 +1,34 @@
+# Fixture for hack/pipeline-e2e.sh (ADR 0022, pass C). The e2e runs this file
+# from the repository at the commit under test. It tests, builds the web image,
+# deploys it to staging, then waits for an approval before it deploys the same
+# digest to production. The script checks each step and what the workloads run.
+stages: [test, build, staging, production]
+
+test-web:
+  stage: test
+  image: docker.io/library/busybox:1.37
+  script:
+    - echo "tests passed"
+
+build-web:
+  stage: build
+  build: web
+
+deploy-staging:
+  stage: staging
+  needs: [build-web]
+  environment:
+    name: staging
+  deploy:
+    workload: web-staging
+    from: build-web
+
+deploy-production:
+  stage: production
+  needs: [build-web, deploy-staging]
+  environment:
+    name: production
+    approval: required
+  deploy:
+    workload: web-prod
+    from: build-web

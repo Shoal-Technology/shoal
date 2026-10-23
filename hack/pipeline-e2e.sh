@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# shoal pipelines, end to end (ADR 0022, pass B). A node labelled as a runner
-# and a builder joins a server with containerd. A protected manual run of the
-# fixture in hack/pipeline-fixture checks, in containers: the job's network
+# shoal pipelines, end to end (ADR 0022, passes B and C). A node labelled as a
+# runner and a builder joins a server with containerd. A protected manual run of
+# the fixture in hack/pipeline-fixture checks, in containers: the job's network
 # (the node's ports unreachable, the internet reachable), a secret (given to a
 # protected run, redacted in the log) and a build step (a Build that the run
 # waits for). A signed push webhook then starts a run of the same pipeline,
 # which must be created with the push trigger and refused the secret, since
-# the branch is not protected. It runs on a disposable runner with containerd
+# the branch is not protected. Pass C then runs hack/pipeline-fixture/deploy-ci.yml:
+# test, build, a deploy to staging, and a deploy to production that waits for
+# `shoal pipeline approve`; each workload must serve the built version after its
+# deploy. It runs on a disposable runner with containerd
 # (.github/workflows/pipeline-e2e.yml). Do not run it on the shared VPS: it
 # starts containers.
 #
@@ -233,5 +236,130 @@ cc pipeline runs "$PIPELINE" >"$RESULTS/runs-after-push.txt" 2>&1 || true
 [ "$hook_phase" = Failed ] || fail "run $hook_run ended $hook_phase, want Failed: a branch that is not protected gets no secret"
 pass "run $hook_run ended Failed: its secret was refused, as a non-protected run must"
 
+say "pass C: two environments and the workloads they deploy"
+# Each workload runs busybox httpd on the same command the build fixture uses,
+# so a deploy only changes the image. Before a deploy the port answers 404; after
+# it, the build fixture's line.
+cat >"$WORK/env-staging.yaml" <<EOF
+kind: Environment
+metadata: { name: staging }
+spec:
+  url: http://$NODE_IP:8081/
+  workloads: [web-staging]
+EOF
+cat >"$WORK/env-production.yaml" <<EOF
+kind: Environment
+metadata: { name: production }
+spec:
+  url: http://$NODE_IP:8082/
+  protected: true
+  workloads: [web-prod]
+EOF
+cat >"$WORK/workload-staging.yaml" <<EOF
+kind: Workload
+metadata: { name: web-staging }
+spec:
+  image: docker.io/library/busybox:1.37
+  command: [httpd, -f, -p, "8080", -h, /]
+  ports: [{ containerPort: 8080, hostPort: 8081, protocol: tcp }]
+EOF
+cat >"$WORK/workload-prod.yaml" <<EOF
+kind: Workload
+metadata: { name: web-prod }
+spec:
+  image: docker.io/library/busybox:1.37
+  command: [httpd, -f, -p, "8080", -h, /]
+  ports: [{ containerPort: 8080, hostPort: 8082, protocol: tcp }]
+EOF
+for f in env-staging env-production workload-staging workload-prod; do
+  cc apply -f "$WORK/$f.yaml" >>"$RESULTS/environments.txt" 2>&1 || fail "apply $f refused (see environments.txt)"
+done
+wait_for 240 "web-prod answers on $NODE_IP:8082 before its deploy" \
+  curl -s --max-time 2 -o /dev/null "http://$NODE_IP:8082/"
+curl -s --max-time 5 "http://$NODE_IP:8082/" >"$RESULTS/prod-before.txt" || true
+if grep -q "shoal build fixture ok" "$RESULTS/prod-before.txt"; then
+  fail "web-prod serves the new version before any deploy"
+fi
+pass "the environments and workloads exist; web-prod serves the old version"
+
+say "pass C: a pipeline that tests, builds, deploys to staging, and waits for approval for production"
+cat >"$WORK/pipeline-deploy.yaml" <<EOF
+kind: Pipeline
+metadata: { name: web-deploy }
+spec:
+  repo: $REPO_URL
+  ref: $BUILD_REF
+  path: hack/pipeline-fixture/deploy-ci.yml
+EOF
+cc pipeline create -f "$WORK/pipeline-deploy.yaml" >"$RESULTS/pipeline-deploy-create.txt" 2>&1 ||
+  fail "pipeline create refused web-deploy (see pipeline-deploy-create.txt)"
+PIPELINE=web-deploy
+run_out=$(cc pipeline run "$PIPELINE" --ref HEAD)
+printf '%s\n' "$run_out" >"$RESULTS/deploy-run.txt"
+deploy_run=$(printf '%s\n' "$run_out" | sed -n 's#^pipelinerun/\([^ ]*\) created.*#\1#p')
+[ -n "$deploy_run" ] || fail "pipeline run printed no run name: $run_out"
+pass "started deploy run $deploy_run"
+
+# job_phase prints the phase of a job of the deploy run, from its record.
+job_phase() { { cc get job "$1" -o yaml 2>/dev/null || true; } | { grep -m1 '^ *phase:' || true; } | awk '{ print $2 }'; }
+# wait_job JOB PHASE...: waits until the job is in one of the phases and prints it.
+wait_job() {
+  local job=$1 p deadline=$((SECONDS + 1800))
+  shift
+  while :; do
+    p=$(job_phase "$job")
+    for want in "$@"; do
+      if [ "$p" = "$want" ]; then echo "$p"; return 0; fi
+    done
+    if [ "$SECONDS" -ge "$deadline" ]; then echo "still ${p:-unknown}"; return 1; fi
+    sleep 10
+  done
+}
+
+staging_phase=$(wait_job "$deploy_run-deploy-staging" Complete Failed Cancelled) ||
+  { diagnose; fail "deploy-staging is $staging_phase after 30 minutes"; }
+cc get job "$deploy_run-deploy-staging" -o yaml >"$RESULTS/job-deploy-staging.yaml" 2>&1 || true
+[ "$staging_phase" = Complete ] || { diagnose; fail "deploy-staging ended $staging_phase (see job-deploy-staging.yaml)"; }
+pass "deploy-staging is Complete"
+
+prod_phase=$(wait_job "$deploy_run-deploy-production" Manual Complete Failed Cancelled) ||
+  { diagnose; fail "deploy-production is $prod_phase"; }
+cc get job "$deploy_run-deploy-production" -o yaml >"$RESULTS/job-deploy-production-waiting.yaml" 2>&1 || true
+[ "$prod_phase" = Manual ] || { diagnose; fail "deploy-production ended $prod_phase before approval"; }
+grep -q "waiting for approval" "$RESULTS/job-deploy-production-waiting.yaml" ||
+  fail "deploy-production is Manual but not waiting for approval"
+pass "deploy-production waits for approval"
+
+curl -s --max-time 5 "http://$NODE_IP:8082/" >"$RESULTS/prod-while-waiting.txt" || true
+if grep -q "shoal build fixture ok" "$RESULTS/prod-while-waiting.txt"; then
+  fail "web-prod changed while its deploy waited for approval"
+fi
+pass "web-prod still serves the old version while the deploy waits"
+
+cc pipeline approve "$deploy_run" deploy-production --comment "e2e: approved" >"$RESULTS/approve.txt" 2>&1 ||
+  fail "approve refused deploy-production (see approve.txt)"
+pass "approved deploy-production"
+
+deploy_phase=$(wait_run "$deploy_run") || { diagnose; fail "deploy run $deploy_run is $deploy_phase after 40 minutes"; }
+cc pipeline runs "$PIPELINE" >"$RESULTS/runs-deploy.txt" 2>&1 || true
+[ "$deploy_phase" = Complete ] || { diagnose; fail "deploy run $deploy_run ended $deploy_phase (see runs-deploy.txt)"; }
+pass "deploy run $deploy_run is Complete"
+
+wait_for 240 "web-prod serves the new version on $NODE_IP:8082" \
+  sh -c "curl -s --max-time 5 http://$NODE_IP:8082/ | grep -q 'shoal build fixture ok'"
+wait_for 240 "web-staging serves the new version on $NODE_IP:8081" \
+  sh -c "curl -s --max-time 5 http://$NODE_IP:8081/ | grep -q 'shoal build fixture ok'"
+curl -s --max-time 5 "http://$NODE_IP:8082/" >"$RESULTS/prod-after.txt" || true
+pass "web-prod and web-staging serve the new version"
+
+cc get workload web-prod -o yaml >"$RESULTS/workload-prod.yaml" 2>&1 || true
+grep -q "shoal.local/web@sha256:" "$RESULTS/workload-prod.yaml" || fail "web-prod does not run the built digest (see workload-prod.yaml)"
+cc get environment production -o yaml >"$RESULTS/env-production.yaml" 2>&1 || true
+grep -q "approvedBy" "$RESULTS/env-production.yaml" || fail "the production deploy has no approval record (see env-production.yaml)"
+grep -q "phase: Complete" "$RESULTS/env-production.yaml" || fail "production has no completed deploy in its history"
+cc get environment staging -o yaml >"$RESULTS/env-staging.yaml" 2>&1 || true
+grep -q "phase: Complete" "$RESULTS/env-staging.yaml" || fail "staging has no completed deploy in its history"
+pass "the deploys are recorded in each environment's history, with the approval"
+
 echo "PASS: pipeline end to end" >>"$RESULTS/steps.txt"
-echo "pipeline end to end: run $run Complete, push run $hook_run $hook_phase"
+echo "pipeline end to end: run $run Complete, push run $hook_run $hook_phase, deploy run $deploy_run Complete"

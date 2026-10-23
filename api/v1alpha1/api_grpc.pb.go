@@ -41,6 +41,8 @@ const (
 	Control_StartPipelineRun_FullMethodName  = "/shoal.v1alpha1.Control/StartPipelineRun"
 	Control_CancelPipelineRun_FullMethodName = "/shoal.v1alpha1.Control/CancelPipelineRun"
 	Control_PlayJob_FullMethodName           = "/shoal.v1alpha1.Control/PlayJob"
+	Control_ApproveJob_FullMethodName        = "/shoal.v1alpha1.Control/ApproveJob"
+	Control_RejectJob_FullMethodName         = "/shoal.v1alpha1.Control/RejectJob"
 	Control_JobLogs_FullMethodName           = "/shoal.v1alpha1.Control/JobLogs"
 )
 
@@ -110,6 +112,13 @@ type ControlClient interface {
 	CancelPipelineRun(ctx context.Context, in *CancelPipelineRunRequest, opts ...grpc.CallOption) (*CancelPipelineRunResponse, error)
 	// PlayJob starts a manual job. Any other job is refused.
 	PlayJob(ctx context.Context, in *PlayJobRequest, opts ...grpc.CallOption) (*PlayJobResponse, error)
+	// ApproveJob records an approval of a job that waits at an environment's
+	// approval gate (ADR 0022, section 10). The controller starts the job once
+	// enough approvals are recorded.
+	ApproveJob(ctx context.Context, in *ApproveJobRequest, opts ...grpc.CallOption) (*ApproveJobResponse, error)
+	// RejectJob records a rejection of a job at an approval gate. The job ends
+	// Cancelled.
+	RejectJob(ctx context.Context, in *RejectJobRequest, opts ...grpc.CallOption) (*RejectJobResponse, error)
 	// JobLogs returns the output of a job, oldest line first.
 	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (*JobLogsResponse, error)
 }
@@ -351,6 +360,26 @@ func (c *controlClient) PlayJob(ctx context.Context, in *PlayJobRequest, opts ..
 	return out, nil
 }
 
+func (c *controlClient) ApproveJob(ctx context.Context, in *ApproveJobRequest, opts ...grpc.CallOption) (*ApproveJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveJobResponse)
+	err := c.cc.Invoke(ctx, Control_ApproveJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) RejectJob(ctx context.Context, in *RejectJobRequest, opts ...grpc.CallOption) (*RejectJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectJobResponse)
+	err := c.cc.Invoke(ctx, Control_RejectJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (*JobLogsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(JobLogsResponse)
@@ -427,6 +456,13 @@ type ControlServer interface {
 	CancelPipelineRun(context.Context, *CancelPipelineRunRequest) (*CancelPipelineRunResponse, error)
 	// PlayJob starts a manual job. Any other job is refused.
 	PlayJob(context.Context, *PlayJobRequest) (*PlayJobResponse, error)
+	// ApproveJob records an approval of a job that waits at an environment's
+	// approval gate (ADR 0022, section 10). The controller starts the job once
+	// enough approvals are recorded.
+	ApproveJob(context.Context, *ApproveJobRequest) (*ApproveJobResponse, error)
+	// RejectJob records a rejection of a job at an approval gate. The job ends
+	// Cancelled.
+	RejectJob(context.Context, *RejectJobRequest) (*RejectJobResponse, error)
 	// JobLogs returns the output of a job, oldest line first.
 	JobLogs(context.Context, *JobLogsRequest) (*JobLogsResponse, error)
 	mustEmbedUnimplementedControlServer()
@@ -504,6 +540,12 @@ func (UnimplementedControlServer) CancelPipelineRun(context.Context, *CancelPipe
 }
 func (UnimplementedControlServer) PlayJob(context.Context, *PlayJobRequest) (*PlayJobResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PlayJob not implemented")
+}
+func (UnimplementedControlServer) ApproveJob(context.Context, *ApproveJobRequest) (*ApproveJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveJob not implemented")
+}
+func (UnimplementedControlServer) RejectJob(context.Context, *RejectJobRequest) (*RejectJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectJob not implemented")
 }
 func (UnimplementedControlServer) JobLogs(context.Context, *JobLogsRequest) (*JobLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JobLogs not implemented")
@@ -918,6 +960,42 @@ func _Control_PlayJob_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_ApproveJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).ApproveJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_ApproveJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).ApproveJob(ctx, req.(*ApproveJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_RejectJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).RejectJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_RejectJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).RejectJob(ctx, req.(*RejectJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Control_JobLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(JobLogsRequest)
 	if err := dec(in); err != nil {
@@ -1026,6 +1104,14 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PlayJob",
 			Handler:    _Control_PlayJob_Handler,
+		},
+		{
+			MethodName: "ApproveJob",
+			Handler:    _Control_ApproveJob_Handler,
+		},
+		{
+			MethodName: "RejectJob",
+			Handler:    _Control_RejectJob_Handler,
 		},
 		{
 			MethodName: "JobLogs",

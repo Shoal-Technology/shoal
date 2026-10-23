@@ -32,6 +32,8 @@ var kindAliases = map[string]string{
 	"database": v1alpha1.KindDatabase, "databases": v1alpha1.KindDatabase, "db": v1alpha1.KindDatabase,
 	"buildconfig": v1alpha1.KindBuildConfig, "buildconfigs": v1alpha1.KindBuildConfig, "bc": v1alpha1.KindBuildConfig,
 	"build": v1alpha1.KindBuild, "builds": v1alpha1.KindBuild,
+	"environment": v1alpha1.KindEnvironment, "environments": v1alpha1.KindEnvironment, "env": v1alpha1.KindEnvironment,
+	"job": v1alpha1.KindJob, "jobs": v1alpha1.KindJob,
 }
 
 func parseKind(s string) (string, error) {

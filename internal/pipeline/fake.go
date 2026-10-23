@@ -23,6 +23,17 @@ type Fake struct {
 type fakeJob struct {
 	status Status
 	lines  []Line
+	env    map[string]string
+}
+
+// Env returns the variables a job was started with, or nil for an unknown job.
+func (f *Fake) Env(name string) map[string]string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if j, ok := f.jobs[name]; ok {
+		return j.env
+	}
+	return nil
 }
 
 // NewFake returns an empty fake runner.
@@ -39,7 +50,7 @@ func (f *Fake) Start(_ context.Context, req Request) error {
 	if j, ok := f.jobs[req.Name]; ok && j.status.State == Running {
 		return errors.New("job already running")
 	}
-	f.jobs[req.Name] = &fakeJob{status: Status{State: Running, Node: "fake"}}
+	f.jobs[req.Name] = &fakeJob{status: Status{State: Running, Node: "fake"}, env: req.Env}
 	f.started = append(f.started, req.Name)
 	return nil
 }

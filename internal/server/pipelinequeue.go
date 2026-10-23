@@ -421,13 +421,14 @@ func (d *pipelineDispatch) buildStatus(ctx context.Context, name string) (pipeli
 	if err != nil {
 		return pipeline.Status{}, err
 	}
-	switch phase := b.GetStatus().GetPhase(); phase {
+	bs := b.GetStatus()
+	switch phase := bs.GetPhase(); phase {
 	case resource.BuildComplete:
-		return pipeline.Status{State: pipeline.Succeeded}, nil
+		return pipeline.Status{State: pipeline.Succeeded, Build: name, Image: bs.GetImage(), Digest: bs.GetDigest()}, nil
 	case resource.BuildFailed, resource.BuildError, resource.BuildCancelled:
-		return pipeline.Status{State: pipeline.Failed, Message: fmt.Sprintf("build %s %s: %s", name, phase, b.GetStatus().GetMessage())}, nil
+		return pipeline.Status{State: pipeline.Failed, Build: name, Message: fmt.Sprintf("build %s %s: %s", name, phase, bs.GetMessage())}, nil
 	}
-	return pipeline.Status{State: pipeline.Running}, nil
+	return pipeline.Status{State: pipeline.Running, Build: name}, nil
 }
 
 // hasRunner reports whether a runner node exists that may run a job with tags.

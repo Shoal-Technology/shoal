@@ -29,7 +29,8 @@ reading the file at a commit. Pass A runs jobs through the pipeline controller
 only: no container starts until a runner is configured.`,
 	}
 	cmd.AddCommand(newPipelineValidateCmd(), newPipelineCreateCmd(), newPipelineRunCmd(),
-		newPipelineLsCmd(), newPipelineRunsCmd(), newPipelineCancelCmd(), newPipelinePlayCmd())
+		newPipelineLsCmd(), newPipelineRunsCmd(), newPipelineCancelCmd(), newPipelinePlayCmd(),
+		newPipelineApproveCmd(), newPipelineRejectCmd())
 	return cmd
 }
 
@@ -250,6 +251,54 @@ func newPipelinePlayCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cf.register(cmd.Flags())
+	return cmd
+}
+
+// newPipelineApproveCmd records an approval of a job at an environment's gate
+// (ADR 0022, section 10). The approver is the admin key until projects have roles.
+func newPipelineApproveCmd() *cobra.Command {
+	return newPipelineDecideCmd("approve RUN JOB", "Approve a job that waits at an environment's approval gate", false)
+}
+
+// newPipelineRejectCmd records a rejection of a job at a gate. The job ends
+// Cancelled.
+func newPipelineRejectCmd() *cobra.Command {
+	return newPipelineDecideCmd("reject RUN JOB", "Reject a job that waits at an approval gate; it ends Cancelled", true)
+}
+
+// newPipelineDecideCmd is approve or reject. Both name a run and one of its jobs.
+func newPipelineDecideCmd(use, short string, reject bool) *cobra.Command {
+	var cf clientFlags
+	var comment string
+	cmd := &cobra.Command{
+		Use:   use,
+		Short: short,
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := cf.connect()
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			ctx, cancel := c.ctx(cmd.Context())
+			defer cancel()
+			job := resource.JobName(args[0], args[1])
+			if reject {
+				if _, err := c.control.RejectJob(ctx, &v1alpha1.RejectJobRequest{Job: job, Comment: comment, Project: currentProject}); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "job/%s rejected\n", job)
+				return nil
+			}
+			if _, err := c.control.ApproveJob(ctx, &v1alpha1.ApproveJobRequest{Job: job, Comment: comment, Project: currentProject}); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "job/%s approved\n", job)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&comment, "comment", "", "a note recorded with the decision (at most 500 bytes)")
 	cf.register(cmd.Flags())
 	return cmd
 }

@@ -77,6 +77,8 @@ func metadataOf(obj *v1alpha1.Object) *v1alpha1.ObjectMeta {
 		return k.Service.GetMetadata()
 	case *v1alpha1.Object_Route:
 		return k.Route.GetMetadata()
+	case *v1alpha1.Object_Environment:
+		return k.Environment.GetMetadata()
 	case *v1alpha1.Object_Volume:
 		return k.Volume.GetMetadata()
 	case *v1alpha1.Object_Database:

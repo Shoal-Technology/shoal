@@ -50,6 +50,11 @@ type Status struct {
 	Reason   string
 	Message  string
 	Node     string
+	// Build, Image and Digest are set for a build step (ADR 0022, section 4):
+	// the Build it started, and the image and digest that Build pushed.
+	Build  string
+	Image  string
+	Digest string
 }
 
 // Line is one line of job output.

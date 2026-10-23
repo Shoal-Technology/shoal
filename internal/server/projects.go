@@ -339,6 +339,8 @@ var controlAuthz = map[string]struct{ verb, kind string }{
 	"StartPipelineRun":  {authz.VerbCreate, v1alpha1.KindPipelineRun},
 	"CancelPipelineRun": {authz.VerbUpdate, v1alpha1.KindPipelineRun},
 	"PlayJob":           {authz.VerbUpdate, v1alpha1.KindJob},
+	"ApproveJob":        {authz.VerbUpdate, v1alpha1.KindJob},
+	"RejectJob":         {authz.VerbUpdate, v1alpha1.KindJob},
 	"JobLogs":           {authz.VerbGet, v1alpha1.KindJob},
 }
 

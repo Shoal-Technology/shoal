@@ -88,6 +88,11 @@ func (s *Server) startPipelinePush(ctx context.Context, name string, p *v1alpha1
 		s.log.Warn("pipeline trigger: the file names a Secret that is not usable, no run started", "pipeline", name, "err", err)
 		return
 	}
+	trust := resource.TrustOfPush(branch, resource.ProtectedBranchesOf(p.GetSpec()))
+	if err := s.checkPipelineEnvironments(ctx, project, src, trust); err != nil {
+		s.log.Warn("pipeline trigger: the file names an environment that is not usable, no run started", "pipeline", name, "err", err)
+		return
+	}
 
 	s.hookMu.Lock()
 	defer s.hookMu.Unlock()
@@ -104,7 +109,7 @@ func (s *Server) startPipelinePush(ctx context.Context, name string, p *v1alpha1
 		Trigger:      resource.TriggerPush,
 		Commit:       ev.Commit,
 		Ref:          branch,
-		Trust:        resource.TrustOfPush(branch, resource.DefaultProtectedBranches),
+		Trust:        trust,
 		ChangedPaths: ev.ChangedPaths,
 	})
 	if err != nil {
