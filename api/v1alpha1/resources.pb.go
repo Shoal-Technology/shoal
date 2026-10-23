@@ -4296,6 +4296,77 @@ func (x *JoinTokenSpec) GetDescription() string {
 	return ""
 }
 
+// ImageTagSpec is one tag of the embedded registry: the manifest digest it
+// points to (ADR 0020). The server writes it on each tag push; it is not
+// applied by users.
+type ImageTagSpec struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Repository    string                 `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	Tag           string                 `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
+	Digest        string                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	MediaType     string                 `protobuf:"bytes,4,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImageTagSpec) Reset() {
+	*x = ImageTagSpec{}
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageTagSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageTagSpec) ProtoMessage() {}
+
+func (x *ImageTagSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_api_v1alpha1_resources_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageTagSpec.ProtoReflect.Descriptor instead.
+func (*ImageTagSpec) Descriptor() ([]byte, []int) {
+	return file_api_v1alpha1_resources_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ImageTagSpec) GetRepository() string {
+	if x != nil {
+		return x.Repository
+	}
+	return ""
+}
+
+func (x *ImageTagSpec) GetTag() string {
+	if x != nil {
+		return x.Tag
+	}
+	return ""
+}
+
+func (x *ImageTagSpec) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *ImageTagSpec) GetMediaType() string {
+	if x != nil {
+		return x.MediaType
+	}
+	return ""
+}
+
 var File_api_v1alpha1_resources_proto protoreflect.FileDescriptor
 
 const file_api_v1alpha1_resources_proto_rawDesc = "" +
@@ -4670,7 +4741,15 @@ const file_api_v1alpha1_resources_proto_rawDesc = "" +
 	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x19\n" +
 	"\bmax_uses\x18\x03 \x01(\x05R\amaxUses\x12\x12\n" +
 	"\x04uses\x18\x04 \x01(\x05R\x04uses\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescriptionB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
+	"\vdescription\x18\x05 \x01(\tR\vdescription\"w\n" +
+	"\fImageTagSpec\x12\x1e\n" +
+	"\n" +
+	"repository\x18\x01 \x01(\tR\n" +
+	"repository\x12\x10\n" +
+	"\x03tag\x18\x02 \x01(\tR\x03tag\x12\x16\n" +
+	"\x06digest\x18\x03 \x01(\tR\x06digest\x12\x1d\n" +
+	"\n" +
+	"media_type\x18\x04 \x01(\tR\tmediaTypeB9Z7github.com/Shoal-Technology/shoal/api/v1alpha1;v1alpha1b\x06proto3"
 
 var (
 	file_api_v1alpha1_resources_proto_rawDescOnce sync.Once
@@ -4684,7 +4763,7 @@ func file_api_v1alpha1_resources_proto_rawDescGZIP() []byte {
 	return file_api_v1alpha1_resources_proto_rawDescData
 }
 
-var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
+var file_api_v1alpha1_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 63)
 var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*ObjectMeta)(nil),            // 0: shoal.v1alpha1.ObjectMeta
 	(*Workload)(nil),              // 1: shoal.v1alpha1.Workload
@@ -4744,16 +4823,17 @@ var file_api_v1alpha1_resources_proto_goTypes = []any{
 	(*UIAuthSpec)(nil),            // 55: shoal.v1alpha1.UIAuthSpec
 	(*JoinToken)(nil),             // 56: shoal.v1alpha1.JoinToken
 	(*JoinTokenSpec)(nil),         // 57: shoal.v1alpha1.JoinTokenSpec
-	nil,                           // 58: shoal.v1alpha1.ObjectMeta.LabelsEntry
-	nil,                           // 59: shoal.v1alpha1.NodeSpec.LabelsEntry
-	nil,                           // 60: shoal.v1alpha1.SecretSpec.DataEntry
-	nil,                           // 61: shoal.v1alpha1.ConfigSpec.DataEntry
-	(*timestamppb.Timestamp)(nil), // 62: google.protobuf.Timestamp
+	(*ImageTagSpec)(nil),          // 58: shoal.v1alpha1.ImageTagSpec
+	nil,                           // 59: shoal.v1alpha1.ObjectMeta.LabelsEntry
+	nil,                           // 60: shoal.v1alpha1.NodeSpec.LabelsEntry
+	nil,                           // 61: shoal.v1alpha1.SecretSpec.DataEntry
+	nil,                           // 62: shoal.v1alpha1.ConfigSpec.DataEntry
+	(*timestamppb.Timestamp)(nil), // 63: google.protobuf.Timestamp
 }
 var file_api_v1alpha1_resources_proto_depIdxs = []int32{
-	62, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
-	62, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
-	58, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
+	63, // 0: shoal.v1alpha1.ObjectMeta.created_at:type_name -> google.protobuf.Timestamp
+	63, // 1: shoal.v1alpha1.ObjectMeta.updated_at:type_name -> google.protobuf.Timestamp
+	59, // 2: shoal.v1alpha1.ObjectMeta.labels:type_name -> shoal.v1alpha1.ObjectMeta.LabelsEntry
 	0,  // 3: shoal.v1alpha1.Workload.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	2,  // 4: shoal.v1alpha1.Workload.spec:type_name -> shoal.v1alpha1.WorkloadSpec
 	15, // 5: shoal.v1alpha1.Workload.status:type_name -> shoal.v1alpha1.WorkloadStatus
@@ -4763,7 +4843,7 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	10, // 9: shoal.v1alpha1.WorkloadSpec.health_check:type_name -> shoal.v1alpha1.HealthCheck
 	14, // 10: shoal.v1alpha1.WorkloadSpec.update:type_name -> shoal.v1alpha1.UpdateStrategy
 	7,  // 11: shoal.v1alpha1.WorkloadSpec.files:type_name -> shoal.v1alpha1.FileMount
-	62, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
+	63, // 12: shoal.v1alpha1.WorkloadSpec.restarted_at:type_name -> google.protobuf.Timestamp
 	3,  // 13: shoal.v1alpha1.WorkloadSpec.volumes:type_name -> shoal.v1alpha1.VolumeMount
 	5,  // 14: shoal.v1alpha1.EnvVar.value_from:type_name -> shoal.v1alpha1.EnvSource
 	6,  // 15: shoal.v1alpha1.EnvSource.secret:type_name -> shoal.v1alpha1.KeyRef
@@ -4777,15 +4857,15 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	18, // 23: shoal.v1alpha1.Replica.spec:type_name -> shoal.v1alpha1.ReplicaSpec
 	19, // 24: shoal.v1alpha1.Replica.status:type_name -> shoal.v1alpha1.ReplicaStatus
 	2,  // 25: shoal.v1alpha1.ReplicaSpec.template:type_name -> shoal.v1alpha1.WorkloadSpec
-	62, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
+	63, // 26: shoal.v1alpha1.ReplicaSpec.template_updated_at:type_name -> google.protobuf.Timestamp
 	32, // 27: shoal.v1alpha1.ReplicaSpec.job:type_name -> shoal.v1alpha1.DatabaseJob
-	62, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
+	63, // 28: shoal.v1alpha1.ReplicaStatus.started_at:type_name -> google.protobuf.Timestamp
 	33, // 29: shoal.v1alpha1.ReplicaStatus.job:type_name -> shoal.v1alpha1.DatabaseJobResult
 	0,  // 30: shoal.v1alpha1.Node.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	21, // 31: shoal.v1alpha1.Node.spec:type_name -> shoal.v1alpha1.NodeSpec
 	22, // 32: shoal.v1alpha1.Node.status:type_name -> shoal.v1alpha1.NodeStatus
-	59, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
-	62, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
+	60, // 33: shoal.v1alpha1.NodeSpec.labels:type_name -> shoal.v1alpha1.NodeSpec.LabelsEntry
+	63, // 34: shoal.v1alpha1.NodeStatus.last_heartbeat:type_name -> google.protobuf.Timestamp
 	23, // 35: shoal.v1alpha1.NodeStatus.capacity:type_name -> shoal.v1alpha1.NodeCapacity
 	0,  // 36: shoal.v1alpha1.Volume.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	25, // 37: shoal.v1alpha1.Volume.spec:type_name -> shoal.v1alpha1.VolumeSpec
@@ -4796,13 +4876,13 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	31, // 42: shoal.v1alpha1.Database.status:type_name -> shoal.v1alpha1.DatabaseStatus
 	9,  // 43: shoal.v1alpha1.DatabaseSpec.resources:type_name -> shoal.v1alpha1.Resources
 	30, // 44: shoal.v1alpha1.DatabaseSpec.backup:type_name -> shoal.v1alpha1.DatabaseBackup
-	62, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
+	63, // 45: shoal.v1alpha1.DatabaseBackupRecord.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 46: shoal.v1alpha1.Secret.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	36, // 47: shoal.v1alpha1.Secret.spec:type_name -> shoal.v1alpha1.SecretSpec
-	60, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
+	61, // 48: shoal.v1alpha1.SecretSpec.data:type_name -> shoal.v1alpha1.SecretSpec.DataEntry
 	0,  // 49: shoal.v1alpha1.Config.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	39, // 50: shoal.v1alpha1.Config.spec:type_name -> shoal.v1alpha1.ConfigSpec
-	61, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
+	62, // 51: shoal.v1alpha1.ConfigSpec.data:type_name -> shoal.v1alpha1.ConfigSpec.DataEntry
 	0,  // 52: shoal.v1alpha1.Service.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	41, // 53: shoal.v1alpha1.Service.spec:type_name -> shoal.v1alpha1.ServiceSpec
 	43, // 54: shoal.v1alpha1.Service.status:type_name -> shoal.v1alpha1.ServiceStatus
@@ -4810,23 +4890,23 @@ var file_api_v1alpha1_resources_proto_depIdxs = []int32{
 	0,  // 56: shoal.v1alpha1.Route.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	45, // 57: shoal.v1alpha1.Route.spec:type_name -> shoal.v1alpha1.RouteSpec
 	46, // 58: shoal.v1alpha1.Route.status:type_name -> shoal.v1alpha1.RouteStatus
-	62, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
+	63, // 59: shoal.v1alpha1.RouteStatus.cert_not_after:type_name -> google.protobuf.Timestamp
 	0,  // 60: shoal.v1alpha1.Certificate.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	48, // 61: shoal.v1alpha1.Certificate.spec:type_name -> shoal.v1alpha1.CertificateSpec
 	49, // 62: shoal.v1alpha1.Certificate.status:type_name -> shoal.v1alpha1.CertificateStatus
-	62, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
-	62, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
-	62, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
+	63, // 63: shoal.v1alpha1.CertificateStatus.not_before:type_name -> google.protobuf.Timestamp
+	63, // 64: shoal.v1alpha1.CertificateStatus.not_after:type_name -> google.protobuf.Timestamp
+	63, // 65: shoal.v1alpha1.CertificateStatus.next_attempt:type_name -> google.protobuf.Timestamp
 	0,  // 66: shoal.v1alpha1.AcmeAccount.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	51, // 67: shoal.v1alpha1.AcmeAccount.spec:type_name -> shoal.v1alpha1.AcmeAccountSpec
 	52, // 68: shoal.v1alpha1.AcmeAccount.status:type_name -> shoal.v1alpha1.AcmeAccountStatus
 	0,  // 69: shoal.v1alpha1.AcmeChallenge.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	54, // 70: shoal.v1alpha1.AcmeChallenge.spec:type_name -> shoal.v1alpha1.AcmeChallengeSpec
-	62, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
-	62, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
+	63, // 71: shoal.v1alpha1.AcmeChallengeSpec.expires_at:type_name -> google.protobuf.Timestamp
+	63, // 72: shoal.v1alpha1.UIAuthSpec.changed_at:type_name -> google.protobuf.Timestamp
 	0,  // 73: shoal.v1alpha1.JoinToken.metadata:type_name -> shoal.v1alpha1.ObjectMeta
 	57, // 74: shoal.v1alpha1.JoinToken.spec:type_name -> shoal.v1alpha1.JoinTokenSpec
-	62, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
+	63, // 75: shoal.v1alpha1.JoinTokenSpec.expires_at:type_name -> google.protobuf.Timestamp
 	76, // [76:76] is the sub-list for method output_type
 	76, // [76:76] is the sub-list for method input_type
 	76, // [76:76] is the sub-list for extension type_name
@@ -4849,7 +4929,7 @@ func file_api_v1alpha1_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1alpha1_resources_proto_rawDesc), len(file_api_v1alpha1_resources_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   62,
+			NumMessages:   63,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
