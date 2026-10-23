@@ -6,27 +6,74 @@
 > you run it anywhere that matters. Project site:
 > [shoal-technology.solutions](https://shoal-technology.solutions).
 
-A lightweight container orchestrator for small clusters (1–20 nodes): one
-static binary that runs as control-plane **server**, worker **agent** or
-**CLI**, running OCI containers through containerd and continuously
-reconciling actual state toward declared desired state.
+**Shoal is a lightweight platform that combines a container orchestrator
+(Kubernetes-like), git-driven builds and an embedded registry (OpenShift and
+GitLab-like). It is a single binary that runs on your own servers.**
 
-**Status:** Phase 5 of 6, plus a web portal. Done so far:
-- Workloads are scheduled, health-checked, rolled out gradually and rolled
-  back automatically.
-- Secrets (encrypted at rest) and Configs are used as env vars or files.
-- Services get a stable IP and the DNS name `<name>.shoal` on every node.
-- Nodes are connected by a WireGuard mesh.
-- Everything can be done with clicks in the built-in web portal.
+The server keeps the desired state. Agents on each node run OCI containers
+through containerd and keep them matching it. The control plane can run as a
+three-server Raft cluster. The same binary is the **server**, the **agent**
+and the **CLI**, and it includes a web portal.
 
-Phase 6 (high availability) status: the control plane runs as a Raft cluster
-of three servers, with join, write redirection, membership, backup and
-restore. The `HA chaos` gate (`.github/workflows/ha-chaos.yml`) verified
-leader kill, rejoin, a frozen leader, backup/restore and node removal on one
-hosted runner, using loopback addresses only. Multi-host HA and agent
-failover are not verified yet. See [docs/testing.md](docs/testing.md),
-[docs/architecture.md](docs/architecture.md) and the
-[decision records](docs/decisions/).
+## Quick start
+
+```sh
+curl -fsSL https://shoal-technology.solutions/install.sh | sh
+sudo shoal init                 # one node: containerd, server, agent, edge
+shoal deploy -f web.yaml        # see the example below
+```
+
+```yaml
+# web.yaml
+name: web
+image: nginx:1.27-alpine
+port: 80
+```
+
+`shoal init` and the install steps are described in [Install](#install) and
+[Quickstart](#quickstart-one-node-with-shoal-init). The app format, with
+domains, volumes and databases, is in [Deploy an app](#deploy-an-app).
+
+## What works today
+
+Status is for `main`. The labels mean:
+
+- **Available**: on `main`, covered by tests in CI, and used on a single host.
+- **Alpha**: on `main`, but not verified end to end, for example across several
+  hosts. Expect changes.
+- **In progress**: an open pull request, or a feature on `main` whose later
+  passes are not done.
+- **Planned**: decided in an ADR or in the parity matrix, not built.
+
+| Area | Status | Notes | Reference |
+|---|---|---|---|
+| Workloads: scheduling, health checks, rolling updates, automatic rollback | Available | Verified on a single host. Scheduling across machines is alpha | [ADR 0009](docs/decisions/0009-replicas-scheduling-eviction.md), [ADR 0010](docs/decisions/0010-health-rollouts-logs.md) |
+| Services and the WireGuard mesh | Alpha | A Service gets an IP and `<name>.shoal` on every node | [ADR 0012](docs/decisions/0012-services-mesh.md) |
+| Secrets and Configs | Available | Encrypted at rest. Typed Secrets, and `imagePullSecrets` | [ADR 0011](docs/decisions/0011-secrets-configs.md) |
+| Control-plane HA | Alpha | Three-server Raft cluster. Verified on one hosted runner, with loopback addresses only | [ADR 0014](docs/decisions/0014-ha-raft-store.md) |
+| Multi-server agents | Alpha | An agent takes several server addresses and follows the leader | [docs/testing.md](docs/testing.md) |
+| Ingress and automatic TLS | Alpha | Routes, the edge on `:80` and `:443`, certificates through ACME HTTP-01 | [ADR 0015](docs/decisions/0015-ingress-auto-tls.md) |
+| Volumes and managed Postgres | Alpha | A Volume lives on one node. The database runs as one instance, without HA | [ADR 0016](docs/decisions/0016-volumes-managed-databases.md) |
+| Web portal | Alpha | Served on port 7444 | [ADR 0013](docs/decisions/0013-web-portal.md) |
+| Init and the app format | Available | `shoal init` on a single node. `shoal deploy` for `shoal.yaml` | [ADR 0017](docs/decisions/0017-onboarding-init-app-spec.md) |
+| Observability | Alpha | Metrics and health endpoints. No alerts or webhooks yet | [ADR 0018](docs/decisions/0018-observability.md) |
+| Embedded OCI registry | Alpha | Off unless `--registry-listen` is set. Agents pull `shoal.local/<repo>:<tag>` | [ADR 0020](docs/decisions/0020-embedded-registry.md) |
+| Builds: BuildConfig, Build records, queue, CLI | In progress | On `main` there is no build executor yet, so a started build ends in phase `Error`. The BuildKit executor is the next pass | [ADR 0021](docs/decisions/0021-builds.md) |
+| Git webhooks and build-to-rollout | In progress | [PR #8](https://github.com/Shoal-Technology/shoal/pull/8) | [ADR 0021](docs/decisions/0021-builds.md) |
+| Projects, RBAC and quotas | Planned | Tenancy and permissions | [parity matrix](docs/platform/parity-matrix.md) |
+| Jobs, CronJobs and node placement | Planned | | [parity matrix](docs/platform/parity-matrix.md) |
+| S3 export of backups | Planned | Backups stay on the local volume for now | [ADR 0016](docs/decisions/0016-volumes-managed-databases.md) |
+
+The full comparison with OpenShift, Kubernetes and GitLab features is in
+[docs/platform/parity-matrix.md](docs/platform/parity-matrix.md). The scope and
+the phased roadmap are in [ADR 0019](docs/decisions/0019-shoal-platform-scope.md).
+The architecture is in [docs/architecture.md](docs/architecture.md), and what
+each test level covers is in [docs/testing.md](docs/testing.md).
+
+Measured in one hosted CI run on Ubuntu 24.04 (see
+[docs/testing.md](docs/testing.md)): `shoal init` took 6294 ms, and the idle
+resident memory was 42892 kB for the server, 42848 kB for the agent and 45468 kB
+for containerd. These are single-run numbers, not benchmarks.
 
 ## Requirements
 
@@ -572,9 +619,47 @@ each family is capped at 200 series, and dropped samples are counted in
 `shoal_metrics_dropped_series_total`. Built-in alerts and a webhook are not
 available yet (see ADR 0018).
 
+## Secrets
+
+Secrets are encrypted at rest with the server's key file (`secret.key` in the
+data dir, or `--encryption-key-file`). The API returns their keys, never their
+values. The type is checked when a Secret is applied:
+
+- `Opaque`: any keys.
+- `kubernetes.io/dockerconfigjson`: registry logins, for `imagePullSecrets`.
+- `kubernetes.io/tls`: a certificate and key, for a Route with `tls: secret`.
+- `kubernetes.io/basic-auth` and `kubernetes.io/ssh-auth`: git credentials,
+  for builds.
+
+## Images and builds
+
+**Embedded registry (alpha, ADR 0020).** It is off unless the server runs with
+`--registry-listen <address>`. It serves OCI images over HTTPS. Requests need a
+client certificate, unless `--registry-anonymous-pull` is set, which lets them
+pull without one. Pushes are admin-only. Agents pull `shoal.local/<repo>:<tag>`
+from it. The CLI has `shoal registry login` and `shoal registry ls`.
+
+**Builds (in progress, ADR 0021).** A `BuildConfig` describes a build: a git
+URL, a ref, the context directory, the Dockerfile, a credentials Secret, the
+output repository and tag template, and build arguments. Each run is a `Build`,
+with phases from `New` to `Complete`. A config runs one build at a time and
+keeps its last 10 finished runs. On `main` there is no build executor yet, so a
+started build ends in phase `Error`. The BuildKit executor is pass B of
+ADR 0021. Git webhooks and build-to-rollout are in
+[PR #8](https://github.com/Shoal-Technology/shoal/pull/8).
+
+```sh
+shoal build create-config -f app-build.yaml   # a BuildConfig manifest
+shoal build start app                         # one run
+shoal build ls app                            # its runs
+```
+
 ## Limitations
 
 Shoal is alpha. These are known gaps, stated plainly:
+
+- **Builds do not run yet.** `main` records builds and queues them, but has no
+  executor. The BuildKit executor is the next pass of ADR 0021.
 
 - **Multi-host is not verified end to end.** The WireGuard mesh, agent
   failover and scheduling across separate machines are covered by unit tests
