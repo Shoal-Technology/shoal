@@ -18,13 +18,19 @@ const (
 	SecretTypeOpaque           = "Opaque"
 	SecretTypeDockerConfigJSON = "kubernetes.io/dockerconfigjson"
 	SecretTypeTLS              = "kubernetes.io/tls"
+	SecretTypeBasicAuth        = "kubernetes.io/basic-auth"
+	SecretTypeSSHAuth          = "kubernetes.io/ssh-auth"
 
 	// DockerConfigKey holds the docker config.json of a dockerconfigjson Secret.
 	DockerConfigKey = ".dockerconfigjson"
+	// SSHPrivateKeyKey holds the private key of an ssh-auth Secret.
+	SSHPrivateKeyKey = "ssh-privatekey"
+	// KnownHostsKey optionally holds the known_hosts lines of an ssh-auth Secret.
+	KnownHostsKey = "known_hosts"
 )
 
 // SecretTypes lists the accepted types, for messages.
-var SecretTypes = []string{SecretTypeOpaque, SecretTypeDockerConfigJSON, SecretTypeTLS}
+var SecretTypes = []string{SecretTypeOpaque, SecretTypeDockerConfigJSON, SecretTypeTLS, SecretTypeBasicAuth, SecretTypeSSHAuth}
 
 // ValidateSecret checks the data of a Secret against its type. What can be
 // checked offline is checked here, so a bad Secret is refused at apply time
@@ -40,6 +46,13 @@ func ValidateSecret(name string, s *v1alpha1.SecretSpec) error {
 	case SecretTypeTLS:
 		if _, _, err := ParseRouteSecret(s.GetData()); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: %w", t, err))
+		}
+	case SecretTypeBasicAuth:
+		errs = append(errs, requireKeys(t, s.GetData(), "username", "password"))
+	case SecretTypeSSHAuth:
+		errs = append(errs, requireKeys(t, s.GetData(), SSHPrivateKeyKey))
+		if k := s.GetData()[SSHPrivateKeyKey]; k != "" && !strings.Contains(k, "PRIVATE KEY-----") {
+			errs = append(errs, fmt.Errorf("type %s: %s is not a private key", t, SSHPrivateKeyKey))
 		}
 	default:
 		errs = append(errs, fmt.Errorf("type: %q is not supported (use %s)", t, strings.Join(SecretTypes, ", ")))
@@ -111,6 +124,21 @@ func RegistryHost(key string) string {
 		return "registry-1.docker.io"
 	}
 	return h
+}
+
+// requireKeys reports the keys of a typed Secret that are missing or empty.
+// The error names keys, never values.
+func requireKeys(t string, data map[string]string, keys ...string) error {
+	var missing []string
+	for _, k := range keys {
+		if data[k] == "" {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("type %s: must hold %s", t, strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // validatePullSecrets checks the image pull Secret names of a workload spec.

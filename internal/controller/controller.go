@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Shoal-Technology/shoal/api/v1alpha1"
+	"github.com/Shoal-Technology/shoal/internal/build"
 	"github.com/Shoal-Technology/shoal/internal/objects"
 	"github.com/Shoal-Technology/shoal/internal/store"
 )
@@ -40,6 +41,9 @@ type Config struct {
 	Interval time.Duration
 	// ServiceCIDR holds Service virtual IPs. Default 10.96.0.0/16.
 	ServiceCIDR netip.Prefix
+	// Executor runs Builds (ADR 0021). Nil means no builder is available: a
+	// Build that starts fails with the phase Error.
+	Executor build.Executor
 }
 
 // Controller reconciles workloads, replicas and nodes.
@@ -69,7 +73,7 @@ func New(cfg Config) *Controller {
 // Run reconciles on every relevant change (debounced) and every Interval,
 // until ctx is done.
 func (c *Controller) Run(ctx context.Context) {
-	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate, v1alpha1.KindVolume, v1alpha1.KindDatabase)
+	events := c.st.Watch(ctx, v1alpha1.KindWorkload, v1alpha1.KindNode, v1alpha1.KindReplica, v1alpha1.KindService, v1alpha1.KindRoute, v1alpha1.KindSecret, v1alpha1.KindCertificate, v1alpha1.KindVolume, v1alpha1.KindDatabase, v1alpha1.KindBuildConfig, v1alpha1.KindBuild)
 	tick := time.NewTicker(c.cfg.Interval)
 	defer tick.Stop()
 	for {
@@ -137,6 +141,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	}
 	now := c.cfg.Now()
 	errs = append(errs, c.syncDatabases(ctx, s)...)
+	errs = append(errs, c.syncBuilds(ctx)...)
 	errs = append(errs, c.removeOrphansAndEvict(ctx, s, now)...)
 	for _, name := range sortedKeys(s.workloads) {
 		errs = append(errs, c.syncWorkload(ctx, s, s.workloads[name], now)...)
