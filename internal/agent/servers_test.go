@@ -187,7 +187,7 @@ func TestFollowerHintAdoptsLeaderOutsideKnownServers(t *testing.T) {
 	c := haAgent(t, ca, follower.addr)
 	runAgent(t, c)
 	waitFor(t, "session on the hinted leader", func() bool {
-		return leader.accepted.Load() > 0 && c.pickServer() == leader.addr
+		return leader.accepted.Load() > 0 && c.pickServer() == leader.addr && c.savedServer() == leader.addr
 	})
 	c.mu.Lock()
 	known := append([]string(nil), c.servers...)
