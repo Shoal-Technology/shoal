@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
+	"strings"
 )
 
 // DefaultProject holds every object that has no project label. It always
@@ -19,7 +20,8 @@ const DefaultProject = "default"
 const LabelProject = "shoal.dev/project"
 
 // scoped are the kinds that belong to a project. Other kinds (Node, Project
-// and the internal kinds) are cluster-wide.
+// and the internal kinds) are cluster-wide. Pipeline, PipelineRun and Job
+// are scoped from ADR 0023 pass B1 on.
 var scoped = map[string]bool{
 	"Workload":      true,
 	"Service":       true,
@@ -31,6 +33,34 @@ var scoped = map[string]bool{
 	"Secret":        true,
 	"Config":        true,
 	"ResourceQuota": true,
+	"Pipeline":      true,
+	"PipelineRun":   true,
+	"Job":           true,
+}
+
+// keySep joins an object name and its project in a store key. Object names
+// and project names are DNS labels, which have no dots, so a key of the form
+// name.project cannot be confused with a default key (a bare name).
+const keySep = "."
+
+// Key returns the store key of the object called name in project (ADR 0023,
+// pass B1). The default project keeps the bare name, so records written
+// before projects existed keep their keys. Any other project appends
+// ".<project>". The key is also a valid DNS name, container ID and file name.
+func Key(project, name string) string {
+	if project == "" || project == DefaultProject {
+		return name
+	}
+	return name + keySep + project
+}
+
+// Bare returns the object name of store key in project: the inverse of Key.
+// A key that does not end in the project's suffix is returned unchanged.
+func Bare(key, project string) string {
+	if project == "" || project == DefaultProject {
+		return key
+	}
+	return strings.TrimSuffix(key, keySep+project)
 }
 
 // ProjectScoped reports whether objects of kind belong to a project.
