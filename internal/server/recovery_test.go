@@ -69,7 +69,7 @@ func (ts *testServer) resume(t *testing.T, a *testAgent) {
 func (ts *testServer) run(t *testing.T, a *testAgent, token string) {
 	t.Helper()
 	c, err := agent.NewConnected(context.Background(), agent.ConnectedConfig{
-		Server: ts.addr, Token: token, CAHash: ts.CAHash(), NodeName: a.name,
+		Servers: []string{ts.addr}, Token: token, CAHash: ts.CAHash(), NodeName: a.name,
 		CredentialsPath: filepath.Join(a.dir, "credentials.conf"), AssignmentsPath: filepath.Join(a.dir, "assignments.pb"),
 		Runtime: a.rt, Network: a.net, SyncInterval: 50 * time.Millisecond,
 		Reconciler: agent.Config{PullWait: 50 * time.Millisecond, BackoffInitial: 10 * time.Millisecond, FilesDir: filepath.Join(a.dir, "files")},

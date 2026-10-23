@@ -25,10 +25,11 @@ func newAgentCmd(c *cli) *cobra.Command {
 		interval    time.Duration
 		stopTimeout time.Duration
 
-		serverAddr, token, caHash, nodeName, tokenFile string
-		edgeHTTP, edgeHTTPS                            string
-		edgeCacheDir                                   string
-		metricsListen                                  string
+		serverAddrs                        []string
+		token, caHash, nodeName, tokenFile string
+		edgeHTTP, edgeHTTPS                string
+		edgeCacheDir                       string
+		metricsListen                      string
 	)
 	cmd := &cobra.Command{
 		Use:   "agent",
@@ -38,7 +39,10 @@ func newAgentCmd(c *cli) *cobra.Command {
 With --server it joins the cluster (the first time, using --token and
 --ca-hash from ` + "`shoal token create`" + `), keeps its credentials in
 <state-dir>/agent/credentials.conf and reports to the server. Later starts
-need no token. The server assigns the node's container subnet; the agent
+need no token. In an HA cluster, give --server once per server (or as a
+comma-separated list): the agent reports to the leader, follows it when a
+follower names a new one, and reconnects to the other servers when the
+leader is lost. The server assigns the node's container subnet; the agent
 sets up Service load balancing, DNS for Service names and the WireGuard mesh
 to the other nodes.
 
@@ -69,7 +73,7 @@ keep running when the agent stops.`,
 					log.Warn("edge route cache not used", "err", err)
 				}
 				a, closeRT, err := startConnected(ctx, &rf, &nf, log, agent.ConnectedConfig{
-					Server: serverAddr, Token: token, CAHash: caHash, NodeName: nodeName,
+					Servers: serverAddrs, Token: token, CAHash: caHash, NodeName: nodeName,
 					SyncInterval: interval, Reconciler: agent.Config{StopTimeout: stopTimeout},
 					Edge: ingress,
 				}, nil)
@@ -116,7 +120,7 @@ keep running when the agent stops.`,
 	}
 	rf.register(cmd.Flags())
 	nf.register(cmd.Flags())
-	cmd.Flags().StringVar(&serverAddr, "server", "", "server host:port (required to join; afterwards defaults to the saved address)")
+	cmd.Flags().StringSliceVar(&serverAddrs, "server", nil, "server host:port; repeat or comma-separate to list every server of an HA cluster (required to join; afterwards the saved address is used, and the agent follows the leader)")
 	cmd.Flags().StringVar(&token, "token", "", "join token (first start only)")
 	cmd.Flags().StringVar(&tokenFile, "token-file", "", "file holding the join token (first start only); the agent reads it once and deletes it. Used by shoal init")
 	cmd.Flags().StringVar(&caHash, "ca-hash", "", "expected sha256 hash of the server's CA key (first start only)")

@@ -132,7 +132,7 @@ func (ts *testServer) token(t *testing.T, admin v1alpha1.ControlClient, maxUses 
 func (ts *testServer) newAgent(t *testing.T, tok *v1alpha1.CreateJoinTokenResponse, name, credsPath string) (*agent.Connected, error) {
 	t.Helper()
 	return agent.NewConnected(context.Background(), agent.ConnectedConfig{
-		Server: ts.addr, Token: tok.GetToken(), CAHash: tok.GetCaHash(), NodeName: name,
+		Servers: []string{ts.addr}, Token: tok.GetToken(), CAHash: tok.GetCaHash(), NodeName: name,
 		CredentialsPath: credsPath, Version: "test", Log: discard(),
 	})
 }

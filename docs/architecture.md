@@ -173,11 +173,15 @@ Expired and used-up tokens are deleted hourly.
 through a TLS connection pinned to the CA hash (a mismatch fails at once,
 with no retry) and saves its credentials to
 `<state-dir>/agent/credentials.conf` (0600). Later starts need no token, and
-`--server` can change the saved address. It keeps one `Sync` stream open
+`--server` can change the saved address; repeat it (or comma-separate) to list
+every server of an HA cluster. It keeps one `Sync` stream open with the leader
 and sends a heartbeat (capacity: CPUs, MemTotal; version, OS, arch) at the
-interval the server sends first (5s). It reconnects with backoff (1s doubling
-to 30s; 1m after an authorization error) and renews its certificate at two
-thirds of its lifetime, reconnecting to present the new one. Since Phase 3 it
+interval the server sends first (5s). A follower refuses the stream and names
+the leader; the agent dials that address next, and it is saved once a session
+there succeeds. On a lost connection it tries the next listed server, with
+jittered backoff (1s doubling to 30s; 1m after an authorization error). It
+renews its certificate at two thirds of its lifetime, reconnecting to present
+the new one. Since Phase 3 it
 also runs its assigned replicas (see below).
 
 **Node tracker** (single writer of Node status). Heartbeats are kept in
